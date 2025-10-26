@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: rts-backend
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app
+    envVars:
+      - key: BUS_API_KEY
+        # set the value in the Render dashboard later, do not hardcode here
+        value: REPLACE_ME
+      - key: RTPIDATAFEED
+        value: bustime
