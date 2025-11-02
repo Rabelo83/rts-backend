@@ -3,7 +3,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os, json
 
-import rts_api  # your Clever/BusTime helper
+import rts_api  # Clever/BusTime helper
 
 # --- OpenAI setup ---
 try:
@@ -15,16 +15,12 @@ except Exception:
     OPENAI_OK = False
 
 app = Flask(__name__)
-CORS(app)  # allow browser JS from your Hostinger/Render site to call this API
-
+CORS(app)
 
 # -----------------------
-# Utility: agent runner
+# Agent runner (unchanged)
 # -----------------------
 def run_agent(user_text: str) -> str:
-    """
-    Chat agent that can either answer directly or call a tool to fetch live predictions.
-    """
     if not OPENAI_OK:
         return "OpenAI is not configured on the server."
 
@@ -36,7 +32,6 @@ def run_agent(user_text: str) -> str:
         "- When you DO have predictions, return a short list like ‘Route X to DEST in N min’ (max 3-5)."
     )
 
-    # Define the tool schema we expose to the model
     tools = [
         {
             "type": "function",
@@ -46,16 +41,8 @@ def run_agent(user_text: str) -> str:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "stop_id": {
-                            "type": "string",
-                            "description": "Numeric or string stop identifier, e.g. '1205'."
-                        },
-                        "top": {
-                            "type": "integer",
-                            "description": "Max number of arrivals to include (default 3, max 5).",
-                            "minimum": 1,
-                            "maximum": 5
-                        }
+                        "stop_id": {"type": "string","description": "e.g. '1205'"},
+                        "top": {"type": "integer","description": "Max results (default 3, max 5).","minimum": 1,"maximum": 5}
                     },
                     "required": ["stop_id"]
                 }
@@ -68,7 +55,6 @@ def run_agent(user_text: str) -> str:
         {"role": "user", "content": user_text},
     ]
 
-    # First call: let the model decide whether to call a tool
     first = client.chat.completions.create(
         model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
         messages=messages,
@@ -79,11 +65,9 @@ def run_agent(user_text: str) -> str:
 
     msg = first.choices[0].message
 
-    # If the model requested a tool, execute it and send results back
     if msg.tool_calls:
         for call in msg.tool_calls:
             if call.type == "function" and call.function.name == "get_predictions":
-                # Parse arguments the model asked us to use
                 try:
                     args = json.loads(call.function.arguments or "{}")
                 except json.JSONDecodeError:
@@ -92,15 +76,11 @@ def run_agent(user_text: str) -> str:
                 stop_id = str(args.get("stop_id", "")).strip()
                 top = args.get("top", 3)
                 if not stop_id:
-                    # If somehow the tool call had no stop_id, let the model handle asking
                     messages.append(msg)
                     break
 
-                # Call your Python helper directly (no extra HTTP)
                 data = rts_api.get_predictions(stop_id, top=top)
-
-                # Normalize predictions for the model
-                preds_raw = data.get("prd", [])
+                preds_raw = data.get("prd", []) or []
                 cleaned = []
                 for p in preds_raw[: max(1, min(int(top), 5))]:
                     cleaned.append({
@@ -114,7 +94,7 @@ def run_agent(user_text: str) -> str:
                     })
 
                 tool_content = json.dumps({"predictions": cleaned}, ensure_ascii=False)
-                messages.append(msg)  # the assistant message with tool call
+                messages.append(msg)
                 messages.append({
                     "role": "tool",
                     "tool_call_id": call.id,
@@ -122,7 +102,6 @@ def run_agent(user_text: str) -> str:
                     "content": tool_content,
                 })
 
-        # Second call: model sees the tool result and writes the final answer
         second = client.chat.completions.create(
             model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             messages=messages,
@@ -130,51 +109,61 @@ def run_agent(user_text: str) -> str:
         )
         return second.choices[0].message.content.strip()
 
-    # No tool call, just return the direct answer
     return msg.content.strip()
 
-
 # -----------------------
-# Existing endpoints
+# Health
 # -----------------------
 @app.route("/")
 def health():
     return jsonify({"status": "ok", "service": "rts-backend", "openai": OPENAI_OK})
 
-
+# -----------------------
+# Core endpoints
+# -----------------------
 @app.route("/api/routes")
 def api_routes():
     data = rts_api.get_routes()
-    routes_raw = data.get("routes", [])
+    routes_raw = data.get("routes", []) or []
     cleaned = []
     for r in routes_raw:
         cleaned.append({
-            "id": r.get("rt"),
-            "name": r.get("rtnm"),
+            "id": r.get("rt") or r.get("id"),
+            "name": r.get("rtnm") or r.get("name"),
             "color": r.get("rtclr"),
         })
     return jsonify({"routes": cleaned})
-
 
 @app.route("/api/directions")
 def api_directions():
     route_id = request.args.get("route_id", "")
     data = rts_api.get_directions(route_id)
-    dirs_raw = data.get("directions", [])
-    cleaned = []
-    for d in dirs_raw:
-        dir_id = d.get("id") or d.get("dir") or d.get("dirId") or d.get("dirid")
-        dir_name = d.get("name") or d.get("dir") or d.get("dirName") or d.get("dirname")
-        cleaned.append({"id": dir_id, "name": dir_name})
-    return jsonify({"directions": cleaned})
+    dirs_raw = data.get("directions", []) or []
 
+    cleaned = []
+    if isinstance(dirs_raw, list):
+        for d in dirs_raw:
+            if isinstance(d, dict):
+                # handle { "dir": "NORTHBOUND" } or { "id":"NORTHBOUND","name":"Northbound" }
+                dir_id = d.get("id") or d.get("dir") or d.get("dirId") or d.get("dirid")
+                dir_name = d.get("name") or d.get("dir") or d.get("dirName") or d.get("dirname") or dir_id
+            elif isinstance(d, str):
+                # handle ["NORTHBOUND","SOUTHBOUND"]
+                dir_id = d
+                dir_name = d.title()
+            else:
+                dir_id = None
+                dir_name = None
+            if dir_id:
+                cleaned.append({"id": dir_id, "name": dir_name})
+    return jsonify({"directions": cleaned})
 
 @app.route("/api/stops")
 def api_stops():
     route_id = request.args.get("route_id", "")
     direction_id = request.args.get("direction_id", "")
     data = rts_api.get_stops(route_id, direction_id)
-    stops_raw = data.get("stops", [])
+    stops_raw = data.get("stops", []) or []
     cleaned = []
     for s in stops_raw:
         cleaned.append({
@@ -185,13 +174,12 @@ def api_stops():
         })
     return jsonify({"stops": cleaned})
 
-
 @app.route("/api/predictions")
 def api_predictions():
     stop_id = request.args.get("stop_id", "")
     top = request.args.get("top", type=int)
     data = rts_api.get_predictions(stop_id, top=top)
-    preds_raw = data.get("prd", [])
+    preds_raw = data.get("prd", []) or []
     cleaned = []
     for p in preds_raw:
         cleaned.append({
@@ -205,12 +193,11 @@ def api_predictions():
         })
     return jsonify({"predictions": cleaned})
 
-
 @app.route("/api/vehicles")
 def api_vehicles():
     route_id = request.args.get("route_id", "")
     data = rts_api.get_vehicles(route_id)
-    veh_raw = data.get("vehicle", [])
+    veh_raw = data.get("vehicle", []) or []
     cleaned = []
     for v in veh_raw:
         cleaned.append({
@@ -225,6 +212,40 @@ def api_vehicles():
         })
     return jsonify({"vehicles": cleaned})
 
+# -----------------------
+# Convenience + Debug
+# -----------------------
+@app.route("/api/stops_anydir")
+def api_stops_anydir():
+    """
+    Try common direction IDs until we find stops for the route.
+    Returns { direction, stops:[...] } or {direction:null, stops:[]}
+    """
+    route_id = request.args.get("route_id", "")
+    found = rts_api.find_first_working_direction_and_stops(route_id)
+    if not found:
+        return jsonify({"direction": None, "stops": []})
+    # normalize stop shape (match /api/stops)
+    cleaned = []
+    for s in found.get("stops", []):
+        cleaned.append({
+            "id": s.get("stpid"),
+            "name": s.get("stpnm"),
+            "lat": s.get("lat"),
+            "lon": s.get("lon"),
+        })
+    return jsonify({"direction": found.get("direction"), "stops": cleaned})
+
+@app.route("/api/debug/directions_raw")
+def debug_directions_raw():
+    route_id = request.args.get("route_id", "")
+    return jsonify(rts_api.get_directions_raw(route_id))
+
+@app.route("/api/debug/stops_raw")
+def debug_stops_raw():
+    route_id = request.args.get("route_id", "")
+    direction_id = request.args.get("direction_id", "")
+    return jsonify(rts_api.get_stops_raw(route_id, direction_id))
 
 # -------- Agent endpoint --------
 @app.route("/api/agent", methods=["POST"])
@@ -237,7 +258,6 @@ def api_agent():
         return jsonify({"error": "message is required"}), 400
     answer = run_agent(user_text)
     return jsonify({"answer": answer})
-
 
 # Local debug only
 if __name__ == "__main__":
