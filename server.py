@@ -130,24 +130,38 @@ def api_web_ask():
 # ---------- Agent router ----------
 @app.route("/api/agent", methods=["POST"])
 def api_agent():
-    body = request.get_json(silent=True) or {}
-    msg = (body.get("message") or "").strip()
-    if not msg: return jsonify({"error":"message is required"}), 400
+    payload = request.get_json(silent=True) or {}
+    msg = (payload.get("message") or "").strip()
+    if not msg:
+        return jsonify({"error": "message is required"}), 400
 
-    # 1) ETA intent (3–4 digit stop anywhere in the message)
-    m = re.search(r"\b(\d{3,4})\b", msg)
-    if m:
-        stop4 = normalize_stop_id(m.group(1))
-        if stop4:
-            preds = rts_api.get_predictions(stop4).get("prd", [])
-            if preds:
-                lines = [f"{p.get('rt')} to {p.get('des')}: {p.get('prdctdn')} min" for p in preds[:3]]
-                return jsonify({"answer": "\n".join(lines)})
-            return jsonify({"answer": f"No live arrivals at stop {stop4} right now."})
+    try:
+        result = webqa.answer(msg)
 
-    # 2) Fall back to website RAG
-    ans, src = webqa.answer(msg)
-    return jsonify({"answer": ans, "sources": src})
+        # Normalize different return shapes:
+        answer = ""
+        sources = []
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+        if isinstance(result, tuple):
+            # Take first as answer; second (if present) as sources list
+            answer = str(result[0]) if len(result) > 0 else ""
+            if len(result) > 1 and isinstance(result[1], (list, tuple)):
+                sources = list(result[1])
+
+        elif isinstance(result, dict):
+            # Common dict shape
+            answer = str(result.get("answer") or result.get("text") or "")
+            src = result.get("sources") or result.get("citations") or []
+            if isinstance(src, (list, tuple)):
+                sources = list(src)
+
+        else:
+            # Fallback: just stringify it
+            answer = str(result)
+
+        return jsonify({"answer": answer, "sources": sources})
+
+    except Exception as e:
+        # Log minimal error to stdout; return structured JSON
+        print("agent_error:", repr(e))
+        return jsonify({"error": "agent_failed", "detail": str(e)}), 500
