@@ -1,3 +1,4 @@
+# rts_api.py
 import requests
 from config import API_KEY, RTPIDATAFEED, BASE_API
 
@@ -17,36 +18,60 @@ def call_bustime(endpoint, extra_params=None):
     }
 
     url = f"{BASE_API}/{endpoint}"
-    resp = requests.get(url, params=params, timeout=10)
-
-    # If upstream errors, raise for debugging
+    resp = requests.get(url, params=params, timeout=12)
     resp.raise_for_status()
     data = resp.json()
+    return data.get("bustime-response", {}) or {}
 
-    # BusTime wraps actual payload in "bustime-response"
-    return data.get("bustime-response", {})
-
-def get_routes():
+# ----- Raw passthroughs (for debugging) -----
+def get_routes_raw():
     return call_bustime("getroutes")
 
+def get_directions_raw(route_id: str):
+    return call_bustime("getdirections", {"rt": route_id})
+
+def get_stops_raw(route_id: str, direction_id: str):
+    return call_bustime("getstops", {"rt": route_id, "dir": direction_id})
+
+# ----- Normalized helpers your API uses -----
+def get_routes():
+    return get_routes_raw()
+
 def get_directions(route_id: str):
-    return call_bustime("getdirections", {
-        "rt": route_id
-    })
+    return get_directions_raw(route_id)
 
 def get_stops(route_id: str, direction_id: str):
-    return call_bustime("getstops", {
-        "rt": route_id,
-        "dir": direction_id
-    })
+    return get_stops_raw(route_id, direction_id)
 
 def get_predictions(stop_id: str, top: int | None = None):
-    params = { "stpid": stop_id }
+    params = {"stpid": stop_id}
     if top is not None:
         params["top"] = top
     return call_bustime("getpredictions", params)
 
 def get_vehicles(route_id: str):
-    return call_bustime("getvehicles", {
-        "rt": route_id
-    })
+    return call_bustime("getvehicles", {"rt": route_id})
+
+# ----- Convenience: try common direction labels until one works -----
+COMMON_DIRECTIONS = [
+    "NORTHBOUND","SOUTHBOUND","EASTBOUND","WESTBOUND",
+    "INBOUND","OUTBOUND",
+    "CW","CCW",  # loop routes
+    "NB","SB","EB","WB"
+]
+
+def find_first_working_direction_and_stops(route_id: str, max_try: int = 10):
+    """
+    Try common direction IDs until getstops() returns any stops.
+    Returns { 'direction': 'XXX', 'stops': [...] } or {} if none match.
+    """
+    tried = 0
+    for d in COMMON_DIRECTIONS:
+        if tried >= max_try:
+            break
+        data = get_stops_raw(route_id, d)
+        stops = data.get("stops") or []
+        if isinstance(stops, list) and len(stops) > 0:
+            return {"direction": d, "stops": stops}
+        tried += 1
+    return {}
