@@ -1,135 +1,68 @@
 # server.py
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import os, json
+import os, re
 
-import rts_api  # Clever/BusTime helper
+import rts_api  # your Clever/BusTime wrapper
 
-# --- OpenAI setup ---
-try:
-    from openai import OpenAI
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    OPENAI_OK = True
-except Exception:
-    client = None
-    OPENAI_OK = False
+# ---------- Stop ID helpers (4-digit rule) ----------
+def to_stop4(value: str | int | None) -> str | None:
+    """
+    Normalize any incoming 'stop id' to a 4-digit numeric string.
+    Examples:
+      '1' -> '0001'
+      '23' -> '0023'
+      '0023' -> '0023'
+      'AB-123' -> '0123'
+      '12345' -> None (too many digits)
+      'xx' -> None (no digits)
+    """
+    if value is None:
+        return None
+    digits = ''.join(ch for ch in str(value) if ch.isdigit())
+    if 1 <= len(digits) <= 4:
+        return digits.zfill(4)
+    return None
 
+def is_stop4(s: str | None) -> bool:
+    return isinstance(s, str) and len(s) == 4 and s.isdigit()
+
+def extract_stop4_from_text(text: str) -> str | None:
+    """
+    Find the first 1–4 digit number in free text and normalize to 4-digit.
+    """
+    m = re.search(r'\b(\d{1,4})\b', text or '')
+    if not m:
+        return None
+    return to_stop4(m.group(1))
+
+# ---------- App ----------
 app = Flask(__name__)
 CORS(app)
 
-# -----------------------
-# Agent runner (unchanged)
-# -----------------------
-def run_agent(user_text: str) -> str:
-    if not OPENAI_OK:
-        return "OpenAI is not configured on the server."
+# Optional OpenAI (for general Q&A fallback in /api/agent)
+client = None
+try:
+    if os.getenv("OPENAI_API_KEY"):
+        from openai import OpenAI
+        client = OpenAI()
+except Exception:
+    client = None
 
-    system_prompt = (
-        "You are RTS Assistant for Gainesville’s Regional Transit System.\n"
-        "- Be concise and bilingual if user speaks Spanish; otherwise reply in English.\n"
-        "- When the user asks for ETAs/arrivals, use the `get_predictions` tool with a stop_id.\n"
-        "- If the message lacks a stop_id, politely ask for it (and explain how to find it in the app).\n"
-        "- When you DO have predictions, return a short list like ‘Route X to DEST in N min’ (max 3-5)."
-    )
-
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "get_predictions",
-                "description": "Get live arrivals for a stop_id from RTS BusTime.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "stop_id": {"type": "string","description": "e.g. '1205'"},
-                        "top": {"type": "integer","description": "Max results (default 3, max 5).","minimum": 1,"maximum": 5}
-                    },
-                    "required": ["stop_id"]
-                }
-            }
-        }
-    ]
-
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_text},
-    ]
-
-    first = client.chat.completions.create(
-        model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-        messages=messages,
-        tools=tools,
-        tool_choice="auto",
-        temperature=0.3,
-    )
-
-    msg = first.choices[0].message
-
-    if msg.tool_calls:
-        for call in msg.tool_calls:
-            if call.type == "function" and call.function.name == "get_predictions":
-                try:
-                    args = json.loads(call.function.arguments or "{}")
-                except json.JSONDecodeError:
-                    args = {}
-
-                stop_id = str(args.get("stop_id", "")).strip()
-                top = args.get("top", 3)
-                if not stop_id:
-                    messages.append(msg)
-                    break
-
-                data = rts_api.get_predictions(stop_id, top=top)
-                preds_raw = data.get("prd", []) or []
-                cleaned = []
-                for p in preds_raw[: max(1, min(int(top), 5))]:
-                    cleaned.append({
-                        "route": p.get("rt"),
-                        "direction": p.get("rtdir"),
-                        "destination": p.get("des"),
-                        "minutes": p.get("prdctdn"),
-                        "vehicle_id": p.get("vid"),
-                        "arrival_time": p.get("prdtm"),
-                        "delayed": p.get("dly"),
-                    })
-
-                tool_content = json.dumps({"predictions": cleaned}, ensure_ascii=False)
-                messages.append(msg)
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": call.id,
-                    "name": "get_predictions",
-                    "content": tool_content,
-                })
-
-        second = client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-            messages=messages,
-            temperature=0.2,
-        )
-        return second.choices[0].message.content.strip()
-
-    return msg.content.strip()
-
-# -----------------------
-# Health
-# -----------------------
 @app.route("/")
 def health():
-    return jsonify({"status": "ok", "service": "rts-backend", "openai": OPENAI_OK})
+    return jsonify({"status": "ok", "service": "rts-backend", "openai": bool(client)})
 
-# -----------------------
-# Core endpoints
-# -----------------------
+# ------------ Core data endpoints ------------
 @app.route("/api/routes")
 def api_routes():
     data = rts_api.get_routes()
-    routes_raw = data.get("routes", []) or []
+    routes_raw = data.get("routes", [])
     cleaned = []
     for r in routes_raw:
         cleaned.append({
-            "id": r.get("rt") or r.get("id"),
-            "name": r.get("rtnm") or r.get("name"),
+            "id": r.get("rt"),
+            "name": r.get("rtnm"),
             "color": r.get("rtclr"),
         })
     return jsonify({"routes": cleaned})
@@ -138,36 +71,31 @@ def api_routes():
 def api_directions():
     route_id = request.args.get("route_id", "")
     data = rts_api.get_directions(route_id)
-    dirs_raw = data.get("directions", []) or []
-
+    dirs_raw = data.get("directions", [])
     cleaned = []
-    if isinstance(dirs_raw, list):
-        for d in dirs_raw:
-            if isinstance(d, dict):
-                # handle { "dir": "NORTHBOUND" } or { "id":"NORTHBOUND","name":"Northbound" }
-                dir_id = d.get("id") or d.get("dir") or d.get("dirId") or d.get("dirid")
-                dir_name = d.get("name") or d.get("dir") or d.get("dirName") or d.get("dirname") or dir_id
-            elif isinstance(d, str):
-                # handle ["NORTHBOUND","SOUTHBOUND"]
-                dir_id = d
-                dir_name = d.title()
-            else:
-                dir_id = None
-                dir_name = None
-            if dir_id:
-                cleaned.append({"id": dir_id, "name": dir_name})
+    for d in dirs_raw:
+        # handle various shapes from different BusTime deployments
+        dir_id = d.get("id") or d.get("dir") or d.get("dirId") or d.get("dirid") or d.get("name") or d.get("dirname")
+        dir_name = d.get("name") or d.get("dir") or d.get("dirName") or d.get("dirname") or dir_id
+        cleaned.append({"id": dir_id, "name": dir_name})
     return jsonify({"directions": cleaned})
 
 @app.route("/api/stops")
 def api_stops():
     route_id = request.args.get("route_id", "")
     direction_id = request.args.get("direction_id", "")
+
     data = rts_api.get_stops(route_id, direction_id)
-    stops_raw = data.get("stops", []) or []
+    stops_raw = data.get("stops", [])
+
     cleaned = []
     for s in stops_raw:
+        sid4 = to_stop4(s.get("stpid"))
+        if not is_stop4(sid4):
+            # filter out anything that can't be a 4-digit stop
+            continue
         cleaned.append({
-            "id": s.get("stpid"),
+            "id": sid4,
             "name": s.get("stpnm"),
             "lat": s.get("lat"),
             "lon": s.get("lon"),
@@ -176,20 +104,30 @@ def api_stops():
 
 @app.route("/api/predictions")
 def api_predictions():
-    stop_id = request.args.get("stop_id", "")
-    top = request.args.get("top", type=int)
-    data = rts_api.get_predictions(stop_id, top=top)
-    preds_raw = data.get("prd", []) or []
+    raw = request.args.get("stop_id", "")
+    sid4 = to_stop4(raw)
+    if not is_stop4(sid4):
+        return jsonify({"error": "invalid_stop_id", "detail": "Provide a 4-digit numeric stop id (e.g., 0001, 0234)."}), 400
+
+    top_param = request.args.get("top")
+    try:
+        top = int(top_param) if top_param is not None else None
+    except ValueError:
+        top = None
+
+    data = rts_api.get_predictions(sid4, top=top)
+    preds_raw = data.get("prd", [])
     cleaned = []
     for p in preds_raw:
         cleaned.append({
             "route": p.get("rt"),
             "direction": p.get("rtdir"),
             "destination": p.get("des"),
-            "minutes": p.get("prdctdn"),
+            "minutes": p.get("prdctdn"),    # "DUE" or "5"
             "vehicle_id": p.get("vid"),
-            "arrival_time": p.get("prdtm"),
+            "arrival_time": p.get("prdtm"), # timestamp string
             "delayed": p.get("dly"),
+            "stop_id": sid4,
         })
     return jsonify({"predictions": cleaned})
 
@@ -197,7 +135,7 @@ def api_predictions():
 def api_vehicles():
     route_id = request.args.get("route_id", "")
     data = rts_api.get_vehicles(route_id)
-    veh_raw = data.get("vehicle", []) or []
+    veh_raw = data.get("vehicle", [])
     cleaned = []
     for v in veh_raw:
         cleaned.append({
@@ -212,53 +150,110 @@ def api_vehicles():
         })
     return jsonify({"vehicles": cleaned})
 
-# -----------------------
-# Convenience + Debug
-# -----------------------
+# ------------ Convenience utilities ------------
+@app.route("/api/validate_stop")
+def api_validate_stop():
+    raw = request.args.get("stop_id", "")
+    sid4 = to_stop4(raw)
+    return jsonify({"ok": is_stop4(sid4), "stop_id4": sid4})
+
 @app.route("/api/stops_anydir")
 def api_stops_anydir():
-    """
-    Try common direction IDs until we find stops for the route.
-    Returns { direction, stops:[...] } or {direction:null, stops:[]}
-    """
+    """Pick the first available direction for a route, then list stops. Always JSON."""
     route_id = request.args.get("route_id", "")
-    found = rts_api.find_first_working_direction_and_stops(route_id)
-    if not found:
-        return jsonify({"direction": None, "stops": []})
-    # normalize stop shape (match /api/stops)
-    cleaned = []
-    for s in found.get("stops", []):
-        cleaned.append({
-            "id": s.get("stpid"),
-            "name": s.get("stpnm"),
-            "lat": s.get("lat"),
-            "lon": s.get("lon"),
-        })
-    return jsonify({"direction": found.get("direction"), "stops": cleaned})
+    try:
+        dirs_data = rts_api.get_directions(route_id)
+        dirs_raw = dirs_data.get("directions", [])
+        if not dirs_raw:
+            return jsonify({"route_id": route_id, "direction": None, "stops": []})
+        # prefer 'id' or 'dir'; fallback to value
+        dir_id = None
+        first = dirs_raw[0]
+        dir_id = first.get("id") or first.get("dir") or first.get("dirId") or first.get("dirid") or first.get("name") or first.get("dirname")
+        if not dir_id:
+            # if API returns strings
+            if isinstance(first, str):
+                dir_id = first
+        if not dir_id:
+            return jsonify({"route_id": route_id, "direction": None, "stops": []})
+
+        stops_data = rts_api.get_stops(route_id, dir_id)
+        stops_raw = stops_data.get("stops", [])
+        cleaned = []
+        for s in stops_raw:
+            sid4 = to_stop4(s.get("stpid"))
+            if not is_stop4(sid4):
+                continue
+            cleaned.append({
+                "id": sid4,
+                "name": s.get("stpnm"),
+                "lat": s.get("lat"),
+                "lon": s.get("lon"),
+            })
+        return jsonify({"route_id": route_id, "direction": dir_id, "stops": cleaned})
+    except Exception as e:
+        # ensure JSON even on error
+        return jsonify({"route_id": route_id, "error": str(e)}), 500
 
 @app.route("/api/debug/directions_raw")
-def debug_directions_raw():
+def api_debug_directions_raw():
     route_id = request.args.get("route_id", "")
-    return jsonify(rts_api.get_directions_raw(route_id))
+    return jsonify(rts_api.get_directions(route_id))
 
-@app.route("/api/debug/stops_raw")
-def debug_stops_raw():
-    route_id = request.args.get("route_id", "")
-    direction_id = request.args.get("direction_id", "")
-    return jsonify(rts_api.get_stops_raw(route_id, direction_id))
+# ------------ Simple Agent ------------
+SYSTEM_PROMPT = (
+    "You are the RTS Gainesville assistant. Be brief and helpful. "
+    "If user mentions a stop ID, it must be 4 digits (e.g., 0001). "
+    "If a stop seems invalid, ask them for the 4-digit stop id."
+)
 
-# -------- Agent endpoint --------
+def format_predictions_answer(preds: list[dict], stop_id4: str, top_n: int = 3) -> str:
+    if not preds:
+        return f"No upcoming arrivals at stop {stop_id4} right now."
+    lines = []
+    for p in preds[:top_n]:
+        mins = p.get("minutes")
+        mins_txt = "due" if str(mins).upper() == "DUE" else f"in {mins} min"
+        lines.append(f"Route {p.get('route')} → {p.get('destination')} ({p.get('direction')}), {mins_txt}.")
+    return f"Next arrivals at stop {stop_id4}:\n" + "\n".join(lines)
+
 @app.route("/api/agent", methods=["POST"])
 def api_agent():
-    if not OPENAI_OK:
-        return jsonify({"error": "OpenAI not configured"}), 500
     payload = request.get_json(silent=True) or {}
-    user_text = str(payload.get("message", "")).strip()
-    if not user_text:
+    message = (payload.get("message") or "").strip()
+    if not message:
         return jsonify({"error": "message is required"}), 400
-    answer = run_agent(user_text)
-    return jsonify({"answer": answer})
 
-# Local debug only
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # If the user message includes something that looks like a stop id, try the live predictions tool
+    sid4 = extract_stop4_from_text(message)
+    if is_stop4(sid4):
+        try:
+            # Parse a 'top N' hint if the user gave one
+            m = re.search(r'\btop\s+(\d{1,2})\b', message, re.I)
+            top = int(m.group(1)) if m else 3
+            data = rts_api.get_predictions(sid4, top=top)
+            preds = data.get("prd", [])
+            return jsonify({"answer": format_predictions_answer(preds, sid4, top_n=top)})
+        except Exception:
+            # If the tool fails, fall back to a helpful message
+            return jsonify({"answer": f"I couldn’t get live arrivals for stop {sid4}. Please try again shortly or confirm the 4-digit stop id."})
+
+    # Otherwise: general Q&A via OpenAI if available
+    if client:
+        try:
+            resp = client.chat.completions.create(
+                model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": message},
+                ],
+                temperature=0.2,
+            )
+            text = resp.choices[0].message.content.strip()
+            return jsonify({"answer": text})
+        except Exception:
+            # If OpenAI has an issue, degrade gracefully
+            pass
+
+    # Final fallback if no OpenAI
+    return jsonify({"answer": "RTS is Gainesville’s public transit. For live ETAs, send the 4-digit stop ID (e.g., 0001)."})
