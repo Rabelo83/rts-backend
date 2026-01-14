@@ -148,7 +148,20 @@ def api_schedule_info():
 
 @app.route("/api/schedule/routes")
 def api_schedule_routes():
-    return jsonify({"routes": schedule_db.list_routes()})
+    routes = schedule_db.list_routes()
+
+    # If the schedule DB doesn't include names, fill them from the live RTS routes list
+    try:
+        live = rts_api.get_routes()
+        live_routes = live.get("routes", [])
+        name_map = {r.get("rt"): r.get("rtnm") for r in live_routes if r.get("rt")}
+        for item in routes:
+            if not item.get("route_name"):
+                item["route_name"] = name_map.get(item.get("route_id"))
+    except Exception as e:
+        print("schedule_routes_name_fill_error:", repr(e))
+
+    return jsonify({"routes": routes})
 
 @app.route("/api/schedule/find_stops")
 def api_schedule_find_stops():
