@@ -10,12 +10,10 @@ from openai import OpenAI
 import rts_api
 import webqa
 from config import API_KEY
-
 from db import schedule_db
 
 
 TZ = ZoneInfo("America/New_York")
-
 client = OpenAI(api_key=API_KEY) if API_KEY else OpenAI()
 
 # ----------------------------
@@ -56,17 +54,17 @@ def extract_route_id_regex(text: str) -> str | None:
 def extract_stop_id_regex(text: str) -> str | None:
     t = (text or "").lower()
 
-    # "stop 1192"
+    # IMPORTANT: allow 1 digit too ("stop 1")
     m = re.search(r"\bstop\s*[:#]?\s*([0-9]{1,6})\b", t)
     if m:
         return normalize_stop_id(m.group(1))
 
-    # "#1192"
+    # "#1" also allowed
     m = re.search(r"#\s*([0-9]{1,6})\b", t)
     if m:
         return normalize_stop_id(m.group(1))
 
-    # last resort: any 1-4 digit number (so "stop 1" works)
+    # last resort: any 1-4 digit number in message
     m = re.search(r"\b([0-9]{1,4})\b", t)
     if m:
         return normalize_stop_id(m.group(1))
@@ -131,18 +129,15 @@ def tmsg(lang: str, en: str, es: str) -> str:
 
 
 # ----------------------------
-# Minimal time parsing (optional)
-# tomorrow 10am, mañana 10am, etc.
+# Minimal time parsing
 # ----------------------------
 def parse_when_dt(message: str) -> datetime:
     msg = (message or "").lower()
     base = datetime.now(TZ)
 
-    # tomorrow / mañana
     if "tomorrow" in msg or "mañana" in msg:
         base = base + timedelta(days=1)
 
-    # time like 10am / 10:30am / 15:20
     m = re.search(r"\b([0-9]{1,2})(?::([0-9]{2}))?\s*(am|pm)?\b", msg)
     if m:
         hh = int(m.group(1))
@@ -154,7 +149,6 @@ def parse_when_dt(message: str) -> datetime:
         if ap == "am" and hh == 12:
             hh = 0
 
-        # If user wrote 15:00 etc, ap is empty and hh is already 24h-style
         try:
             base = base.replace(hour=hh, minute=mm, second=0, microsecond=0)
         except Exception:
@@ -262,21 +256,22 @@ def schedule_next_departures(stop_id: str, route_id: str | None, when_dt: dateti
 
 
 # ----------------------------
-# Stop suggestions (Bustime first!)
+# Stop suggestions — Bustime FIRST (numeric IDs)
 # ----------------------------
 def suggest_stops(route_id: str, user_text: str, limit: int = 8) -> list[dict]:
     """
-    Bustime stops are the BEST because they contain real numeric stop IDs.
-    If bustime fails, we fallback to schedule_db, but we only keep numeric stop IDs.
+    Bustime stops are best because they have REAL numeric stop IDs.
+    If bustime fails, fallback to schedule_db but ONLY keep numeric stop IDs.
     """
-    t = (user_text or "").lower()
     hint = guess_destination_hint(user_text) or ""
+    t = (user_text or "").lower()
+
     tokens = []
     for tk in ["reitz", "hub", "downtown", "oaks", "butler", "campus", "uf"]:
         if tk in t:
             tokens.append(tk)
 
-    # Try bustime stops
+    # Try bustime stops first
     try:
         dirs = rts_api.get_directions(route_id).get("directions", []) or []
         dir_ids = []
@@ -289,15 +284,14 @@ def suggest_stops(route_id: str, user_text: str, limit: int = 8) -> list[dict]:
             st = rts_api.get_stops(route_id, d).get("stops", []) or []
             all_stops.extend(st)
 
-        # score + filter
         scored = []
         for s in all_stops:
             sid = s.get("stpid")
             name = (s.get("stpnm") or "")
             if not sid:
                 continue
-            score = 0
             nm = name.lower()
+            score = 0
             if hint and hint.lower() in nm:
                 score += 3
             for tk in tokens:
@@ -307,10 +301,11 @@ def suggest_stops(route_id: str, user_text: str, limit: int = 8) -> list[dict]:
                 scored.append((score, {"id": normalize_stop_id(str(sid)) or str(sid), "name": name}))
 
         scored.sort(key=lambda x: x[0], reverse=True)
+
         out = []
         seen = set()
         for _, item in scored:
-            sid = item["id"]
+            sid = item.get("id")
             if sid and sid not in seen:
                 seen.add(sid)
                 out.append(item)
@@ -322,7 +317,7 @@ def suggest_stops(route_id: str, user_text: str, limit: int = 8) -> list[dict]:
     except Exception:
         pass
 
-    # Fallback: schedule_db (ONLY numeric stop IDs)
+    # Fallback: schedule_db (numeric stop IDs only)
     try:
         rows = schedule_db.route_stops(route_id, service_id="mon_fri", q=hint if hint else None, limit=250)
     except Exception:
@@ -373,7 +368,7 @@ def llm_extract_intent(text: str) -> dict:
         "Return ONLY JSON with keys: intent, route_id, stop_id, destination_hint, language.\n"
         "intent must be one of: eta, schedule, vehicle_location, general.\n"
         "route_id must be a route number like '9' (string) or null.\n"
-        "stop_id must be digits like '1192' or '1' (string) or null.\n"
+        "stop_id can be digits like '1192' OR '1' (string) or null.\n"
         "destination_hint can be 'Reitz Union' etc.\n"
         "language is 'es' if Spanish, else 'en'."
     )
@@ -426,7 +421,7 @@ def handle_agent_message(message: str) -> dict:
     if not msg:
         return {"answer": "", "sources": []}
 
-    # If it doesn't look like transit, use webqa
+    # Not transit => webqa
     if not is_transit_keywords(msg):
         result = webqa.answer(msg)
         if isinstance(result, tuple):
@@ -442,24 +437,21 @@ def handle_agent_message(message: str) -> dict:
     stop_id = extracted.get("stop_id")
     destination_hint = extracted.get("destination_hint") or (guess_destination_hint(msg) or "")
 
-    # Regex fallback if LLM doesn't catch it
+    # regex fallback
     if not route_id:
         route_id = extract_route_id_regex(msg)
     if not stop_id:
         stop_id = extract_stop_id_regex(msg)
 
-    # Optional: support "tomorrow 10am"
     when_dt = parse_when_dt(msg)
 
-    # Missing stop: suggest stops if route is known
+    # missing stop => suggest
     if not stop_id:
         if route_id:
             candidates = suggest_stops(route_id, (destination_hint + " " + msg).strip(), limit=8)
             if candidates:
-                return {
-                    "answer": fmt_stop_list(lang, route_id, candidates),
-                    "sources": [{"type": "stop_suggestions", "route_id": route_id}],
-                }
+                return {"answer": fmt_stop_list(lang, route_id, candidates),
+                        "sources": [{"type": "stop_suggestions", "route_id": route_id}]}
 
         return {
             "answer": tmsg(
@@ -470,10 +462,10 @@ def handle_agent_message(message: str) -> dict:
             "sources": [{"type": "need_stop_id"}],
         }
 
-    # If user is asking schedule (and NOT realtime), skip realtime
+    # schedule preference
     prefer_schedule = (intent == "schedule") or (wants_schedule(msg) and not wants_realtime(msg))
 
-    # 1) Realtime predictions (<=45 min) if allowed
+    # 1) realtime (<=45)
     if not prefer_schedule:
         predictions = []
         try:
@@ -528,7 +520,7 @@ def handle_agent_message(message: str) -> dict:
                 "sources": [{"type": "realtime", "stop_id": stop_id, "route_id": route_id}],
             }
 
-    # 2) Schedule fallback (uses schedule.db)
+    # 2) schedule fallback
     result = schedule_next_departures(stop_id=stop_id, route_id=route_id, when_dt=when_dt, limit=3)
 
     if result.get("rows"):
