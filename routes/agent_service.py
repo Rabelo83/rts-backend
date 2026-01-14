@@ -12,6 +12,7 @@ import webqa
 from config import API_KEY
 from db import schedule_db
 
+AGENT_SERVICE_VERSION = "v2026-01-13-stop-normalize-audit"
 
 TZ = ZoneInfo("America/New_York")
 client = OpenAI(api_key=API_KEY) if API_KEY else OpenAI()
