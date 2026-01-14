@@ -38,12 +38,23 @@ def normalize_stop_id(s: str) -> str | None:
 def digits_only(s: str) -> str:
     return re.sub(r"[^0-9]", "", s or "")
 
-def extract_route_id(text: str) -> str | None:     """     Try hard to find a route number in a message.     Recognizes: "route 9", "rt 21", "bus 9", "bus #9", "route:12"     """     t = (text or "").lower()      # route/rt/bus patterns     m = re.search(r"\b(route|rt|bus)\s*[:#]?\s*([0-9]{1,3})\b", t)     if m:         return m.group(2)      # also allow "bus number 9"     m = re.search(r"\bbus\s*number\s*([0-9]{1,3})\b", t)     if m:         return m.group(1)      return None
-    """Extract a route number from free text. Examples: 'route 9', 'rt:21'."""
+def extract_route_id(text: str) -> str | None:
+    """
+    Try hard to find a route number in a message.
+    Recognizes: "route 9", "rt 21", "bus 9", "bus #9", "route:12", "bus number 9"
+    """
     t = (text or "").lower()
-    m = re.search(r"\b(route|rt)\s*[:#]?\s*([0-9]{1,3})\b", t)
+
+    # route/rt/bus patterns
+    m = re.search(r"\b(route|rt|bus)\s*[:#]?\s*([0-9]{1,3})\b", t)
     if m:
         return m.group(2)
+
+    # also allow "bus number 9"
+    m = re.search(r"\bbus\s*number\s*([0-9]{1,3})\b", t)
+    if m:
+        return m.group(1)
+
     return None
 
 def extract_stop_id(text: str) -> str | None:
@@ -81,7 +92,8 @@ def wants_realtime(text: str) -> bool:
         "eta", "minutes", "min", "prediction", "predictions", "arrive", "arrival",
         "next bus", "where is", "vehicle", "location", "real-time", "realtime",
         # Spanish
-        "cuantos minutos", "cuántos minutos", "llega", "llegada", "en vivo", "tiempo real", "ubicacion", "ubicación"
+        "cuantos minutos", "cuántos minutos", "llega", "llegada",
+        "en vivo", "tiempo real", "ubicacion", "ubicación"
     ]
     return any(k in t for k in rt_words)
 
@@ -92,7 +104,8 @@ def is_transit_keywords(text: str) -> bool:
         "minutes", "min", "arrive", "arrival", "prediction", "predictions",
         "schedule", "timetable", "first bus", "last bus",
         # Spanish
-        "parada", "ruta", "horario", "llega", "llegada", "cuantos minutos", "tiempo real", "ubicacion", "ubicación"
+        "parada", "ruta", "horario", "llega", "llegada",
+        "cuantos minutos", "cuántos minutos", "tiempo real", "ubicacion", "ubicación"
     ]
     return any(k in t for k in keywords)
 
@@ -218,51 +231,6 @@ def schedule_next_departures(stop_id: str, route_id: str | None, when_dt: dateti
                 return {"date": date_iso, "service_id": sid, "rows": [dict(r) for r in rows]}
 
         return {"date": date_iso, "service_ids": service_ids, "rows": []}
-
-def schedule_first_last_for_route(route_id: str, when_dt: datetime):
-    """Earliest and latest scheduled departures anywhere on a route for today."""
-    date_iso = when_dt.date().isoformat()
-
-    with _open_sched_conn() as conn:
-        service_ids = _service_ids_for_date(conn, date_iso)
-        if not service_ids:
-            return None
-
-        for sid in service_ids:
-            first_row = conn.execute(
-                """
-                SELECT st.route_id, st.stop_id, s.stop_name, t.headsign,
-                       st.departure_time, st.departure_secs
-                FROM stop_times st
-                JOIN trips t ON t.trip_id = st.trip_id
-                JOIN stops s ON s.stop_id = st.stop_id
-                WHERE st.route_id = ?
-                  AND t.service_id = ?
-                ORDER BY st.departure_secs ASC
-                LIMIT 1
-                """,
-                (route_id, sid),
-            ).fetchone()
-
-            last_row = conn.execute(
-                """
-                SELECT st.route_id, st.stop_id, s.stop_name, t.headsign,
-                       st.departure_time, st.departure_secs
-                FROM stop_times st
-                JOIN trips t ON t.trip_id = st.trip_id
-                JOIN stops s ON s.stop_id = st.stop_id
-                WHERE st.route_id = ?
-                  AND t.service_id = ?
-                ORDER BY st.departure_secs DESC
-                LIMIT 1
-                """,
-                (route_id, sid),
-            ).fetchone()
-
-            if first_row and last_row:
-                return {"date": date_iso, "service_id": sid, "first": dict(first_row), "last": dict(last_row)}
-
-    return None
 
 # ------------------------------------------------------------
 # Health
@@ -596,7 +564,7 @@ def try_transit_answer(message: str) -> dict | None:
 
     extracted = llm_extract_intent(msg)
     lang = extracted.get("language", "en")
-    intent = extracted.get("intent", "general")
+    intent = (extracted.get("intent") or "general").strip().lower()
     route_id = extracted.get("route_id")
     stop_id = extracted.get("stop_id")
     destination_hint = (extracted.get("destination_hint") or "").strip()
@@ -629,27 +597,31 @@ def try_transit_answer(message: str) -> dict | None:
             "sources": [{"type": "need_stop_id"}],
         }
 
-    # 1) Realtime predictions (<=45 min)
+    # ✅ If user is asking for schedule (and NOT asking realtime), skip predictions
+    prefer_schedule = (intent == "schedule") or (wants_schedule(msg) and not wants_realtime(msg))
+
+    # 1) Realtime predictions (<=45 min) — only if NOT prefer_schedule
     predictions = []
-    try:
-        data = rts_api.get_predictions(stop_id)
-        preds = data.get("prd", [])
+    if not prefer_schedule:
+        try:
+            data = rts_api.get_predictions(stop_id)
+            preds = data.get("prd", [])
 
-        if route_id:
-            preds = [p for p in preds if str(p.get("rt")) == str(route_id)]
+            if route_id:
+                preds = [p for p in preds if str(p.get("rt")) == str(route_id)]
 
-        for p in preds[:8]:
-            predictions.append({
-                "route": p.get("rt"),
-                "destination": p.get("des"),
-                "minutes": p.get("prdctdn"),
-                "arrival_time": p.get("prdtm"),
-                "vehicle_id": p.get("vid"),
-                "delayed": p.get("dly"),
-            })
-    except Exception as e:
-        print("predictions_error:", repr(e))
-        print(traceback.format_exc())
+            for p in preds[:8]:
+                predictions.append({
+                    "route": p.get("rt"),
+                    "destination": p.get("des"),
+                    "minutes": p.get("prdctdn"),
+                    "arrival_time": p.get("prdtm"),
+                    "vehicle_id": p.get("vid"),
+                    "delayed": p.get("dly"),
+                })
+        except Exception as e:
+            print("predictions_error:", repr(e))
+            print(traceback.format_exc())
 
     usable = []
     for p in predictions:
