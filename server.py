@@ -10,7 +10,7 @@ client = OpenAI()
 import web_index
 import webqa
 
-# ✅ NEW: schedule DB helpers
+# Schedule DB
 from db import schedule_db
 
 app = Flask(__name__)
@@ -26,6 +26,9 @@ def normalize_stop_id(s: str) -> str | None:
     if len(digits) > 4:
         digits = digits[-4:]
     return digits.zfill(4)
+
+def digits_only(s: str) -> str:
+    return re.sub(r"[^0-9]", "", s or "")
 
 # ---------- health ----------
 @app.route("/")
@@ -97,16 +100,18 @@ def api_predictions():
     } for p in preds]
     return jsonify({"predictions": cleaned, "stop_id": stop4})
 
-# ✅ Optional but useful for “real-time location” features
+# ---------- Vehicles (real-time locations) ----------
 @app.route("/api/vehicles")
 def api_vehicles():
-    route_id = request.args.get("route_id", "")
+    raw = request.args.get("route_id", "")
+    route_id = digits_only(raw)  # ✅ auto-clean: digits only
+
     if not route_id:
         return jsonify({"error": "route_id is required"}), 400
 
     data = rts_api.get_vehicles(route_id)
-    # Bustime commonly uses "vehicle" for getvehicles results
     vehicles_raw = data.get("vehicle", []) or data.get("vehicles", []) or []
+
     cleaned = []
     for v in vehicles_raw:
         cleaned.append({
@@ -120,6 +125,7 @@ def api_vehicles():
             "delayed": v.get("dly"),
             "timestamp": v.get("tmstmp"),
         })
+
     return jsonify({"route_id": route_id, "vehicles": cleaned})
 
 # ---------- small helpers for UI ----------
@@ -141,7 +147,7 @@ def api_stops_anydir():
             return jsonify({"route_id": route_id, "direction": d, "stops": cleaned})
     return jsonify({"route_id": route_id, "direction": None, "stops": []})
 
-# ---------- NEW: Schedule API (from PDF → SQLite) ----------
+# ---------- Schedule API (from PDF → SQLite) ----------
 @app.route("/api/schedule/info")
 def api_schedule_info():
     return jsonify(schedule_db.db_info())
@@ -150,7 +156,7 @@ def api_schedule_info():
 def api_schedule_routes():
     routes = schedule_db.list_routes()
 
-    # If the schedule DB doesn't include names, fill them from the live RTS routes list
+    # ✅ Fill missing schedule names from live RTS routes
     try:
         live = rts_api.get_routes()
         live_routes = live.get("routes", [])
@@ -199,7 +205,7 @@ def api_schedule_last_departure():
         **row
     })
 
-# ---------- NEW: Web index control ----------
+# ---------- Web index control ----------
 @app.route("/api/web/ingest", methods=["POST"])
 def api_web_ingest():
     body = request.get_json(silent=True) or {}
