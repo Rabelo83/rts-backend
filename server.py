@@ -1,22 +1,19 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import re, os, sqlite3
+import os, re, sqlite3, json, traceback
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import json
-import traceback
 
 import rts_api
 from config import API_KEY
-from openai import OpenAI
 
-# IMPORTANT: Use your API_KEY explicitly
-client = OpenAI(api_key=API_KEY)
+from openai import OpenAI
+client = OpenAI(api_key=API_KEY) if API_KEY else OpenAI()
 
 import web_index
 import webqa
 
-# Schedule DB module
+# Schedule DB module (db/schedule_db.py)
 from db import schedule_db
 
 app = Flask(__name__)
@@ -24,8 +21,11 @@ CORS(app)
 
 TZ = ZoneInfo("America/New_York")
 
-# ---------- helpers ----------
+# ------------------------------------------------------------
+# Basic helpers
+# ------------------------------------------------------------
 def normalize_stop_id(s: str) -> str | None:
+    """Normalize a stop ID to 4 digits, e.g. '1192' -> '1192', '92' -> '0092'."""
     if not s:
         return None
     digits = re.sub(r"[^0-9]", "", s)
@@ -39,19 +39,15 @@ def digits_only(s: str) -> str:
     return re.sub(r"[^0-9]", "", s or "")
 
 def extract_route_id(text: str) -> str | None:
-    """
-    Legacy fallback only (we now rely on the LLM first).
-    """
+    """Extract a route number from free text. Examples: 'route 9', 'rt:21'."""
     t = (text or "").lower()
-    m = re.search(r"\b(route|rt|bus|line)\s*[:#]?\s*([0-9]{1,3})\b", t)
+    m = re.search(r"\b(route|rt)\s*[:#]?\s*([0-9]{1,3})\b", t)
     if m:
         return m.group(2)
     return None
 
 def extract_stop_id(text: str) -> str | None:
-    """
-    Legacy fallback only (we now rely on the LLM first).
-    """
+    """Extract a stop ID from free text. Prefers patterns like 'stop 1192'."""
     t = (text or "").lower()
 
     m = re.search(r"\bstop\s*[:#]?\s*([0-9]{3,6})\b", t)
@@ -62,190 +58,77 @@ def extract_stop_id(text: str) -> str | None:
     if m:
         return normalize_stop_id(m.group(1))
 
+    # Last resort: any 4-digit number
     m = re.search(r"\b([0-9]{4})\b", t)
     if m:
         return normalize_stop_id(m.group(1))
 
     return None
 
+def wants_schedule(text: str) -> bool:
+    t = (text or "").lower()
+    schedule_words = [
+        "schedule", "timetable", "first bus", "first run", "last bus", "last run",
+        "what time", "when does", "start", "end",
+        # Spanish
+        "horario", "tabla", "primero", "ultimo", "último", "a que hora", "a qué hora"
+    ]
+    return any(k in t for k in schedule_words)
+
+def wants_realtime(text: str) -> bool:
+    t = (text or "").lower()
+    rt_words = [
+        "eta", "minutes", "min", "prediction", "predictions", "arrive", "arrival",
+        "next bus", "where is", "vehicle", "location", "real-time", "realtime",
+        # Spanish
+        "cuantos minutos", "cuántos minutos", "llega", "llegada", "en vivo", "tiempo real", "ubicacion", "ubicación"
+    ]
+    return any(k in t for k in rt_words)
+
+def is_transit_keywords(text: str) -> bool:
+    t = (text or "").lower()
+    keywords = [
+        "eta", "next bus", "bus", "route", "rt", "stop",
+        "minutes", "min", "arrive", "arrival", "prediction", "predictions",
+        "schedule", "timetable", "first bus", "last bus",
+        # Spanish
+        "parada", "ruta", "horario", "llega", "llegada", "cuantos minutos", "tiempo real", "ubicacion", "ubicación"
+    ]
+    return any(k in t for k in keywords)
+
+def guess_destination_hint(text: str) -> str | None:
+    t = (text or "").lower()
+    if "reitz" in t:
+        return "Reitz Union"
+    if "oaks" in t:
+        return "Oaks Mall"
+    if "downtown" in t:
+        return "Downtown"
+    if "hub" in t:
+        return "Hub"
+    if "uf" in t or "campus" in t:
+        return "UF Campus"
+    return None
+
 def tmsg(lang: str, en: str, es: str) -> str:
-    return es if lang == "es" else en
+    """Return English or Spanish string depending on lang."""
+    return es if (lang or "").lower().startswith("es") else en
 
-# ---------- Stop suggestions (route -> stops any direction) ----------
-def stops_for_route_anydir(route_id: str) -> list[dict]:
-    """
-    Fetch stops for a route without requiring the user to pick a direction.
-    Tries directions in order; returns first direction with stops.
-    """
-    try:
-        dirs = rts_api.get_directions(route_id).get("directions", [])
-        dir_ids = [(d.get("id") or d.get("dir") or d.get("dirId") or d.get("dirid") or d) for d in dirs]
-        for d in dir_ids:
-            st = rts_api.get_stops(route_id, d).get("stops", [])
-            if st:
-                return [{"id": s.get("stpid"), "name": s.get("stpnm")} for s in st]
-    except Exception as e:
-        print("stops_for_route_anydir_error:", repr(e))
-        print(traceback.format_exc())
-    return []
-
-def suggest_stops(route_id: str, query_text: str, limit: int = 8) -> list[dict]:
-    """
-    Suggest stop IDs for a route based on keywords (reitz, hub, downtown, UF, etc).
-    Returns list of {id, name}.
-    """
-    q = (query_text or "").lower().strip()
-    stops = stops_for_route_anydir(route_id)
-    if not stops:
-        return []
-
-    # Tokens from query
-    tokens = [t for t in re.split(r"[^a-z0-9]+", q) if len(t) >= 3]
-
-    scored = []
-    for s in stops:
-        name = (s.get("name") or "").lower()
-        score = 0
-        for t in tokens:
-            if t in name:
-                score += 2
-
-        # extra boosts for common intents
-        if "reitz" in name and ("reitz" in q or "union" in q):
-            score += 5
-        if "hub" in name and "hub" in q:
-            score += 4
-        if score > 0:
-            scored.append((score, s))
-
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [s for _, s in scored[:limit]]
-
-def fmt_stop_list(lang: str, route_id: str, candidates: list[dict]) -> str:
-    if not candidates:
-        return ""
-    header = tmsg(
-        lang,
-        f"I can help — I just need the Stop ID where you will board. Here are matching stops on Route {route_id}. Reply with ONE Stop ID:",
-        f"Puedo ayudarte — solo necesito el Stop ID donde vas a abordar. Aquí hay paradas que coinciden en la Ruta {route_id}. Responde con UN Stop ID:"
-    )
-    lines = []
-    for c in candidates[:8]:
-        sid = c.get("id")
-        name = c.get("name") or ""
-        if sid:
-            lines.append(f"- Stop {sid}: {name}")
-    return header + "\n" + "\n".join(lines)
-
-# ---------- LLM intent/entity extraction ----------
-def _safe_json_loads(s: str) -> dict:
-    try:
-        return json.loads(s)
-    except Exception:
-        return {}
-
-def llm_extract_intent(message: str) -> dict:
-    """
-    LLM-first extraction. NEVER guesses IDs.
-    Returns:
-      language: en/es
-      intent: eta/schedule/vehicle_location/general
-      route_id: digits or null
-      stop_id: 4-digit string or null
-      destination_hint: string or null
-      needs: list
-    """
-    user_text = (message or "").strip()
-    if not user_text:
-        return {"language":"en","intent":"general","route_id":None,"stop_id":None,"destination_hint":None,"needs":[]}
-
-    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-
-    system = (
-        "You are a transit assistant for Gainesville RTS.\n"
-        "Output ONLY valid JSON. No extra text.\n"
-        "\n"
-        "Rules:\n"
-        "1) Never invent/guess a stop ID or route ID.\n"
-        "2) If user didn't provide stop ID, stop_id must be null.\n"
-        "3) If user didn't provide route number, route_id must be null.\n"
-        "4) Detect language: English='en', Spanish='es'.\n"
-        "5) intent must be one of: 'eta','schedule','vehicle_location','general'.\n"
-        "   - eta: next bus, minutes, predictions, arriving.\n"
-        "   - schedule: timetable, first/last bus, scheduled time.\n"
-        "   - vehicle_location: where is the bus, bus location.\n"
-        "6) destination_hint is a short place phrase if mentioned (ex: 'Reitz Union'). Else null.\n"
-        "7) needs: list what is REQUIRED to answer accurately.\n"
-        "\n"
-        "Schema:\n"
-        "{"
-        "\"language\":\"en|es\","
-        "\"intent\":\"eta|schedule|vehicle_location|general\","
-        "\"route_id\":string|null,"
-        "\"stop_id\":string|null,"
-        "\"destination_hint\":string|null,"
-        "\"needs\":string[]"
-        "}"
-    )
-
-    try:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role":"system","content":system},
-                {"role":"user","content":user_text},
-            ],
-            # IMPORTANT: forces JSON output
-            response_format={"type":"json_object"},
-            temperature=0
-        )
-        content = resp.choices[0].message.content or "{}"
-        data = _safe_json_loads(content)
-
-        # cleanup (still not guessing)
-        if isinstance(data.get("route_id"), str):
-            rid = digits_only(data["route_id"])
-            data["route_id"] = rid if rid else None
-
-        if isinstance(data.get("stop_id"), str):
-            sid = normalize_stop_id(data["stop_id"])
-            data["stop_id"] = sid if sid else None
-
-        data.setdefault("language", "en")
-        data.setdefault("intent", "general")
-        data.setdefault("route_id", None)
-        data.setdefault("stop_id", None)
-        data.setdefault("destination_hint", None)
-        data.setdefault("needs", [])
-
-        if data["language"] not in ("en","es"):
-            data["language"] = "en"
-        if data["intent"] not in ("eta","schedule","vehicle_location","general"):
-            data["intent"] = "general"
-        if not isinstance(data["needs"], list):
-            data["needs"] = []
-
-        return data
-
-    except Exception as e:
-        print("llm_extract_error:", repr(e))
-        print(traceback.format_exc())
-        # fallback minimal
-        lower = user_text.lower()
-        lang = "es" if re.search(r"\b(hola|ruta|parada|horario|autob[uú]s|por favor)\b", lower) else "en"
-        return {"language":lang,"intent":"general","route_id":None,"stop_id":None,"destination_hint":None,"needs":[]}
-
-# ---------- schedule DB querying (direct SQL on schedule.db) ----------
+# ------------------------------------------------------------
+# Schedule DB querying (direct SQL on schedule.db)
+# ------------------------------------------------------------
 def _open_sched_conn():
-    db_path = schedule_db.db_info().get("db_path") or "data/schedule.db"
+    info = schedule_db.db_info()
+    db_path = info.get("db_path") or os.environ.get("DB_PATH", "data/schedule.db")
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
 
 def _service_ids_for_date(conn, date_iso: str) -> list[str]:
+    """Pick service_ids active on a date, applying calendar_dates exceptions."""
     dt = datetime.fromisoformat(date_iso)
-    dow = dt.weekday()
-    dow_col = ["mon","tue","wed","thu","fri","sat","sun"][dow]
+    dow = dt.weekday()  # Mon=0 .. Sun=6
+    dow_col = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"][dow]
 
     base = conn.execute(
         f"""
@@ -287,6 +170,7 @@ def _time_to_secs(dt: datetime) -> int:
     return dt.hour * 3600 + dt.minute * 60 + dt.second
 
 def schedule_next_departures(stop_id: str, route_id: str | None, when_dt: datetime, limit: int = 3):
+    """Upcoming scheduled departures at a stop (optionally filtered by route)."""
     date_iso = when_dt.date().isoformat()
     now_secs = _time_to_secs(when_dt)
 
@@ -336,7 +220,9 @@ def schedule_next_departures(stop_id: str, route_id: str | None, when_dt: dateti
         return {"date": date_iso, "service_ids": service_ids, "rows": []}
 
 def schedule_first_last_for_route(route_id: str, when_dt: datetime):
+    """Earliest and latest scheduled departures anywhere on a route for today."""
     date_iso = when_dt.date().isoformat()
+
     with _open_sched_conn() as conn:
         service_ids = _service_ids_for_date(conn, date_iso)
         if not service_ids:
@@ -375,9 +261,12 @@ def schedule_first_last_for_route(route_id: str, when_dt: datetime):
 
             if first_row and last_row:
                 return {"date": date_iso, "service_id": sid, "first": dict(first_row), "last": dict(last_row)}
+
     return None
 
-# ---------- health ----------
+# ------------------------------------------------------------
+# Health
+# ------------------------------------------------------------
 @app.route("/")
 def health():
     has_index = os.path.exists(web_index.INDEX_PATH)
@@ -385,7 +274,7 @@ def health():
     return jsonify({
         "status": "ok",
         "service": "rts-backend",
-        "openai": True,
+        "openai": bool(API_KEY),
         "web_index": has_index,
         "schedule_db": {
             "exists": bool(sched_info.get("exists")),
@@ -394,7 +283,9 @@ def health():
         }
     })
 
-# ---------- Bustime passthroughs ----------
+# ------------------------------------------------------------
+# Bustime passthroughs
+# ------------------------------------------------------------
 @app.route("/api/routes")
 def api_routes():
     data = rts_api.get_routes()
@@ -433,7 +324,6 @@ def api_predictions():
     stop4 = normalize_stop_id(request.args.get("stop_id", ""))
     if not stop4:
         return jsonify({"error": "invalid stop_id"}), 400
-
     data = rts_api.get_predictions(stop4)
     preds = data.get("prd", [])
     cleaned = [{
@@ -450,7 +340,7 @@ def api_predictions():
 @app.route("/api/vehicles")
 def api_vehicles():
     raw = request.args.get("route_id", "")
-    route_id = digits_only(raw)  # auto-clean
+    route_id = digits_only(raw)  # auto-clean like "9 (try any route id)" -> "9"
     if not route_id:
         return jsonify({"error": "route_id is required"}), 400
 
@@ -470,10 +360,11 @@ def api_vehicles():
             "delayed": v.get("dly"),
             "timestamp": v.get("tmstmp"),
         })
-
     return jsonify({"route_id": route_id, "vehicles": cleaned})
 
-# ---------- UI helpers ----------
+# ------------------------------------------------------------
+# Small UI helpers
+# ------------------------------------------------------------
 @app.route("/api/validate_stop")
 def api_validate_stop():
     s = request.args.get("stop_id", "")
@@ -492,7 +383,9 @@ def api_stops_anydir():
             return jsonify({"route_id": route_id, "direction": d, "stops": cleaned})
     return jsonify({"route_id": route_id, "direction": None, "stops": []})
 
-# ---------- Schedule API ----------
+# ------------------------------------------------------------
+# Schedule API (direct from schedule.db)
+# ------------------------------------------------------------
 @app.route("/api/schedule/info")
 def api_schedule_info():
     return jsonify(schedule_db.db_info())
@@ -500,6 +393,7 @@ def api_schedule_info():
 @app.route("/api/schedule/routes")
 def api_schedule_routes():
     routes = schedule_db.list_routes()
+    # Fill route names from live data if missing
     try:
         live = rts_api.get_routes()
         live_routes = live.get("routes", [])
@@ -520,9 +414,16 @@ def api_schedule_find_stops():
 @app.route("/api/schedule/route_stops")
 def api_schedule_route_stops():
     route_id = (request.args.get("route_id") or "").strip()
+    service_id = (request.args.get("service_id") or "mon_fri").strip()
+    q = (request.args.get("q") or "").strip() or None
+    limit = int(request.args.get("limit") or "200")
     if not route_id:
         return jsonify({"error": "Missing route_id"}), 400
-    return jsonify({"route_id": route_id, "stops": schedule_db.route_stops(route_id)})
+    return jsonify({
+        "route_id": route_id,
+        "service_id": service_id,
+        "stops": schedule_db.route_stops(route_id, service_id=service_id, q=q, limit=limit)
+    })
 
 @app.route("/api/schedule/last_departure")
 def api_schedule_last_departure():
@@ -539,7 +440,9 @@ def api_schedule_last_departure():
 
     return jsonify({"route_id": route_id, "service_id": service_id, **row})
 
-# ---------- Web index control ----------
+# ------------------------------------------------------------
+# Web index control (unchanged)
+# ------------------------------------------------------------
 @app.route("/api/web/ingest", methods=["POST"])
 def api_web_ingest():
     body = request.get_json(silent=True) or {}
@@ -572,13 +475,125 @@ def api_web_ask():
     ans, src = webqa.answer(q)
     return jsonify({"answer": ans, "sources": src})
 
-# ---------- Agent (LLM-first intent -> realtime -> schedule -> webqa) ----------
+# ------------------------------------------------------------
+# Agent helpers (LLM extraction + stop suggestions)
+# ------------------------------------------------------------
+def llm_extract_intent(text: str) -> dict:
+    """
+    Use OpenAI to extract intent + IDs. If OpenAI fails, return safe defaults.
+    """
+    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+    system = (
+        "You extract transit intent for Gainesville RTS. "
+        "Return ONLY JSON with keys: intent, route_id, stop_id, destination_hint, language. "
+        "Rules: "
+        "- intent is one of: eta, schedule, vehicle_location, general. "
+        "- route_id is route number like '9' (string). "
+        "- stop_id is 4-digit stop ID if provided; otherwise null. "
+        "- destination_hint is a place name like 'Reitz Union' if mentioned. "
+        "- language is 'es' if the user writes Spanish, else 'en'. "
+        "- If unsure, intent='general'."
+    )
+
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": text}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0,
+        )
+        raw = resp.choices[0].message.content or "{}"
+        obj = json.loads(raw)
+
+        intent = (obj.get("intent") or "general").strip()
+        route_id = digits_only(obj.get("route_id") or "") or None
+        stop_id = normalize_stop_id(obj.get("stop_id") or "") if obj.get("stop_id") else None
+        destination_hint = (obj.get("destination_hint") or "").strip() or None
+        language = (obj.get("language") or "en").strip().lower()
+        if language not in ("en", "es"):
+            language = "en"
+
+        return {
+            "intent": intent,
+            "route_id": route_id,
+            "stop_id": stop_id,
+            "destination_hint": destination_hint,
+            "language": language,
+        }
+    except Exception as e:
+        print("llm_extract_intent_error:", repr(e))
+        print(traceback.format_exc())
+        return {"intent": "general", "route_id": None, "stop_id": None, "destination_hint": None, "language": "en"}
+
+def suggest_stops(route_id: str, text: str, limit: int = 8) -> list[dict]:
+    """
+    Suggest likely stop IDs for a given route, based on user text.
+    Uses schedule.db (route_stops), so it works even if Bustime is missing data.
+    """
+    hint = (guess_destination_hint(text) or "").strip()
+    q = hint if hint else None
+
+    try:
+        stops = schedule_db.route_stops(route_id, service_id="mon_fri", q=q, limit=max(50, limit * 10))
+    except Exception:
+        stops = []
+
+    # Light scoring if no q was used
+    if not q:
+        t = (text or "").lower()
+        scored = []
+        for s in stops:
+            name = (s.get("stop_name") or "").lower()
+            score = 0
+            for token in ["reitz", "hub", "downtown", "oaks", "butler", "campus", "uf"]:
+                if token in t and token in name:
+                    score += 2
+            if score > 0:
+                scored.append((score, s))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        stops = [s for _, s in scored] or stops
+
+    out = []
+    for s in stops[:limit]:
+        out.append({"id": s.get("stop_id"), "name": s.get("stop_name")})
+    return out
+
+def fmt_stop_list(lang: str, route_id: str, candidates: list[dict]) -> str:
+    lines = []
+    for c in candidates:
+        sid = c.get("id")
+        nm = c.get("name") or ""
+        if sid:
+            lines.append(f"- Stop {sid}: {nm}".strip())
+
+    if not lines:
+        return tmsg(
+            lang,
+            f"I found Route {route_id}, but I still need a Stop ID from the stop sign.",
+            f"Encontré la Ruta {route_id}, pero todavía necesito el Stop ID del letrero."
+        )
+
+    return tmsg(
+        lang,
+        f"I can’t calculate ETA without the boarding Stop ID. Here are stops on Route {route_id} that match your message.\nReply with ONE Stop ID:\n" + "\n".join(lines),
+        f"No puedo calcular el ETA sin el Stop ID de la parada. Estas paradas en la Ruta {route_id} coinciden con tu mensaje.\nResponde con UN Stop ID:\n" + "\n".join(lines),
+    )
+
+# ------------------------------------------------------------
+# Agent: REALTIME (<=45 min) first, then SCHEDULE, else webqa
+# ------------------------------------------------------------
 def try_transit_answer(message: str) -> dict | None:
     msg = (message or "").strip()
     if not msg:
         return None
 
-    # 1) LLM-first intent/entity extraction
+    if not is_transit_keywords(msg):
+        return None
+
     extracted = llm_extract_intent(msg)
     lang = extracted.get("language", "en")
     intent = extracted.get("intent", "general")
@@ -586,17 +601,24 @@ def try_transit_answer(message: str) -> dict | None:
     stop_id = extracted.get("stop_id")
     destination_hint = (extracted.get("destination_hint") or "").strip()
 
-    # Not a transit message -> let webqa handle it
+    # If LLM didn't extract, fallback to regex
     if intent == "general":
-        return None
+        if not route_id:
+            route_id = extract_route_id(msg)
+        if not stop_id:
+            stop_id = extract_stop_id(msg)
+        if not destination_hint:
+            destination_hint = guess_destination_hint(msg) or ""
 
-    # 2) If stop_id missing, ask naturally (and suggest stops if route provided)
+    # If missing stop_id, suggest stops when route_id is known
     if not stop_id:
         if route_id:
-            query_text = (destination_hint + " " + msg).strip()
-            candidates = suggest_stops(route_id, query_text, limit=8)
+            candidates = suggest_stops(route_id, (destination_hint + " " + msg).strip(), limit=8)
             if candidates:
-                return {"answer": fmt_stop_list(lang, route_id, candidates), "sources": [{"type":"stop_suggestions","route_id":route_id}]}
+                return {
+                    "answer": fmt_stop_list(lang, route_id, candidates),
+                    "sources": [{"type": "stop_suggestions", "route_id": route_id}],
+                }
 
         return {
             "answer": tmsg(
@@ -604,10 +626,10 @@ def try_transit_answer(message: str) -> dict | None:
                 "To check the next bus time, I need the Stop ID (the 4-digit number on the stop sign). If you tell me your location/landmark (Reitz Union, UF, Downtown, Oaks Mall), I can suggest the correct stop.",
                 "Para verificar el próximo bus, necesito el Stop ID (el número de 4 dígitos en el letrero). Si me dices tu ubicación o un lugar cercano (Reitz Union, UF, Downtown, Oaks Mall), puedo sugerirte la parada correcta."
             ),
-            "sources": [{"type":"need_stop_id"}]
+            "sources": [{"type": "need_stop_id"}],
         }
 
-    # 3) Real-time predictions FIRST (only use if <=45 min or DUE)
+    # 1) Realtime predictions (<=45 min)
     predictions = []
     try:
         data = rts_api.get_predictions(stop_id)
@@ -616,7 +638,7 @@ def try_transit_answer(message: str) -> dict | None:
         if route_id:
             preds = [p for p in preds if str(p.get("rt")) == str(route_id)]
 
-        for p in preds[:5]:
+        for p in preds[:8]:
             predictions.append({
                 "route": p.get("rt"),
                 "destination": p.get("des"),
@@ -657,11 +679,10 @@ def try_transit_answer(message: str) -> dict | None:
 
         return {
             "answer": tmsg(lang, "Real-time ETA:\n- ", "ETA en tiempo real:\n- ") + "\n- ".join(lines),
-            "sources": [{"type":"realtime","stop_id":stop_id,"route_id":route_id}],
-            "data": {"predictions": usable[:3]}
+            "sources": [{"type": "realtime", "stop_id": stop_id, "route_id": route_id}],
         }
 
-    # 4) Schedule fallback (next departures)
+    # 2) Schedule fallback
     now_dt = datetime.now(TZ)
     result = schedule_next_departures(stop_id=stop_id, route_id=route_id, when_dt=now_dt, limit=3)
 
@@ -684,7 +705,7 @@ def try_transit_answer(message: str) -> dict | None:
             "answer": (
                 tmsg(
                     lang,
-                    f"No real-time ETA available (or it's over 45 minutes). Next scheduled times for Stop {stop_id}"
+                    f"No real-time ETA available (or it’s over 45 minutes). Next scheduled times for Stop {stop_id}"
                     + (f" ({stop_name})" if stop_name else "")
                     + f" — {day_label} ({service_id}):\n- ",
                     f"No hay ETA en tiempo real (o es mayor de 45 min). Próximos horarios programados para Stop {stop_id}"
@@ -693,39 +714,16 @@ def try_transit_answer(message: str) -> dict | None:
                 )
                 + "\n- ".join(lines)
             ),
-            "sources": [{"type":"schedule_db","stop_id":stop_id,"route_id":route_id,"service_id":service_id}],
-            "data": {"schedule_next": result}
+            "sources": [{"type": "schedule_db", "stop_id": stop_id, "route_id": route_id, "service_id": service_id}],
         }
-
-    # 5) If schedule also empty:
-    if route_id and intent == "schedule":
-        fl = schedule_first_last_for_route(route_id, now_dt)
-        if fl:
-            day_label = _day_label(now_dt)
-            sid = fl["service_id"]
-            first = fl["first"]
-            last = fl["last"]
-            return {
-                "answer": tmsg(
-                    lang,
-                    f"Scheduled summary for Route {route_id} ({day_label}, {sid}):\n"
-                    f"- First departure: {first['departure_time']} (Stop {first['stop_id']} — {first.get('stop_name')})\n"
-                    f"- Last departure: {last['departure_time']} (Stop {last['stop_id']} — {last.get('stop_name')})",
-                    f"Resumen del horario para Ruta {route_id} ({day_label}, {sid}):\n"
-                    f"- Primera salida: {first['departure_time']} (Stop {first['stop_id']} — {first.get('stop_name')})\n"
-                    f"- Última salida: {last['departure_time']} (Stop {last['stop_id']} — {last.get('stop_name')})"
-                ),
-                "sources": [{"type":"schedule_db","route_id":route_id,"service_id":sid}],
-                "data": fl
-            }
 
     return {
         "answer": tmsg(
             lang,
-            f"I couldn't find real-time ETAs or scheduled departures right now for Stop {stop_id}. Try another stop or tell me your location.",
-            f"No pude encontrar ETAs ni horarios programados en este momento para Stop {stop_id}. Prueba otra parada o dime tu ubicación."
+            f"I couldn't find real-time ETAs (<=45 min) or scheduled departures right now for Stop {stop_id}. Try another stop or tell me your location.",
+            f"No pude encontrar ETAs (<=45 min) ni horarios programados en este momento para Stop {stop_id}. Prueba otra parada o dime tu ubicación."
         ),
-        "sources": [{"type":"none_found","stop_id":stop_id,"route_id":route_id}]
+        "sources": [{"type": "none_found", "stop_id": stop_id, "route_id": route_id}],
     }
 
 @app.route("/api/agent", methods=["POST"])
@@ -738,29 +736,23 @@ def api_agent():
     try:
         transit = try_transit_answer(msg)
         if transit:
-            return jsonify({"answer": transit["answer"], "sources": transit.get("sources", [])})
+            return jsonify({"answer": transit.get("answer", ""), "sources": transit.get("sources", [])})
 
-        # fallback to your webqa agent
+        # Otherwise: keep your existing OpenAI webqa behavior
         result = webqa.answer(msg)
-
-        answer = ""
-        sources = []
 
         if isinstance(result, tuple):
             answer = str(result[0]) if len(result) > 0 else ""
-            if len(result) > 1 and isinstance(result[1], (list, tuple)):
-                sources = list(result[1])
+            sources = list(result[1]) if (len(result) > 1 and isinstance(result[1], (list, tuple))) else []
+            return jsonify({"answer": answer, "sources": sources})
 
-        elif isinstance(result, dict):
+        if isinstance(result, dict):
             answer = str(result.get("answer") or result.get("text") or "")
             src = result.get("sources") or result.get("citations") or []
-            if isinstance(src, (list, tuple)):
-                sources = list(src)
+            sources = list(src) if isinstance(src, (list, tuple)) else []
+            return jsonify({"answer": answer, "sources": sources})
 
-        else:
-            answer = str(result)
-
-        return jsonify({"answer": answer, "sources": sources})
+        return jsonify({"answer": str(result), "sources": []})
 
     except Exception as e:
         print("agent_error:", repr(e))
