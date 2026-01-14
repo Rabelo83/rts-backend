@@ -38,7 +38,7 @@ def normalize_stop_id(s: str) -> str | None:
 def digits_only(s: str) -> str:
     return re.sub(r"[^0-9]", "", s or "")
 
-def extract_route_id(text: str) -> str | None:
+def extract_route_id(text: str) -> str | None:     """     Try hard to find a route number in a message.     Recognizes: "route 9", "rt 21", "bus 9", "bus #9", "route:12"     """     t = (text or "").lower()      # route/rt/bus patterns     m = re.search(r"\b(route|rt|bus)\s*[:#]?\s*([0-9]{1,3})\b", t)     if m:         return m.group(2)      # also allow "bus number 9"     m = re.search(r"\bbus\s*number\s*([0-9]{1,3})\b", t)     if m:         return m.group(1)      return None
     """Extract a route number from free text. Examples: 'route 9', 'rt:21'."""
     t = (text or "").lower()
     m = re.search(r"\b(route|rt)\s*[:#]?\s*([0-9]{1,3})\b", t)
