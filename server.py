@@ -68,6 +68,33 @@ def extract_stop_id(text: str) -> str | None:
         return normalize_stop_id(m.group(1))
 
     return None
+        # If user has a route but doesn't know the stop ID, try to suggest stops
+    if route_id and not stop_id:
+        t = msg.lower()
+
+        # Try to detect place keywords (reitz, hub, etc.)
+        guess_text = msg
+        candidates = suggest_stops(route_id, guess_text, limit=8)
+
+        if candidates:
+            lines = [f"- Stop {c['id']}: {c['name']}" for c in candidates if c.get("id")]
+            return {
+                "answer": (
+                    f"I can’t calculate ETA without the boarding Stop ID. Here are stops on Route {route_id} that match your message.\n"
+                    f"Reply with one Stop ID (example: Stop 1192):\n" + "\n".join(lines)
+                ),
+                "sources": [{"type": "stop_suggestions", "route_id": route_id}],
+                "data": {"candidates": candidates}
+            }
+
+        return {
+            "answer": (
+                f"I found Route {route_id}, but I still need the boarding Stop ID to calculate ETA.\n"
+                f"Tell me what area you’re at (example: 'Reitz Union', 'Downtown', 'UF', 'Oaks Mall'), or share a nearby landmark and I’ll suggest stops."
+            ),
+            "sources": [{"type": "stop_needed", "route_id": route_id}],
+            "data": {}
+        }
 
 def is_transit_question(text: str) -> bool:
     t = (text or "").lower()
@@ -463,6 +490,33 @@ def try_transit_answer(message: str) -> dict | None:
 
     route_id = extract_route_id(msg)
     stop_id = extract_stop_id(msg)
+        # If user has a route but doesn't know the stop ID, try to suggest stops
+    if route_id and not stop_id:
+        t = msg.lower()
+
+        # Try to detect place keywords (reitz, hub, etc.)
+        guess_text = msg
+        candidates = suggest_stops(route_id, guess_text, limit=8)
+
+        if candidates:
+            lines = [f"- Stop {c['id']}: {c['name']}" for c in candidates if c.get("id")]
+            return {
+                "answer": (
+                    f"I can’t calculate ETA without the boarding Stop ID. Here are stops on Route {route_id} that match your message.\n"
+                    f"Reply with one Stop ID (example: Stop 1192):\n" + "\n".join(lines)
+                ),
+                "sources": [{"type": "stop_suggestions", "route_id": route_id}],
+                "data": {"candidates": candidates}
+            }
+
+        return {
+            "answer": (
+                f"I found Route {route_id}, but I still need the boarding Stop ID to calculate ETA.\n"
+                f"Tell me what area you’re at (example: 'Reitz Union', 'Downtown', 'UF', 'Oaks Mall'), or share a nearby landmark and I’ll suggest stops."
+            ),
+            "sources": [{"type": "stop_needed", "route_id": route_id}],
+            "data": {}
+        }
 
     # If user wants realtime (or gave stop), try predictions FIRST
     if stop_id and (wants_realtime(msg) or not wants_schedule(msg)):
