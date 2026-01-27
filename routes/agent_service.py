@@ -446,4 +446,138 @@ def try_transit_answer(message: str) -> dict | None:
             }
 
     if not is_transit_keywords(msg):
-        return
+        return None
+
+    extracted = llm_extract_intent(msg)
+    lang = extracted.get("language", "en")
+    intent = extracted.get("intent", "general")
+    route_id = extracted.get("route_id")
+    stop_id = extracted.get("stop_id")
+    destination_hint = (extracted.get("destination_hint") or "").strip()
+
+    # Regex fallback if LLM didn't extract
+    if intent == "general":
+        if not route_id:
+            route_id = extract_route_id_regex(msg)
+        if not stop_id:
+            stop_id = extract_stop_id_regex(msg)
+        if not destination_hint:
+            destination_hint = guess_destination_hint(msg) or ""
+
+    # Decide schedule vs realtime
+    prefer_schedule = (intent == "schedule") or (wants_schedule(msg) and not wants_realtime(msg))
+
+    # If stop_id missing:
+    if not stop_id:
+        if route_id:
+            candidates = suggest_stops_by_route(route_id, (destination_hint + " " + msg).strip(), limit=8)
+
+            # If we got exactly one strong match, auto-use it
+            if len(candidates) == 1:
+                stop_id = candidates[0]["id"]
+            elif len(candidates) > 1:
+                return {
+                    "answer": fmt_stop_list(
+                        lang,
+                        f"I can calculate ETA, but I need the boarding Stop ID. These Route {route_id} stops match your message:",
+                        candidates
+                    ),
+                    "sources": [{"type": "stop_suggestions_bustime", "route_id": route_id}],
+                }
+
+        # No stop_id and no route_id (or no matches) -> ask for route or stop id
+        if not stop_id:
+            return {
+                "answer": tmsg(
+                    lang,
+                    "To check ETA, I need either a 4-digit Stop ID or a route number + place (example: 'ETA Route 1 at Reitz').",
+                    "Para ver el ETA, necesito el Stop ID de 4 dígitos o una ruta + lugar (ej: 'ETA Ruta 1 en Reitz')."
+                ),
+                "sources": [{"type": "need_stop_or_route"}],
+            }
+
+    # If schedule requested, currently placeholder
+    if prefer_schedule:
+        when_dt = parse_when_dt_from_message(msg)
+        _ = schedule_next_departures(stop_id=stop_id, route_id=route_id, when_dt=when_dt, limit=3)
+
+        return {
+            "answer": tmsg(
+                lang,
+                "Schedules are being migrated to the RTS website mirror. For now, I can provide real-time ETAs. Ask: 'ETA Route 1 at Reitz' or 'ETA stop 0473'.",
+                "Los horarios se están migrando al sitio espejo de RTS. Por ahora, puedo dar ETAs en tiempo real. Pregunta: 'ETA Ruta 1 en Reitz' o 'ETA parada 0473'."
+            ),
+            "sources": [{"type": "schedule_migrating"}],
+        }
+
+    # Otherwise REALTIME predictions
+    predictions = []
+    try:
+        data = rts_api.get_predictions(stop_id)
+        preds = data.get("prd", []) or []
+
+        if route_id:
+            preds = [p for p in preds if str(p.get("rt")) == str(route_id)]
+
+        for p in preds[:10]:
+            predictions.append({
+                "route": p.get("rt"),
+                "destination": p.get("des"),
+                "minutes": p.get("prdctdn"),
+                "arrival_time": p.get("prdtm"),
+                "vehicle_id": p.get("vid"),
+                "delayed": p.get("dly"),
+            })
+    except Exception as e:
+        print("predictions_error:", repr(e))
+        print(traceback.format_exc())
+
+    # Keep <=45 min or DUE
+    usable = []
+    for p in predictions:
+        m = p.get("minutes")
+        if m is None:
+            continue
+        if isinstance(m, str) and m.upper() == "DUE":
+            usable.append(p)
+            continue
+        try:
+            mi = int(m)
+            if mi <= 45:
+                usable.append(p)
+        except Exception:
+            pass
+
+    if usable:
+        return {
+            "answer": format_realtime_answer(lang, usable),
+            "sources": [{"type": "realtime", "stop_id": stop_id, "route_id": route_id}],
+        }
+
+    return {
+        "answer": tmsg(
+            lang,
+            f"No real-time ETAs (<=45 min) found for Stop {stop_id}. Try another stop or ask for schedule.",
+            f"No hay ETAs en tiempo real (<=45 min) para Stop {stop_id}. Prueba otra parada o pide el horario."
+        ),
+        "sources": [{"type": "realtime_none", "stop_id": stop_id, "route_id": route_id}],
+    }
+
+
+def handle_agent_message(message: str) -> dict:
+    """
+    This is the function your routes/agent_api.py imports.
+    It MUST exist, or Render will crash on import.
+    """
+    transit = try_transit_answer(message)
+    if transit:
+        return {
+            "answer": transit.get("answer", ""),
+            "sources": transit.get("sources", []),
+        }
+
+    # Non-transit fallback (simple)
+    return {
+        "answer": "I can help with RTS real-time ETAs. Try: 'ETA Route 38 stop 1192' or 'ETA Route 1 at Reitz' or just type a Stop ID like '0473'.",
+        "sources": [{"type": "fallback"}],
+    }
