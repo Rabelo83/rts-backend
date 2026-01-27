@@ -1,4 +1,6 @@
 """Download a GTFS zip and build a SQLite schedule DB.
+import time
+import requests
 
 Usage:
   python scripts/gtfs_ingest.py
@@ -61,12 +63,63 @@ def time_to_secs(t: str) -> int | None:
     except Exception:
         return None
 
-
 def fetch_gtfs_zip(url: str) -> bytes:
-    print(f"⬇️  Downloading GTFS: {url}")
-    r = requests.get(url, timeout=TIMEOUT)
-    r.raise_for_status()
-    return r.content
+    """
+    Downloads GTFS zip. Some servers return 406 unless we look like a browser.
+    """
+    # Try a couple header sets (some WAF rules are picky)
+    header_sets = [
+        {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/121.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://go-rts.com/",
+            "Connection": "keep-alive",
+        },
+        {
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+                "Version/17.0 Safari/605.1.15"
+            ),
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://go-rts.com/rts-data/",
+        },
+    ]
+
+    last_err = None
+
+    for headers in header_sets:
+        for attempt in range(1, 4):
+            try:
+                r = requests.get(
+                    url,
+                    headers=headers,
+                    allow_redirects=True,
+                    timeout=(15, 180),  # (connect timeout, read timeout)
+                    stream=True
+                )
+                # If server rejects headers, try next header set
+                if r.status_code == 406:
+                    last_err = requests.HTTPError(f"406 Not Acceptable for {url}")
+                    break
+
+                r.raise_for_status()
+                return r.content
+
+            except Exception as e:
+                last_err = e
+                # small backoff and retry
+                time.sleep(1.5 * attempt)
+
+    # If we get here, all attempts failed
+    raise last_err
+
 
 
 def read_csv_from_zip(z: zipfile.ZipFile, name: str) -> list[dict]:
