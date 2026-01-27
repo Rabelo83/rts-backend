@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import rts_api
-# Schedule database (GTFS -> SQLite)
 from db import gtfs_db
 
 # OpenAI is OPTIONAL (agent still works without it)
@@ -45,10 +44,6 @@ def digits_only(s: str) -> str:
 
 
 def extract_route_id_regex(text: str) -> str | None:
-    """
-    Try to find route number in message.
-    Recognizes: "route 9", "rt 21", "bus 9", "bus #9", "route:12", "bus number 9"
-    """
     t = (text or "").lower()
 
     m = re.search(r"\b(route|rt|bus)\s*[:#]?\s*([0-9]{1,3})\b", t)
@@ -64,16 +59,13 @@ def extract_route_id_regex(text: str) -> str | None:
 
 def extract_stop_id_regex(text: str) -> str | None:
     """
-    Extract stop ID from free text.
-    Supports:
-      "stop 1" / "stop id 1" / "stop #1" -> 0001
-      "#1192" -> 1192
-      plain "1" or "001" -> 0001  (VERY IMPORTANT)
-      any 1-4 digit number -> stop
+    Stop ID extraction:
+      "stop 473" -> 0473
+      "#473" -> 0473
+      digits-only message is handled separately in try_transit_answer()
     """
     t = (text or "").lower().strip()
 
-    # Explicit stop patterns
     m = re.search(r"\bstop\s*(id)?\s*[:#]?\s*([0-9]{1,6})\b", t)
     if m:
         return normalize_stop_id(m.group(2))
@@ -82,22 +74,10 @@ def extract_stop_id_regex(text: str) -> str | None:
     if m:
         return normalize_stop_id(m.group(1))
 
-    # If the entire message is just a number (1, 01, 001, 0001, 1192)
-    if re.fullmatch(r"[0-9]{1,6}", t):
-        return normalize_stop_id(t)
-
-    # Last resort: any 1-4 digit number in the message
-    m = re.search(r"\b([0-9]{1,4})\b", t)
-    if m:
-        return normalize_stop_id(m.group(1))
-
     return None
 
 
 def wants_schedule(text: str) -> bool:
-    """
-    Detect schedule intent, including common typos.
-    """
     t = (text or "").lower()
     schedule_words = [
         "schedule", "sched", "schedual", "schedul", "timetable",
@@ -106,6 +86,7 @@ def wants_schedule(text: str) -> bool:
         "weekday", "weekdays", "mon-fri", "mon fri", "m/f", "m-f",
         # Spanish
         "horario", "tabla", "primero", "ultimo", "último", "a que hora", "a qué hora",
+        "mañana", "tomorrow",
     ]
     return any(k in t for k in schedule_words)
 
@@ -116,7 +97,8 @@ def wants_realtime(text: str) -> bool:
         "eta", "minutes", "mins", "min", "prediction", "predictions", "arrive", "arrival",
         "next bus", "where is", "vehicle", "location", "real-time", "realtime",
         # Spanish
-        "cuantos minutos", "cuántos minutos", "llega", "llegada", "en vivo", "tiempo real", "ubicacion", "ubicación",
+        "cuantos minutos", "cuántos minutos", "llega", "llegada", "en vivo", "tiempo real",
+        "ubicacion", "ubicación",
     ]
     return any(k in t for k in rt_words)
 
@@ -128,7 +110,8 @@ def is_transit_keywords(text: str) -> bool:
         "minutes", "mins", "min", "arrive", "arrival", "prediction", "predictions",
         "schedule", "sched", "schedual", "timetable", "first bus", "last bus",
         # Spanish
-        "parada", "ruta", "horario", "llega", "llegada", "cuantos minutos", "tiempo real", "ubicacion", "ubicación",
+        "parada", "ruta", "horario", "llega", "llegada", "cuantos minutos", "tiempo real",
+        "ubicacion", "ubicación", "mañana",
     ]
     return any(k in t for k in keywords)
 
@@ -136,9 +119,9 @@ def is_transit_keywords(text: str) -> bool:
 def guess_destination_hint(text: str) -> str | None:
     t = (text or "").lower()
     if "reitz" in t:
-        return "Reitz Union"
+        return "Reitz"
     if "oaks" in t:
-        return "Oaks Mall"
+        return "Oaks"
     if "downtown" in t:
         return "Downtown"
     if "hub" in t:
@@ -146,7 +129,7 @@ def guess_destination_hint(text: str) -> str | None:
     if "rosa" in t and "park" in t:
         return "Rosa Parks"
     if "uf" in t or "campus" in t:
-        return "UF Campus"
+        return "UF"
     return None
 
 
@@ -155,17 +138,16 @@ def tmsg(lang: str, en: str, es: str) -> str:
 
 
 def detect_language_simple(text: str) -> str:
-    # simple heuristic
     t = (text or "").lower()
-    if any(w in t for w in ["hola", "horario", "ruta", "parada", "llega", "cuántos", "ubicación"]):
+    if any(w in t for w in ["hola", "horario", "ruta", "parada", "llega", "cuántos", "ubicación", "mañana"]):
         return "es"
     return "en"
 
 
 def parse_when_dt_from_message(msg: str) -> datetime:
     """
-    Minimal time parsing:
-      - "tomorrow" -> +1 day
+    Supports:
+      - "tomorrow"/"mañana" -> +1 day
       - time like "2pm", "2:15pm", "14:00"
     If no time found -> current time.
     """
@@ -176,7 +158,6 @@ def parse_when_dt_from_message(msg: str) -> datetime:
     if "tomorrow" in t or "mañana" in t:
         base = (now + timedelta(days=1)).replace(hour=now.hour, minute=now.minute, second=0, microsecond=0)
 
-    # time: 2pm / 2:30pm / 14:00
     m = re.search(r"\b([0-9]{1,2})(?::([0-9]{2}))?\s*(am|pm)?\b", t)
     if m:
         hh = int(m.group(1))
@@ -188,7 +169,6 @@ def parse_when_dt_from_message(msg: str) -> datetime:
         if ap == "am" and hh == 12:
             hh = 0
 
-        # clamp
         hh = max(0, min(23, hh))
         mm = max(0, min(59, mm))
 
@@ -201,11 +181,6 @@ def parse_when_dt_from_message(msg: str) -> datetime:
 # OpenAI intent extraction (optional)
 # ------------------------------------------------------------
 def llm_extract_intent(message: str) -> dict:
-    """
-    If OPENAI_API_KEY is present and valid, use OpenAI to extract:
-      intent, route_id, stop_id, destination_hint, language
-    Otherwise return safe fallback.
-    """
     fallback = {
         "intent": "general",
         "route_id": None,
@@ -227,8 +202,8 @@ def llm_extract_intent(message: str) -> dict:
         "- intent is one of: eta, schedule, vehicle_location, general. "
         "- route_id is route number like '9' (string). "
         "- stop_id is 1-4 digit stop ID if provided; otherwise null. "
-        "- destination_hint is a place name like 'Reitz Union' if mentioned. "
-        "- language is 'es' if the user writes Spanish, else 'en'. "
+        "- destination_hint is a place name if mentioned. "
+        "- language is 'es' if Spanish, else 'en'. "
         "- If unsure, intent='general'."
     )
 
@@ -243,7 +218,6 @@ def llm_extract_intent(message: str) -> dict:
             response_format={"type": "json_object"},
             temperature=0,
         )
-
         raw = resp.choices[0].message.content or "{}"
         obj = json.loads(raw)
 
@@ -264,71 +238,94 @@ def llm_extract_intent(message: str) -> dict:
         }
 
     except Exception as e:
-        # IMPORTANT: do not break the agent if OpenAI fails
         print("llm_extract_intent_error:", repr(e))
         print(traceback.format_exc())
         return fallback
 
 
 # ------------------------------------------------------------
-# Stop suggestions (schedule DB)
+# Stop suggestions (Bustime-only by route)
 # ------------------------------------------------------------
+def _tokenize_for_stop_match(text: str) -> list[str]:
+    t = (text or "").lower()
+    t = re.sub(r"[^a-z0-9\s]", " ", t)
+    tokens = [x for x in t.split() if len(x) >= 3]
+    drop = {"route", "rt", "stop", "bus", "eta", "at", "to", "from", "the", "and", "for",
+            "ruta", "parada", "autobus", "autobús", "bus", "a", "de", "en", "el", "la"}
+    return [x for x in tokens if x not in drop]
+
+
+def _score_stop_name(stop_name: str, tokens: list[str]) -> int:
+    name = (stop_name or "").lower()
+    score = 0
+    for tok in tokens:
+        if tok in name:
+            score += 2
+        elif len(tok) >= 4 and tok[:4] in name:
+            score += 1
+    return score
+
+
 def suggest_stops_by_route(route_id: str, message: str, limit: int = 8) -> list[dict]:
-    hint = (guess_destination_hint(message) or "").strip()
-    q = hint if hint else None
+    route_id = digits_only(route_id or "")
+    if not route_id:
+        return []
 
-    try:
-        stops = gtfs_db.route_stops(route_id, q=q, limit=max(50, limit * 10))
-    except Exception:
-        stops = []
+    tokens = _tokenize_for_stop_match(message)
+    hint = guess_destination_hint(message)
+    if hint:
+        tokens += _tokenize_for_stop_match(hint)
+    tokens = list(dict.fromkeys(tokens))
 
-    # light scoring if no q
-    if not q:
-        t = (message or "").lower()
-        scored = []
-        for s in stops:
-            name = (s.get("stop_name") or "").lower()
-            score = 0
-            for token in ["reitz", "hub", "downtown", "oaks", "butler", "campus", "uf", "rosa", "park"]:
-                if token in t and token in name:
-                    score += 2
-            if score > 0:
-                scored.append((score, s))
-        scored.sort(key=lambda x: x[0], reverse=True)
-        stops = [s for _, s in scored] or stops
-
-    out = []
-    for s in stops[:limit]:
-        out.append({"id": s.get("stop_id"), "name": s.get("stop_name")})
-    return out
-
-
-def suggest_stops_by_name(message: str, limit: int = 8) -> list[dict]:
-    """
-    If user says a landmark like "Rosa Parks" but no stop_id,
-    try schedule_db.find_stops() and show top matches.
-    """
-    hint = guess_destination_hint(message) or ""
-    q = hint.strip() or ""
-
-    # If no known hint, try a cheap extraction: take longest word tokens
-    if not q:
-        # pick a couple meaningful words
-        words = [w for w in re.findall(r"[a-zA-Z]{3,}", message or "") if w.lower() not in {"route", "stop", "bus", "eta"}]
-        q = " ".join(words[:2]).strip()
-
-    if not q:
+    if not tokens:
         return []
 
     try:
-        hits = gtfs_db.find_stops(q, limit=limit)
+        dirs_data = rts_api.get_directions(route_id) or {}
+        dirs_raw = dirs_data.get("directions", []) or []
     except Exception:
-        hits = []
+        dirs_raw = []
 
-    out = []
-    for h in hits[:limit]:
-        out.append({"id": h.get("stop_id"), "name": h.get("stop_name")})
-    return out
+    dir_ids: list[str] = []
+    for d in dirs_raw:
+        if isinstance(d, dict):
+            dir_id = d.get("dir") or d.get("id") or d.get("direction") or d.get("dirId")
+        else:
+            dir_id = d
+        if dir_id:
+            dir_ids.append(str(dir_id))
+
+    if not dir_ids:
+        dir_ids = ["NORTHBOUND", "SOUTHBOUND", "EASTBOUND", "WESTBOUND", "INBOUND", "OUTBOUND"]
+
+    seen: set[tuple[str, str]] = set()
+    scored: list[tuple[int, dict]] = []
+
+    for dir_id in dir_ids:
+        try:
+            stops_data = rts_api.get_stops(route_id, dir_id) or {}
+            stops_raw = stops_data.get("stops", []) or []
+        except Exception:
+            stops_raw = []
+
+        for s in stops_raw:
+            if not isinstance(s, dict):
+                continue
+            sid = normalize_stop_id(s.get("stpid") or "")
+            nm = (s.get("stpnm") or "").strip()
+            if not sid or not nm:
+                continue
+            key = (sid, nm)
+            if key in seen:
+                continue
+            seen.add(key)
+
+            score = _score_stop_name(nm, tokens)
+            if score > 0:
+                scored.append((score, {"id": sid, "name": nm}))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [s for _, s in scored[:limit]]
 
 
 def fmt_stop_list(lang: str, title: str, candidates: list[dict]) -> str:
@@ -354,18 +351,11 @@ def fmt_stop_list(lang: str, title: str, candidates: list[dict]) -> str:
 
 
 # ------------------------------------------------------------
-# Schedule queries (use schedule_db module)
+# Schedule via GTFS
 # ------------------------------------------------------------
 def schedule_next_departures(stop_id: str, route_id: str | None, when_dt: datetime, limit: int = 3) -> dict:
-    """
-    Delegate to db/schedule_db.py helper (if present),
-    otherwise use stop_times table via schedule_db methods if you have them.
-    """
-    # GTFS-backed departures
-    try:
-        return gtfs_db.next_departures(stop_id=stop_id, route_id=route_id, when_dt=when_dt, limit=limit)
-    except Exception:
-        return {"rows": []}
+    # stop_id here is the rider-facing 4-digit stop number -> treat as GTFS stop_code
+    return gtfs_db.next_departures(stop_code=stop_id, route_short_name=route_id, when_dt=when_dt, limit=limit)
 
 
 def format_realtime_answer(lang: str, usable_preds: list[dict]) -> str:
@@ -374,12 +364,31 @@ def format_realtime_answer(lang: str, usable_preds: list[dict]) -> str:
         mins = p.get("minutes")
         rt = p.get("route") or ""
         dest = p.get("destination") or ""
-        if str(mins).upper() == "DUE":
+        if isinstance(mins, str) and mins.upper() == "DUE":
             lines.append(tmsg(lang, f"Route {rt} to {dest}: DUE", f"Ruta {rt} hacia {dest}: YA"))
         else:
             lines.append(tmsg(lang, f"Route {rt} to {dest}: {mins} min", f"Ruta {rt} hacia {dest}: {mins} min"))
 
     return tmsg(lang, "Real-time ETA:\n- ", "ETA en tiempo real:\n- ") + "\n- ".join(lines)
+
+
+def format_schedule_fallback(lang: str, stop_id: str, when_dt: datetime, rows: list[dict]) -> str:
+    lines = []
+    for r in rows[:3]:
+        dep = r.get("departure_time") or ""
+        rt = r.get("route_id") or ""
+        hs = (r.get("headsign") or "").strip()
+        if hs:
+            lines.append(f"{dep} — Route {rt} ({hs})")
+        else:
+            lines.append(f"{dep} — Route {rt}")
+
+    when_label = when_dt.strftime("%a %b %d %I:%M%p")
+    return tmsg(
+        lang,
+        f"No real-time buses within the next 45 minutes for Stop {stop_id}.\nNext scheduled departures (after {when_label}):\n- " + "\n- ".join(lines),
+        f"No hay buses en tiempo real dentro de los próximos 45 minutos para la parada {stop_id}.\nPróximas salidas programadas (después de {when_label}):\n- " + "\n- ".join(lines),
+    )
 
 
 # ------------------------------------------------------------
@@ -389,6 +398,34 @@ def try_transit_answer(message: str) -> dict | None:
     msg = (message or "").strip()
     if not msg:
         return None
+
+    # Digits-only messages: clarify route vs stop OR auto-ETA for likely stop IDs
+    if re.fullmatch(r"\d{1,6}", msg):
+        lang = detect_language_simple(msg)
+
+        # 1-2 digits: ambiguous (route vs stop)
+        if len(msg) <= 2:
+            return {
+                "answer": tmsg(
+                    lang,
+                    f"Did you mean Route {msg} or Stop {msg.zfill(4)}?\nReply: 'route {msg}' or 'stop {msg.zfill(4)}'.",
+                    f"¿Te refieres a la Ruta {msg} o la Parada {msg.zfill(4)}?\nResponde: 'ruta {msg}' o 'parada {msg.zfill(4)}'."
+                ),
+                "sources": [{"type": "clarify_route_vs_stop"}],
+            }
+
+        # 3-4 digits: treat as Stop ID and run ETA
+        if len(msg) <= 4:
+            msg = f"ETA stop {msg.zfill(4)}"
+        else:
+            return {
+                "answer": tmsg(
+                    lang,
+                    "That number looks too long to be a Stop ID. Please type 'stop ####' or 'route ##'.",
+                    "Ese número parece demasiado largo para ser un Stop ID. Escribe 'parada ####' o 'ruta ##'."
+                ),
+                "sources": [{"type": "clarify_number"}],
+            }
 
     if not is_transit_keywords(msg):
         return None
@@ -409,80 +446,71 @@ def try_transit_answer(message: str) -> dict | None:
         if not destination_hint:
             destination_hint = guess_destination_hint(msg) or ""
 
-    # Decide schedule vs realtime
     prefer_schedule = (intent == "schedule") or (wants_schedule(msg) and not wants_realtime(msg))
 
     # If stop_id missing:
     if not stop_id:
         if route_id:
             candidates = suggest_stops_by_route(route_id, (destination_hint + " " + msg).strip(), limit=8)
-            if candidates:
+
+            if len(candidates) == 1:
+                stop_id = candidates[0]["id"]
+            elif len(candidates) > 1:
                 return {
                     "answer": fmt_stop_list(
                         lang,
-                        f"I can’t calculate without the boarding Stop ID. Here are Route {route_id} stops that match your message.",
+                        f"I can calculate ETA, but I need the boarding Stop ID. These Route {route_id} stops match your message:",
                         candidates
                     ),
-                    "sources": [{"type": "stop_suggestions", "route_id": route_id}],
+                    "sources": [{"type": "stop_suggestions_bustime", "route_id": route_id}],
                 }
 
-        # try name-only search (Rosa Parks, etc.)
-        name_hits = suggest_stops_by_name(msg, limit=8)
-        if name_hits:
+        if not stop_id:
             return {
-                "answer": fmt_stop_list(
+                "answer": tmsg(
                     lang,
-                    "I need the Stop ID. These stops match what you typed:",
-                    name_hits
+                    "To check ETA, I need either a 4-digit Stop ID or a route number + place (example: 'ETA Route 1 at Reitz').",
+                    "Para ver el ETA, necesito el Stop ID de 4 dígitos o una ruta + lugar (ej: 'ETA Ruta 1 en Reitz')."
                 ),
-                "sources": [{"type": "stop_name_search"}],
+                "sources": [{"type": "need_stop_or_route"}],
             }
 
-        return {
-            "answer": tmsg(
-                lang,
-                "To check the next bus time, I need the Stop ID (the 4-digit number on the stop sign).",
-                "Para verificar el próximo bus, necesito el Stop ID (el número de 4 dígitos en el letrero)."
-            ),
-            "sources": [{"type": "need_stop_id"}],
-        }
-
-    # If schedule requested, go schedule FIRST
+    # Schedule questions (GTFS)
     if prefer_schedule:
         when_dt = parse_when_dt_from_message(msg)
         result = schedule_next_departures(stop_id=stop_id, route_id=route_id, when_dt=when_dt, limit=3)
-
         rows = result.get("rows") or []
+
         if rows:
             lines = []
             for r in rows[:3]:
-                dep = r.get("departure_time") or r.get("time") or ""
-                rt = r.get("route_id") or r.get("route") or route_id or ""
-                headsign = (r.get("headsign") or r.get("destination") or "").strip()
-                if headsign:
-                    lines.append(f"{dep} — Route {rt} ({headsign})")
+                dep = r.get("departure_time") or ""
+                rt = r.get("route_id") or (route_id or "")
+                hs = (r.get("headsign") or "").strip()
+                if hs:
+                    lines.append(f"{dep} — Route {rt} ({hs})")
                 else:
                     lines.append(f"{dep} — Route {rt}")
 
             return {
                 "answer": tmsg(
                     lang,
-                    f"Scheduled times for Stop {stop_id} ({when_dt.strftime('%a %b %d %I:%M%p')}):\n- " + "\n- ".join(lines),
-                    f"Horarios programados para Stop {stop_id} ({when_dt.strftime('%a %b %d %I:%M%p')}):\n- " + "\n- ".join(lines),
+                    f"Scheduled departures for Stop {stop_id}:\n- " + "\n- ".join(lines),
+                    f"Salidas programadas para la parada {stop_id}:\n- " + "\n- ".join(lines),
                 ),
-                "sources": [{"type": "schedule_db", "stop_id": stop_id, "route_id": route_id}],
+                "sources": [{"type": "gtfs_schedule", "stop_id": stop_id, "route_id": route_id}],
             }
 
         return {
             "answer": tmsg(
                 lang,
-                f"I couldn’t find scheduled departures for Stop {stop_id} at that time. Try another stop ID.",
-                f"No encontré horarios para Stop {stop_id} a esa hora. Prueba otra parada."
+                f"I couldn’t find scheduled departures for Stop {stop_id} at that time. Try another stop or route.",
+                f"No encontré salidas programadas para la parada {stop_id} a esa hora. Prueba otra parada o ruta."
             ),
-            "sources": [{"type": "schedule_db_none", "stop_id": stop_id, "route_id": route_id}],
+            "sources": [{"type": "gtfs_schedule_none", "stop_id": stop_id, "route_id": route_id}],
         }
 
-    # Otherwise REALTIME predictions
+    # Real-time predictions (Bustime)
     predictions = []
     try:
         data = rts_api.get_predictions(stop_id)
@@ -504,7 +532,7 @@ def try_transit_answer(message: str) -> dict | None:
         print("predictions_error:", repr(e))
         print(traceback.format_exc())
 
-    # Keep <=45 min or DUE
+    # Keep <=45 min or DUE  (Option B uses schedule if none in this window)
     usable = []
     for p in predictions:
         m = p.get("minutes")
@@ -526,52 +554,27 @@ def try_transit_answer(message: str) -> dict | None:
             "sources": [{"type": "realtime", "stop_id": stop_id, "route_id": route_id}],
         }
 
-    # If there are no predictions within 45 min, offer the next scheduled departures.
-    try:
-        now_dt = datetime.now(TZ)
-        sched = schedule_next_departures(stop_id=stop_id, route_id=route_id, when_dt=now_dt, limit=3)
-        rows = sched.get("rows") or []
-    except Exception:
-        rows = []
-
+    # --- FALLBACK TO GTFS SCHEDULE (Option B) ---
+    when_dt = datetime.now(TZ)
+    sched = schedule_next_departures(stop_id=stop_id, route_id=route_id, when_dt=when_dt, limit=3)
+    rows = sched.get("rows") or []
     if rows:
-        lines = []
-        for r in rows[:3]:
-            dep = r.get("departure_time") or r.get("time") or ""
-            rt = r.get("route_short_name") or r.get("route_id") or r.get("route") or route_id or ""
-            headsign = (r.get("headsign") or r.get("trip_headsign") or r.get("destination") or "").strip()
-            if headsign:
-                lines.append(f"{dep} — Route {rt} ({headsign})")
-            else:
-                lines.append(f"{dep} — Route {rt}")
-
         return {
-            "answer": tmsg(
-                lang,
-                f"No real-time ETAs (<=45 min) found for Stop {stop_id}. Next scheduled departures:\n- " + "\n- ".join(lines),
-                f"No hay ETAs en tiempo real (<=45 min) para Stop {stop_id}. Próximas salidas programadas:\n- " + "\n- ".join(lines),
-            ),
-            "sources": [
-                {"type": "realtime_none", "stop_id": stop_id, "route_id": route_id},
-                {"type": "schedule_fallback", "stop_id": stop_id, "route_id": route_id},
-            ],
+            "answer": format_schedule_fallback(lang, stop_id, when_dt, rows),
+            "sources": [{"type": "realtime_none_fallback_schedule", "stop_id": stop_id, "route_id": route_id}],
         }
 
     return {
         "answer": tmsg(
             lang,
-            f"No real-time ETAs (<=45 min) found for Stop {stop_id}. Try another stop or ask for schedule.",
-            f"No hay ETAs en tiempo real (<=45 min) para Stop {stop_id}. Prueba otra parada o pide el horario."
+            f"No real-time ETAs (<=45 min) found for Stop {stop_id}. I also couldn’t find a scheduled departure for that stop right now.",
+            f"No hay ETAs en tiempo real (<=45 min) para la parada {stop_id}. Tampoco encontré una salida programada para esa parada ahora."
         ),
         "sources": [{"type": "realtime_none", "stop_id": stop_id, "route_id": route_id}],
     }
 
 
 def handle_agent_message(message: str) -> dict:
-    """
-    This is the function your routes/agent_api.py imports.
-    It MUST exist, or Render will crash on import.
-    """
     transit = try_transit_answer(message)
     if transit:
         return {
@@ -579,8 +582,7 @@ def handle_agent_message(message: str) -> dict:
             "sources": transit.get("sources", []),
         }
 
-    # Non-transit fallback (simple)
     return {
-        "answer": "I can help with RTS ETAs and schedules. Try: 'ETA for Route 38 stop 1192' or 'schedule for Route 1 stop 0001 tomorrow 2pm'.",
+        "answer": "I can help with RTS ETAs and schedules. Try: 'ETA Route 1 at Reitz' or type a Stop ID like '0473'.",
         "sources": [{"type": "fallback"}],
     }
