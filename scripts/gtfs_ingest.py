@@ -1,6 +1,4 @@
 """Download a GTFS zip and build a SQLite schedule DB.
-import time
-import requests
 
 Usage:
   python scripts/gtfs_ingest.py
@@ -8,10 +6,11 @@ Usage:
 Configuration via env vars:
   - GTFS_URL (REQUIRED): direct URL to a GTFS .zip
   - GTFS_DB_PATH (optional): default 'data/gtfs.sqlite'
+  - GTFS_TIMEOUT (optional): default 60 (seconds)
 
 Why this exists:
-  Your agent needs a *complete* schedule source for *all* stops, not only
-  the landmark tables on the website. GTFS provides ...
+  Your agent needs a complete schedule source for all stops (by stop_code),
+  not only the landmark tables on the website.
 """
 
 from __future__ import annotations
@@ -21,6 +20,7 @@ import io
 import os
 import sqlite3
 import sys
+import time
 import zipfile
 from pathlib import Path
 
@@ -63,11 +63,12 @@ def time_to_secs(t: str) -> int | None:
     except Exception:
         return None
 
+
 def fetch_gtfs_zip(url: str) -> bytes:
     """
     Downloads GTFS zip. Some servers return 406 unless we look like a browser.
+    Retries a few times with different headers.
     """
-    # Try a couple header sets (some WAF rules are picky)
     header_sets = [
         {
             "User-Agent": (
@@ -92,7 +93,7 @@ def fetch_gtfs_zip(url: str) -> bytes:
         },
     ]
 
-    last_err = None
+    last_err: Exception | None = None
 
     for headers in header_sets:
         for attempt in range(1, 4):
@@ -102,9 +103,10 @@ def fetch_gtfs_zip(url: str) -> bytes:
                     headers=headers,
                     allow_redirects=True,
                     timeout=(15, 180),  # (connect timeout, read timeout)
-                    stream=True
+                    stream=True,
                 )
-                # If server rejects headers, try next header set
+
+                # If server rejects this header set, try the next one
                 if r.status_code == 406:
                     last_err = requests.HTTPError(f"406 Not Acceptable for {url}")
                     break
@@ -114,12 +116,9 @@ def fetch_gtfs_zip(url: str) -> bytes:
 
             except Exception as e:
                 last_err = e
-                # small backoff and retry
                 time.sleep(1.5 * attempt)
 
-    # If we get here, all attempts failed
-    raise last_err
-
+    raise last_err or RuntimeError("Failed to download GTFS zip")
 
 
 def read_csv_from_zip(z: zipfile.ZipFile, name: str) -> list[dict]:
@@ -146,17 +145,18 @@ def build_db(gtfs_bytes: bytes, db_path: str) -> None:
     try:
         cur = con.cursor()
 
-        # Core tables the app needs
         cur.executescript(
             """
             PRAGMA journal_mode=WAL;
 
             CREATE TABLE stops (
                 stop_id TEXT PRIMARY KEY,
+                stop_code TEXT,
                 stop_name TEXT,
                 stop_lat REAL,
                 stop_lon REAL
             );
+            CREATE INDEX idx_stops_code ON stops(stop_code);
 
             CREATE TABLE routes (
                 route_id TEXT PRIMARY KEY,
@@ -222,14 +222,17 @@ def build_db(gtfs_bytes: bytes, db_path: str) -> None:
         if not stops or not routes or not trips or not stop_times:
             die("GTFS zip missing required files (stops/routes/trips/stop_times)")
 
-        print(f"📥 Parsed: stops={len(stops)} routes={len(routes)} trips={len(trips)} stop_times={len(stop_times)}")
+        print(
+            f"📥 Parsed: stops={len(stops)} routes={len(routes)} trips={len(trips)} stop_times={len(stop_times)}"
+        )
 
-        # Insert stops
+        # Insert stops (IMPORTANT: store stop_code for 4-digit sign numbers)
         cur.executemany(
-            "INSERT INTO stops(stop_id, stop_name, stop_lat, stop_lon) VALUES(?,?,?,?)",
+            "INSERT INTO stops(stop_id, stop_code, stop_name, stop_lat, stop_lon) VALUES(?,?,?,?,?)",
             [
                 (
                     r.get("stop_id"),
+                    r.get("stop_code") or "",
                     r.get("stop_name"),
                     float(r["stop_lat"]) if r.get("stop_lat") else None,
                     float(r["stop_lon"]) if r.get("stop_lon") else None,
@@ -338,7 +341,8 @@ def build_db(gtfs_bytes: bytes, db_path: str) -> None:
 
         # quick sanity output
         n = cur.execute("SELECT COUNT(*) FROM stop_times").fetchone()[0]
-        print(f"✅ SQLite GTFS DB created: {db_path} (stop_times={n})")
+        s = cur.execute("SELECT COUNT(*) FROM stops").fetchone()[0]
+        print(f"✅ SQLite GTFS DB created: {db_path} (stops={s}, stop_times={n})")
 
     finally:
         con.close()
@@ -346,9 +350,8 @@ def build_db(gtfs_bytes: bytes, db_path: str) -> None:
 
 def main() -> None:
     if not GTFS_URL:
-        die(
-            "GTFS_URL env var is required. Set it in Render to the direct .zip link from the RTS data page."
-        )
+        die("GTFS_URL env var is required. Set it in Render to the direct .zip link.")
+    print(f"⬇️  Downloading GTFS: {GTFS_URL}")
     gtfs_bytes = fetch_gtfs_zip(GTFS_URL)
     build_db(gtfs_bytes, DB_PATH)
 
