@@ -233,149 +233,154 @@ def route_stops(
     return [{"stop_id": r["stop_id"], "stop_name": r["stop_name"]} for r in rows]
 
 
-def next_departures(
+def next_departures_window(
     *,
-    # Accept both names (so agent_service can call stop_code=xxxx):
     stop_code: str | None = None,
     stop_id: str | None = None,
-    # Accept both route names:
-    route_short_name: str | None = None,
     route_id: str | None = None,
-    when_dt: datetime,
-    limit: int = 3,
+    route_short_name: str | None = None,
+    start_dt: datetime,
+    end_dt: datetime,
+    limit: int = 6,
 ) -> dict:
     """
-    Return next scheduled departures.
+    Return scheduled departures in a TIME WINDOW [start_dt, end_dt].
 
-    Preferred input:
-      - stop_code: the public stop number on the sign (e.g. "0473")
+    This solves the common rider question:
+      "schedule tomorrow 2pm stop 0473"
+    which usually means "around 2pm" (not strictly after 2:00pm).
 
-    Fallback input:
-      - stop_id: GTFS internal stop_id (sometimes equals stop_code in some feeds)
+    Inputs:
+      - stop_code: public stop number on sign (e.g. "0473") (preferred)
+      - stop_id: GTFS internal stop_id (fallback)
+      - route_short_name: public route number (e.g. "1") (optional filter)
+      - start_dt/end_dt: window bounds in local time
+      - limit: max rows returned
 
     Returns:
       {"rows": [ {departure_time, route_id, headsign, stop_id, service_date}, ... ]}
     """
-    if not when_dt:
+    if not start_dt or not end_dt:
+        return {"rows": []}
+    if end_dt <= start_dt:
         return {"rows": []}
     if not os.path.exists(DB_PATH):
         return {"rows": []}
 
     # Normalize aliases
-    route_public = (route_id or route_short_name or None)
-
-    key = (stop_code or stop_id or "").strip()
-    if not key:
+    route_id = (route_id or route_short_name or None)
+    key_stop = (stop_code or stop_id or "").strip()
+    if not key_stop:
         return {"rows": []}
 
-    d_today = when_dt.date()
-    d_yday = d_today - timedelta(days=1)
-    sec_now = when_dt.hour * 3600 + when_dt.minute * 60 + when_dt.second
+    d_start = start_dt.date()
+    d_end = end_dt.date()
+
+    # Convert time-of-day to seconds since midnight
+    start_sec = start_dt.hour * 3600 + start_dt.minute * 60 + start_dt.second
+    end_sec = end_dt.hour * 3600 + end_dt.minute * 60 + end_dt.second
 
     with _connect() as con:
-        # 1) If stop_code provided, map it -> actual GTFS stop_id(s) using stops.stop_code (if available).
+        # Resolve stop_code -> GTFS stop_id(s) when possible
         stop_ids: list[str] = []
         if stop_code:
-            codes = _canonical_stop_codes(stop_code)
+            candidates = _canonical_stop_ids(stop_code)
+            if candidates:
+                in_codes = "(" + ",".join(["?"] * len(candidates)) + ")"
+                rows = con.execute(
+                    f"SELECT stop_id FROM stops WHERE stop_code IN {in_codes}",
+                    candidates,
+                ).fetchall()
+                stop_ids = [r["stop_id"] for r in rows]
 
-            if codes:
-                try:
-                    # stops.stop_code exists only if ingest created it (our updated ingest does).
-                    in_codes = "(" + ",".join(["?"] * len(codes)) + ")"
-                    rows = con.execute(
-                        f"SELECT stop_id FROM stops WHERE stop_code IN {in_codes}",
-                        codes,
-                    ).fetchall()
-                    stop_ids = [r["stop_id"] for r in rows]
-                except sqlite3.OperationalError:
-                    # Older DB schema without stop_code column; ignore and fall back below.
-                    stop_ids = []
-
-        # 2) Fallback: treat provided key as stop_id directly (try variants)
+        # Fallback: treat provided value as stop_id directly
         if not stop_ids:
-            stop_ids = _canonical_stop_codes(key)
+            stop_ids = _canonical_stop_ids(key_stop)
 
         if not stop_ids:
             return {"rows": []}
 
-        sids_today = _active_service_ids(con, d_today)
-        sids_yday = _active_service_ids(con, d_yday)
+        # Collect candidate service dates to search:
+        # - If window is same calendar day -> just that day
+        # - If window crosses midnight -> search both days
+        service_dates: list[date] = []
+        service_dates.append(d_start)
+        if d_end != d_start:
+            service_dates.append(d_end)
 
-        # If calendar tables missing, we can't filter reliably; return empty.
-        if not sids_today and not sids_yday:
-            return {"rows": []}
-
+        # Helper for safe IN (...)
         def in_clause(values: list[str]) -> tuple[str, list[str]]:
             if not values:
                 return "(NULL)", []
             return "(" + ",".join(["?"] * len(values)) + ")", list(values)
 
-        in_today, p_today = in_clause(sids_today)
-        in_yday, p_yday = in_clause(sids_yday)
         in_stops, p_stops = in_clause(stop_ids)
 
         where_route = ""
         p_route: list[str] = []
-        if route_public:
+        if route_id:
             where_route = "AND r.route_short_name = ?"
-            p_route.append(str(route_public))
+            p_route.append(str(route_id))
 
-        # Today: dep_secs >= now
-        q_today = f"""
-            SELECT st.departure_time AS departure_time,
-                   r.route_short_name AS route_id,
-                   t.trip_headsign AS headsign,
-                   st.stop_id AS stop_id,
-                   ? AS service_date,
-                   st.dep_secs AS dep_secs
-            FROM stop_times st
-            JOIN trips t ON t.trip_id = st.trip_id
-            JOIN routes r ON r.route_id = t.route_id
-            WHERE st.stop_id IN {in_stops}
-              AND t.service_id IN {in_today}
-              {where_route}
-              AND st.dep_secs >= ?
+        # Build UNION of per-day queries
+        union_parts: list[str] = []
+        params: list = []
+
+        for sd in service_dates:
+            sids = _active_service_ids(con, sd)
+            if not sids:
+                continue
+            in_svc, p_svc = in_clause(sids)
+
+            # Determine the window (seconds) we want on THIS service date
+            # If sd is the start date -> [start_sec, end_of_day] or [start_sec, end_sec] if same day
+            # If sd is the end date (cross-midnight case) -> [0, end_sec]
+            if sd == d_start and sd == d_end:
+                lo = start_sec
+                hi = end_sec
+            elif sd == d_start:
+                lo = start_sec
+                hi = 48 * 3600  # allow >24h times too
+            else:
+                lo = 0
+                hi = end_sec
+
+            union_parts.append(
+                f"""
+                SELECT st.departure_time AS departure_time,
+                       r.route_short_name AS route_id,
+                       t.trip_headsign AS headsign,
+                       st.stop_id AS stop_id,
+                       ? AS service_date,
+                       st.dep_secs AS dep_secs
+                FROM stop_times st
+                JOIN trips t ON t.trip_id = st.trip_id
+                JOIN routes r ON r.route_id = t.route_id
+                WHERE st.stop_id IN {in_stops}
+                  AND t.service_id IN {in_svc}
+                  {where_route}
+                  AND st.dep_secs >= ?
+                  AND st.dep_secs <= ?
+                """
+            )
+
+            # params for this part (match the SELECT placeholders order)
+            params += [_ymd(sd)]
+            params += p_stops + p_svc + p_route + [int(lo), int(hi)]
+
+        if not union_parts:
+            return {"rows": []}
+
+        sql = f"""
+        SELECT * FROM (
+          {" UNION ALL ".join(union_parts)}
+        )
+        ORDER BY service_date, dep_secs
+        LIMIT ?
         """
-
-        # Yesterday: dep_secs >= (now + 86400) to catch 25:xx style times
-        q_yday = f"""
-            SELECT st.departure_time AS departure_time,
-                   r.route_short_name AS route_id,
-                   t.trip_headsign AS headsign,
-                   st.stop_id AS stop_id,
-                   ? AS service_date,
-                   st.dep_secs AS dep_secs
-            FROM stop_times st
-            JOIN trips t ON t.trip_id = st.trip_id
-            JOIN routes r ON r.route_id = t.route_id
-            WHERE st.stop_id IN {in_stops}
-              AND t.service_id IN {in_yday}
-              {where_route}
-              AND st.dep_secs >= ?
-        """
-
-        params = []
-        # today query params
-        params += [_ymd(d_today)]
-        params += p_stops + p_today + p_route + [sec_now]
-        # yesterday query params
-        params += [_ymd(d_yday)]
-        params += p_stops + p_yday + p_route + [sec_now + 86400]
-        # limit
         params += [int(limit)]
 
-        rows = con.execute(
-            f"""
-            SELECT * FROM (
-              {q_today}
-              UNION ALL
-              {q_yday}
-            )
-            ORDER BY dep_secs
-            LIMIT ?
-            """,
-            params,
-        ).fetchall()
+        rows = con.execute(sql, params).fetchall()
 
     out = []
     for r in rows:
