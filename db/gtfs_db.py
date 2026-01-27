@@ -394,3 +394,31 @@ def next_departures_window(
             }
         )
     return {"rows": out}
+
+
+def next_departures(
+    *,
+    stop_code: str | None = None,
+    stop_id: str | None = None,
+    route_id: str | None = None,
+    route_short_name: str | None = None,
+    when_dt: datetime,
+    limit: int = 3,
+    window_minutes: int = 180,
+) -> dict:
+    """
+    Compatibility wrapper used by the agent: fetch the next N departures
+    starting at when_dt within a reasonable window.
+    """
+    if not when_dt:
+        return {"rows": []}
+    end_dt = when_dt + timedelta(minutes=int(window_minutes))
+    return next_departures_window(
+        stop_code=stop_code,
+        stop_id=stop_id,
+        route_id=route_id,
+        route_short_name=route_short_name,
+        start_dt=when_dt,
+        end_dt=end_dt,
+        limit=limit,
+    )

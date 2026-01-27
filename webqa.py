@@ -112,7 +112,7 @@ def _top_k(query: str, k: int = 3) -> List[Tuple[str, str]]:
     return top
 
 
-def answer(question: str, max_chars_per_doc: int = 1800) -> str:
+def answer(question: str, max_chars_per_doc: int = 1800) -> tuple[str, list[str]]:
     """
     Returns a natural-language answer using snippets from am2ar/go-rts.
     """
@@ -135,7 +135,7 @@ def answer(question: str, max_chars_per_doc: int = 1800) -> str:
             ],
             temperature=0.2,
         )
-        return resp.choices[0].message.content.strip()
+        return resp.choices[0].message.content.strip(), []
 
     # Build context snippets
     context_blocks = []
@@ -172,4 +172,4 @@ def answer(question: str, max_chars_per_doc: int = 1800) -> str:
     if "Sources:" not in content:
         content += "\n\nSources:\n" + "\n".join(f"- {u}" for u in used_urls)
 
-    return content
+    return content, used_urls
