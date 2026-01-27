@@ -39,7 +39,6 @@ def die(msg: str) -> None:
 
 def time_to_secs(t: str) -> int | None:
     """Convert HH:MM:SS (or HH:MM) to seconds.
-
     Supports HH >= 24 (GTFS after-midnight times).
     """
     if not t:
@@ -65,8 +64,8 @@ def time_to_secs(t: str) -> int | None:
 
 
 def fetch_gtfs_zip(url: str) -> bytes:
-    """
-    Downloads GTFS zip. Some servers return 406 unless we look like a browser.
+    """Downloads GTFS zip.
+    Some servers return 406 unless we look like a browser.
     Retries a few times with different headers.
     """
     header_sets = [
@@ -126,7 +125,6 @@ def read_csv_from_zip(z: zipfile.ZipFile, name: str) -> list[dict]:
         raw = z.read(name)
     except KeyError:
         return []
-    # UTF-8 is typical; if agency uses BOM, this handles it.
     text = raw.decode("utf-8-sig", errors="replace")
     reader = csv.DictReader(io.StringIO(text))
     return list(reader)
@@ -226,13 +224,13 @@ def build_db(gtfs_bytes: bytes, db_path: str) -> None:
             f"📥 Parsed: stops={len(stops)} routes={len(routes)} trips={len(trips)} stop_times={len(stop_times)}"
         )
 
-        # Insert stops (IMPORTANT: store stop_code for 4-digit sign numbers)
+        # Insert stops (store stop_code for stop sign numbers)
         cur.executemany(
             "INSERT INTO stops(stop_id, stop_code, stop_name, stop_lat, stop_lon) VALUES(?,?,?,?,?)",
             [
                 (
                     r.get("stop_id"),
-                    r.get("stop_code") or "",
+                    (r.get("stop_code") or "").strip(),
                     r.get("stop_name"),
                     float(r["stop_lat"]) if r.get("stop_lat") else None,
                     float(r["stop_lon"]) if r.get("stop_lon") else None,
@@ -297,7 +295,7 @@ def build_db(gtfs_bytes: bytes, db_path: str) -> None:
             rows,
         )
 
-        # calendar / calendar_dates are optional but highly recommended
+        # calendar / calendar_dates (recommended)
         if calendar:
             cur.executemany(
                 """
@@ -339,7 +337,6 @@ def build_db(gtfs_bytes: bytes, db_path: str) -> None:
 
         con.commit()
 
-        # quick sanity output
         n = cur.execute("SELECT COUNT(*) FROM stop_times").fetchone()[0]
         s = cur.execute("SELECT COUNT(*) FROM stops").fetchone()[0]
         print(f"✅ SQLite GTFS DB created: {db_path} (stops={s}, stop_times={n})")
