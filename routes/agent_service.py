@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import rts_api
-from db import schedule_db
 
 # OpenAI is OPTIONAL (agent still works without it)
 try:
