@@ -7,3 +7,5 @@ openai>=1.40.0
 httpx>=0.27.0
 numpy==2.1.3
 pdfplumber
+gtfs-realtime-bindings
+pandas
