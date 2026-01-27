@@ -220,34 +220,64 @@ def route_stops(
 
 def next_departures(
     *,
-    stop_id: str,
-    route_id: str | None,
+    # Backwards compatible inputs:
+    stop_id: str | None = None,
+    stop_code: str | None = None,
+    route_id: str | None = None,
+    route_short_name: str | None = None,
     when_dt: datetime,
     limit: int = 3,
 ) -> dict:
     """Return next scheduled departures.
 
+    Accepts either:
+      - stop_code (preferred): the public stop number on the sign (e.g. "0473")
+      - stop_id: GTFS internal stop_id (or sometimes the same as stop_code)
+
+    Also accepts route_short_name as an alias for route_id (public route number).
+
     Returns:
       {"rows": [ {departure_time, route_id, headsign, stop_id, service_date}, ... ]}
     """
-    if not stop_id or not when_dt:
+    if not when_dt:
         return {"rows": []}
     if not os.path.exists(DB_PATH):
         return {"rows": []}
 
-    stop_ids = _canonical_stop_ids(stop_id)
-    if not stop_ids:
+    # Normalize aliases
+    route_id = (route_id or route_short_name or None)
+    key_stop = (stop_code or stop_id or "").strip()
+    if not key_stop:
         return {"rows": []}
 
     d_today = when_dt.date()
     d_yday = d_today - timedelta(days=1)
-
     sec_now = when_dt.hour * 3600 + when_dt.minute * 60 + when_dt.second
 
     with _connect() as con:
+        # 1) Prefer stop_code -> lookup real GTFS stop_id(s)
+        stop_ids: list[str] = []
+        if stop_code:
+            candidates = _canonical_stop_ids(stop_code)
+            if candidates:
+                # stops.stop_code can be stored as "473" or "0473" depending on feed
+                in_codes = "(" + ",".join(["?"] * len(candidates)) + ")"
+                rows = con.execute(
+                    f"SELECT stop_id FROM stops WHERE stop_code IN {in_codes}",
+                    candidates,
+                ).fetchall()
+                stop_ids = [r["stop_id"] for r in rows]
+
+        # 2) Fallback: treat provided value as stop_id directly
+        # (helps if feed uses numeric stop_id matching the sign)
+        if not stop_ids:
+            stop_ids = _canonical_stop_ids(key_stop)
+
+        if not stop_ids:
+            return {"rows": []}
+
         sids_today = _active_service_ids(con, d_today)
         sids_yday = _active_service_ids(con, d_yday)
-
         if not sids_today and not sids_yday:
             return {"rows": []}
 
