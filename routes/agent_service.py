@@ -66,8 +66,9 @@ def extract_stop_id_regex(text: str) -> str | None:
     Supports:
       "stop 1" / "stop id 1" / "stop #1" -> 0001
       "#1192" -> 1192
-      plain "1" or "001" -> 0001  (VERY IMPORTANT)
-      any 1-4 digit number -> stop
+      Plain number ONLY if the entire message is digits:
+        - 3-4 digits -> stop id (pad to 4)
+        - 1-2 digits -> we DO NOT assume stop id (could be route)
     """
     t = (text or "").lower().strip()
 
@@ -76,18 +77,16 @@ def extract_stop_id_regex(text: str) -> str | None:
     if m:
         return normalize_stop_id(m.group(2))
 
+    # Hashtag pattern (people paste #473 etc.)
     m = re.search(r"#\s*([0-9]{1,6})\b", t)
     if m:
         return normalize_stop_id(m.group(1))
 
-    # If the entire message is just a number (1, 01, 001, 0001, 1192)
+    # If the entire message is just digits, only accept if len>=3
     if re.fullmatch(r"[0-9]{1,6}", t):
-        return normalize_stop_id(t)
-
-    # Last resort: any 1-4 digit number in the message
-    m = re.search(r"\b([0-9]{1,4})\b", t)
-    if m:
-        return normalize_stop_id(m.group(1))
+        if len(t) >= 3:
+            return normalize_stop_id(t)
+        return None
 
     return None
 
