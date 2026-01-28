@@ -354,8 +354,63 @@ def fmt_stop_list(lang: str, title: str, candidates: list[dict]) -> str:
 # Schedule via GTFS
 # ------------------------------------------------------------
 def schedule_next_departures(stop_id: str, route_id: str | None, when_dt: datetime, limit: int = 3) -> dict:
-    # stop_id here is the rider-facing 4-digit stop number -> treat as GTFS stop_code
-    return gtfs_db.next_departures(stop_code=stop_id, route_short_name=route_id, when_dt=when_dt, limit=limit)
+    """
+    stop_id here is the rider-facing 4-digit stop number -> treat as GTFS stop_code.
+    If nothing is scheduled at/after the requested time, return the closest
+    scheduled departure before that time within a small window.
+    """
+    window_before = int(os.getenv("SCHEDULE_WINDOW_BEFORE_MIN", "90"))
+    window_after = int(os.getenv("SCHEDULE_WINDOW_AFTER_MIN", "180"))
+
+    start_dt = when_dt - timedelta(minutes=window_before)
+    end_dt = when_dt + timedelta(minutes=window_after)
+
+    result = gtfs_db.next_departures_window(
+        stop_code=stop_id,
+        route_short_name=route_id,
+        start_dt=start_dt,
+        end_dt=end_dt,
+        limit=max(6, limit * 3),
+    )
+    rows = result.get("rows") or []
+    if not rows:
+        return {"rows": [], "fallback_before": False}
+
+    target_date = when_dt.strftime("%Y%m%d")
+    target_sec = when_dt.hour * 3600 + when_dt.minute * 60 + when_dt.second
+
+    after_rows = []
+    before_rows = []
+
+    for r in rows:
+        svc_date = str(r.get("service_date") or "")
+        dep_secs = r.get("dep_secs")
+        if dep_secs is None:
+            continue
+
+        if svc_date == target_date:
+            delta = dep_secs - target_sec
+        elif svc_date > target_date:
+            delta = (24 * 3600 - target_sec) + dep_secs
+        else:
+            delta = -(target_sec + (24 * 3600 - dep_secs))
+
+        if delta >= 0:
+            after_rows.append((delta, r))
+        else:
+            before_rows.append((delta, r))
+
+    if after_rows:
+        after_rows.sort(key=lambda x: x[0])
+        picked = [r for _, r in after_rows[:limit]]
+        return {"rows": picked, "fallback_before": False}
+
+    if before_rows:
+        # closest before = max delta (least negative)
+        before_rows.sort(key=lambda x: x[0], reverse=True)
+        return {"rows": [before_rows[0][1]], "fallback_before": True}
+
+    return {"rows": [], "fallback_before": False}
 
 
 def format_realtime_answer(lang: str, usable_preds: list[dict]) -> str:
@@ -491,6 +546,16 @@ def try_transit_answer(message: str) -> dict | None:
                     lines.append(f"{dep} — Route {rt} ({hs})")
                 else:
                     lines.append(f"{dep} — Route {rt}")
+
+            if result.get("fallback_before"):
+                return {
+                    "answer": tmsg(
+                        lang,
+                        f"No departures at/after your requested time. Closest scheduled departure before then:\n- " + "\n- ".join(lines),
+                        f"No hay salidas a esa hora o después. La salida programada más cercana antes es:\n- " + "\n- ".join(lines),
+                    ),
+                    "sources": [{"type": "gtfs_schedule_before", "stop_id": stop_id, "route_id": route_id}],
+                }
 
             return {
                 "answer": tmsg(

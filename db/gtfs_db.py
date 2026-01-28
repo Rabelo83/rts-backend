@@ -410,6 +410,7 @@ def next_departures_window(
                 "headsign": r["headsign"],
                 "stop_id": r["stop_id"],
                 "service_date": r["service_date"],
+                "dep_secs": r["dep_secs"],
             }
         )
     return {"rows": out}
