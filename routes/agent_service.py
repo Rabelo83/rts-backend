@@ -7,12 +7,9 @@ from zoneinfo import ZoneInfo
 
 import rts_api
 from db import gtfs_db
-
-# Optional web fallback for schedules
-try:
-    import webqa
-except Exception:
-    webqa = None
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 
 # OpenAI is OPTIONAL (agent still works without it)
 try:
@@ -484,26 +481,206 @@ def schedule_next_departures(stop_id: str, route_id: str | None, when_dt: dateti
     return {"rows": [], "fallback_before": False}
 
 
-def web_fallback_schedule_answer(message: str) -> dict | None:
-    """
-    Use the mirrored website Q&A as a last-resort schedule source.
-    Requires OPENAI_API_KEY and webqa available.
-    """
-    if not webqa:
+_WEB_BASE = os.getenv("WEB_SCHEDULE_BASE", "https://53733956.com")
+_WEB_TIMEOUT = int(os.getenv("WEB_SCHEDULE_TIMEOUT", "12"))
+_ROUTE_PAGE_CACHE: dict[str, str] = {}
+
+
+def _normalize_text(s: str) -> str:
+    s = (s or "").lower()
+    s = re.sub(r"[^a-z0-9\s]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def _route_page_url(route_id: str) -> str | None:
+    if not route_id:
         return None
-    if not os.environ.get("OPENAI_API_KEY", "").strip():
+    rid = str(route_id).strip().zfill(3)
+    try:
+        resp = requests.get(_WEB_BASE + "/", timeout=_WEB_TIMEOUT, headers={"User-Agent": "rts-backend/1.0"})
+        resp.raise_for_status()
+    except Exception as e:
+        print("web_schedule_home_error:", repr(e))
+        return None
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    target = f"route {rid}"
+    for a in soup.find_all("a", href=True):
+        text = _normalize_text(a.get_text(" "))
+        if target in text:
+            return urljoin(_WEB_BASE + "/", a["href"])
+    return None
+
+
+def _fetch_route_page(route_id: str) -> str | None:
+    if route_id in _ROUTE_PAGE_CACHE:
+        return _ROUTE_PAGE_CACHE[route_id]
+
+    url = _route_page_url(route_id)
+    if not url:
         return None
     try:
-        ans, src = webqa.answer(message)
-        if not ans:
-            return None
-        return {
-            "answer": ans,
-            "sources": [{"type": "web_fallback", "urls": src}],
-        }
+        resp = requests.get(url, timeout=_WEB_TIMEOUT, headers={"User-Agent": "rts-backend/1.0"})
+        resp.raise_for_status()
+        _ROUTE_PAGE_CACHE[route_id] = resp.text
+        return resp.text
     except Exception as e:
-        print("web_fallback_error:", repr(e))
+        print("web_schedule_route_error:", repr(e))
         return None
+
+
+def _table_label(table) -> str:
+    for tag in table.find_all_previous(["h1", "h2", "h3", "h4"], limit=3):
+        t = _normalize_text(tag.get_text(" "))
+        if t:
+            return t
+    caption = table.find("caption")
+    if caption:
+        return _normalize_text(caption.get_text(" "))
+    return ""
+
+
+def _parse_time_candidates(token: str) -> list[int]:
+    token = token.strip().lower()
+    m = re.search(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b", token)
+    if not m:
+        return []
+    hh = int(m.group(1))
+    mm = int(m.group(2) or 0)
+    ap = (m.group(3) or "").lower()
+    if ap == "am":
+        if hh == 12:
+            hh = 0
+        return [hh * 60 + mm]
+    if ap == "pm":
+        if hh != 12:
+            hh += 12
+        return [hh * 60 + mm]
+    # no am/pm -> return both possibilities
+    if hh == 12:
+        return [0 * 60 + mm, 12 * 60 + mm]
+    return [hh * 60 + mm, (hh + 12) * 60 + mm]
+
+
+def _extract_times(cell_text: str) -> list[int]:
+    out: list[int] = []
+    for token in re.findall(r"\b\d{1,2}(:\d{2})?\s*(am|pm)?\b", cell_text.lower()):
+        # token is tuple due to groups; rebuild
+        pass
+    for m in re.finditer(r"\b\d{1,2}(:\d{2})?\s*(am|pm)?\b", cell_text.lower()):
+        out.extend(_parse_time_candidates(m.group(0)))
+    return out
+
+
+def _best_time(times: list[int], target_min: int) -> int | None:
+    if not times:
+        return None
+    # prefer after
+    after = [t for t in times if t >= target_min]
+    if after:
+        return min(after, key=lambda x: x - target_min)
+    return max(times)
+
+
+def web_schedule_lookup(route_id: str, stop_name: str, when_dt: datetime) -> dict | None:
+    html = _fetch_route_page(route_id)
+    if not html:
+        return None
+    soup = BeautifulSoup(html, "html.parser")
+    tables = soup.find_all("table")
+    if not tables:
+        return None
+
+    day_label = "weekday"
+    if when_dt.weekday() == 5:
+        day_label = "saturday"
+    elif when_dt.weekday() == 6:
+        day_label = "sunday"
+
+    stop_norm = _normalize_text(stop_name)
+    best_candidate = None
+
+    for tbl in tables:
+        label = _table_label(tbl)
+        if label and day_label not in label and any(k in label for k in ["weekday", "saturday", "sunday"]):
+            continue
+
+        rows = tbl.find_all("tr")
+        if not rows:
+            continue
+        headers = [c.get_text(" ").strip() for c in rows[0].find_all(["th", "td"])]
+        header_norm = [_normalize_text(h) for h in headers]
+        if not header_norm:
+            continue
+
+        # find best column match
+        col_idx = None
+        best_score = 0
+        for i, h in enumerate(header_norm):
+            if not h:
+                continue
+            score = 0
+            if stop_norm and stop_norm in h:
+                score = 3
+            else:
+                # token overlap
+                s_tokens = set(stop_norm.split())
+                h_tokens = set(h.split())
+                score = len(s_tokens & h_tokens)
+            if score > best_score:
+                best_score = score
+                col_idx = i
+
+        if col_idx is None or best_score == 0:
+            continue
+
+        times: list[int] = []
+        for r in rows[1:]:
+            cells = r.find_all(["td", "th"])
+            if col_idx >= len(cells):
+                continue
+            cell_text = cells[col_idx].get_text(" ").strip()
+            if not cell_text or cell_text in ("-", "—"):
+                continue
+            times.extend(_extract_times(cell_text))
+
+        if not times:
+            continue
+
+        best_candidate = {
+            "label": label or day_label,
+            "times": times,
+        }
+        break
+
+    if not best_candidate:
+        return None
+
+    target_min = when_dt.hour * 60 + when_dt.minute
+    chosen = _best_time(best_candidate["times"], target_min)
+    if chosen is None:
+        return None
+
+    hh = chosen // 60
+    mm = chosen % 60
+    suffix = "AM"
+    if hh == 0:
+        hh_display = 12
+    elif hh == 12:
+        hh_display = 12
+        suffix = "PM"
+    elif hh > 12:
+        hh_display = hh - 12
+        suffix = "PM"
+    else:
+        hh_display = hh
+    time_str = f"{hh_display}:{mm:02d} {suffix}"
+
+    return {
+        "time_str": time_str,
+        "label": best_candidate["label"],
+    }
 
 
 def format_realtime_answer(lang: str, usable_preds: list[dict]) -> str:
@@ -678,10 +855,19 @@ def try_transit_answer(message: str) -> dict | None:
                 "sources": [{"type": "gtfs_schedule", "stop_id": stop_id, "route_id": route_id}],
             }
 
-        # Final fallback: try website Q&A (mirror)
-        web_ans = web_fallback_schedule_answer(msg)
-        if web_ans:
-            return web_ans
+        # Final fallback: try website schedule parse (mirror)
+        stop_name = rts_api.get_stop_name(route_id, stop_id) if route_id else None
+        if stop_name:
+            web_res = web_schedule_lookup(route_id, stop_name, when_dt)
+            if web_res:
+                return {
+                    "answer": tmsg(
+                        lang,
+                        f"Closest scheduled time near {stop_name} ({web_res.get('label')}) is {web_res.get('time_str')}.",
+                        f"El horario programado más cercano cerca de {stop_name} ({web_res.get('label')}) es {web_res.get('time_str')}.",
+                    ),
+                    "sources": [{"type": "web_schedule_parse", "route_id": route_id, "stop_name": stop_name}],
+                }
 
         return {
             "answer": tmsg(
