@@ -374,6 +374,33 @@ def schedule_next_departures(stop_id: str, route_id: str | None, when_dt: dateti
     )
     rows = result.get("rows") or []
     if not rows:
+        # Fallback: try Bustime stop name -> GTFS stop_name search -> stop_id lookup
+        if route_id:
+            try:
+                stop_name = rts_api.get_stop_name(route_id, stop_id)
+            except Exception:
+                stop_name = None
+
+            if stop_name:
+                candidates = gtfs_db.find_stops(stop_name, limit=5)
+                if candidates:
+                    gtfs_stop_id = candidates[0].get("stop_id")
+                    if gtfs_stop_id:
+                        result = gtfs_db.next_departures_window(
+                            stop_id=gtfs_stop_id,
+                            route_short_name=route_id,
+                            start_dt=start_dt,
+                            end_dt=end_dt,
+                            limit=max(6, limit * 3),
+                        )
+                        rows = result.get("rows") or []
+                        if rows:
+                            return {
+                                "rows": rows,
+                                "fallback_before": False,
+                                "fallback_name": stop_name,
+                            }
+
         return {"rows": [], "fallback_before": False}
 
     target_date = when_dt.strftime("%Y%m%d")
@@ -555,6 +582,16 @@ def try_transit_answer(message: str) -> dict | None:
                         f"No hay salidas a esa hora o después. La salida programada más cercana antes es:\n- " + "\n- ".join(lines),
                     ),
                     "sources": [{"type": "gtfs_schedule_before", "stop_id": stop_id, "route_id": route_id}],
+                }
+
+            if result.get("fallback_name"):
+                return {
+                    "answer": tmsg(
+                        lang,
+                        f"Scheduled departures near '{result.get('fallback_name')}' (matched by stop name):\n- " + "\n- ".join(lines),
+                        f"Salidas programadas cerca de '{result.get('fallback_name')}' (por nombre de parada):\n- " + "\n- ".join(lines),
+                    ),
+                    "sources": [{"type": "gtfs_schedule_name", "stop_id": stop_id, "route_id": route_id}],
                 }
 
             return {

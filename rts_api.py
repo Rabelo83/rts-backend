@@ -52,6 +52,32 @@ def get_predictions(stop_id: str, top: int | None = None):
 def get_vehicles(route_id: str):
     return call_bustime("getvehicles", {"rt": route_id})
 
+# ----- Stop name helper (by route/direction scan) -----
+def get_stop_name(route_id: str, stop_id: str) -> str | None:
+    """
+    Try to resolve a stop name from Bustime by scanning stops for route directions.
+    """
+    try:
+        dirs = get_directions_raw(route_id).get("directions", []) or []
+        dir_ids = [(d.get("id") if isinstance(d, dict) else d) for d in dirs]
+    except Exception:
+        dir_ids = []
+
+    if not dir_ids:
+        dir_ids = COMMON_DIRECTIONS
+
+    for d in dir_ids:
+        try:
+            stops = get_stops_raw(route_id, d).get("stops", []) or []
+        except Exception:
+            stops = []
+        for s in stops:
+            sid = s.get("stpid")
+            if str(sid) == str(stop_id):
+                return (s.get("stpnm") or "").strip() or None
+
+    return None
+
 # ----- Convenience: try common direction labels until one works -----
 COMMON_DIRECTIONS = [
     "NORTHBOUND","SOUTHBOUND","EASTBOUND","WESTBOUND",
