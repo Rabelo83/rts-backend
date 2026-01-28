@@ -284,7 +284,7 @@ def next_departures_window(
         # Resolve stop_code -> GTFS stop_id(s) when possible
         stop_ids: list[str] = []
         if stop_code:
-            candidates = _canonical_stop_ids(stop_code)
+            candidates = _canonical_stop_codes(stop_code)
             if candidates:
                 in_codes = "(" + ",".join(["?"] * len(candidates)) + ")"
                 rows = con.execute(
@@ -295,7 +295,7 @@ def next_departures_window(
 
         # Fallback: treat provided value as stop_id directly
         if not stop_ids:
-            stop_ids = _canonical_stop_ids(key_stop)
+            stop_ids = _canonical_stop_codes(key_stop)
 
         if not stop_ids:
             return {"rows": []}
