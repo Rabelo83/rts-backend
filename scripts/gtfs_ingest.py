@@ -156,6 +156,11 @@ def build_db(gtfs_bytes: bytes, db_path: str) -> None:
             );
             CREATE INDEX idx_stops_code ON stops(stop_code);
 
+            CREATE TABLE stop_code_map (
+                stop_code TEXT PRIMARY KEY,
+                stop_id TEXT
+            );
+
             CREATE TABLE routes (
                 route_id TEXT PRIMARY KEY,
                 route_short_name TEXT,
@@ -239,6 +244,21 @@ def build_db(gtfs_bytes: bytes, db_path: str) -> None:
                 if r.get("stop_id")
             ],
         )
+
+        # Build a fast lookup table for stop_code -> stop_id
+        stop_code_rows = []
+        for r in stops:
+            stop_id = r.get("stop_id")
+            stop_code = (r.get("stop_code") or "").strip()
+            if not stop_id or not stop_code:
+                continue
+            stop_code_rows.append((stop_code, stop_id))
+
+        if stop_code_rows:
+            cur.executemany(
+                "INSERT OR REPLACE INTO stop_code_map(stop_code, stop_id) VALUES(?,?)",
+                stop_code_rows,
+            )
 
         # Insert routes
         cur.executemany(

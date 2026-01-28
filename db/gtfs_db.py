@@ -118,6 +118,32 @@ def _active_service_ids(con: sqlite3.Connection, d: date) -> list[str]:
 
     return sorted(active)
 
+def _resolve_stop_ids_from_code(con: sqlite3.Connection, stop_code: str) -> list[str]:
+    """
+    Resolve a public stop_code (stop sign number) to GTFS stop_id(s).
+    Prefers stop_code_map table when present, falls back to stops.stop_code.
+    """
+    candidates = _canonical_stop_codes(stop_code)
+    if not candidates:
+        return []
+
+    in_codes = "(" + ",".join(["?"] * len(candidates)) + ")"
+
+    if _table_exists(con, "stop_code_map"):
+        rows = con.execute(
+            f"SELECT stop_id FROM stop_code_map WHERE stop_code IN {in_codes}",
+            candidates,
+        ).fetchall()
+        out = [r["stop_id"] for r in rows if r["stop_id"]]
+        if out:
+            return out
+
+    rows = con.execute(
+        f"SELECT stop_id FROM stops WHERE stop_code IN {in_codes}",
+        candidates,
+    ).fetchall()
+    return [r["stop_id"] for r in rows if r["stop_id"]]
+
 
 # ------------------------------------------------------------
 # Public API
@@ -284,14 +310,7 @@ def next_departures_window(
         # Resolve stop_code -> GTFS stop_id(s) when possible
         stop_ids: list[str] = []
         if stop_code:
-            candidates = _canonical_stop_codes(stop_code)
-            if candidates:
-                in_codes = "(" + ",".join(["?"] * len(candidates)) + ")"
-                rows = con.execute(
-                    f"SELECT stop_id FROM stops WHERE stop_code IN {in_codes}",
-                    candidates,
-                ).fetchall()
-                stop_ids = [r["stop_id"] for r in rows]
+            stop_ids = _resolve_stop_ids_from_code(con, stop_code)
 
         # Fallback: treat provided value as stop_id directly
         if not stop_ids:
