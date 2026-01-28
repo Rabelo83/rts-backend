@@ -496,7 +496,8 @@ def _normalize_text(s: str) -> str:
 def _route_page_url(route_id: str) -> str | None:
     if not route_id:
         return None
-    rid = str(route_id).strip().zfill(3)
+    rid_raw = str(route_id).strip()
+    rid = rid_raw.zfill(3)
     try:
         resp = requests.get(_WEB_BASE + "/", timeout=_WEB_TIMEOUT, headers={"User-Agent": "rts-backend/1.0"})
         resp.raise_for_status()
@@ -505,11 +506,19 @@ def _route_page_url(route_id: str) -> str | None:
         return None
 
     soup = BeautifulSoup(resp.text, "html.parser")
-    target = f"route {rid}"
+    target_padded = f"route {rid}"
+    target_raw = f"route {rid_raw}"
     for a in soup.find_all("a", href=True):
         text = _normalize_text(a.get_text(" "))
-        if target in text:
-            return urljoin(_WEB_BASE + "/", a["href"])
+        href = a["href"]
+        if target_padded in text or target_raw in text:
+            return urljoin(_WEB_BASE + "/", href)
+
+        # Also match href patterns like rts005 or rts05
+        href_norm = _normalize_text(href)
+        m = re.search(r"\brts\s*0*(\d{1,3})\b", href_norm)
+        if m and m.group(1).lstrip("0") == rid_raw.lstrip("0"):
+            return urljoin(_WEB_BASE + "/", href)
     return None
 
 

@@ -52,6 +52,32 @@ def get_predictions(stop_id: str, top: int | None = None):
 def get_vehicles(route_id: str):
     return call_bustime("getvehicles", {"rt": route_id})
 
+# ----- Route ID resolver -----
+def resolve_route_id(route_id: str) -> str | None:
+    """
+    Resolve a rider-entered route number to the exact Bustime route id (rt).
+    Matches by numeric value (handles leading zeros).
+    """
+    rid = str(route_id or "").strip()
+    if not rid:
+        return None
+    rid_digits = re.sub(r"[^0-9]", "", rid)
+    if not rid_digits:
+        return rid
+
+    try:
+        routes = get_routes_raw().get("routes", []) or []
+    except Exception:
+        return rid
+
+    for r in routes:
+        rt = (r.get("rt") or "").strip()
+        rt_digits = re.sub(r"[^0-9]", "", rt)
+        if rt_digits and int(rt_digits) == int(rid_digits):
+            return rt
+
+    return rid
+
 # ----- Stop name helper (by route/direction scan) -----
 def get_stop_name(route_id: str, stop_id: str) -> str | None:
     """
@@ -67,8 +93,9 @@ def get_stop_name(route_id: str, stop_id: str) -> str | None:
             digits = digits[-4:]
         return digits.zfill(4)
 
+    resolved_rt = resolve_route_id(route_id) or route_id
     try:
-        dirs = get_directions_raw(route_id).get("directions", []) or []
+        dirs = get_directions_raw(resolved_rt).get("directions", []) or []
         dir_ids = []
         for d in dirs:
             if isinstance(d, dict):
@@ -86,7 +113,7 @@ def get_stop_name(route_id: str, stop_id: str) -> str | None:
     target = _norm_stop(stop_id)
     for d in dir_ids:
         try:
-            stops = get_stops_raw(route_id, d).get("stops", []) or []
+            stops = get_stops_raw(resolved_rt, d).get("stops", []) or []
         except Exception:
             stops = []
         for s in stops:
