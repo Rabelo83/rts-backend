@@ -9,7 +9,7 @@ import urllib.robotparser as robotparser
 from datetime import datetime
 
 # --------- Config ---------
-DEFAULT_BASE = "https://am2ar.com"
+DEFAULT_BASE = "https://53733956.com"
 EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 USER_AGENT = "RTS-Agent/1.0 (+https://rabelopersonal.com)"
 MAX_PAGES_DEFAULT = int(os.getenv("WEB_MAX_PAGES", "200"))

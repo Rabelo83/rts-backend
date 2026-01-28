@@ -11,12 +11,12 @@ import os, re, time
 import requests
 from bs4 import BeautifulSoup
 from typing import List, Tuple
+import urllib.parse
 
 # ---- Config ----
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 BASES = [
-    "https://am2ar.com",       # mirror (preferred)
-    "https://go-rts.com",      # original
+    "https://53733956.com",    # mirror (preferred)
 ]
 HEADERS = {
     "User-Agent": "rts-backend/1.0 (+https://rts-backend)"
@@ -24,11 +24,7 @@ HEADERS = {
 # Small hand-curated “sitemap”. You can add more later.
 PATHS = [
     "/",
-    "/fares-and-passes/",
-    "/frequently-asked-questions/",
-    "/rts-vision-statement-and-mission/",
     "/rts-schedule-disclaimer/",
-    "/customer-code-of-conduct/",
     "/contact/",
 ]
 
@@ -62,6 +58,25 @@ def _ensure_index() -> None:
     for base in BASES:
         for p in PATHS:
             urls.append(base.rstrip("/") + p)
+
+        # Add route/schedule pages discovered from the base page (best effort).
+        try:
+            html = _fetch(base.rstrip("/") + "/")
+            soup = BeautifulSoup(html, "html.parser")
+            for a in soup.find_all("a", href=True):
+                href = a["href"]
+                if not href:
+                    continue
+                # only same-host, route-like paths
+                absu = urllib.parse.urljoin(base, href)
+                u = urllib.parse.urlparse(absu)
+                if u.netloc and u.netloc != urllib.parse.urlparse(base).netloc:
+                    continue
+                path = u.path or ""
+                if "/rts" in path.lower():
+                    urls.append(urllib.parse.urlunparse((u.scheme, u.netloc, u.path, "", "", "")))
+        except Exception:
+            pass
 
     # build cache (best-effort; skip failures)
     now = time.time()

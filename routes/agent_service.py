@@ -8,6 +8,12 @@ from zoneinfo import ZoneInfo
 import rts_api
 from db import gtfs_db
 
+# Optional web fallback for schedules
+try:
+    import webqa
+except Exception:
+    webqa = None
+
 # OpenAI is OPTIONAL (agent still works without it)
 try:
     from openai import OpenAI
@@ -478,6 +484,28 @@ def schedule_next_departures(stop_id: str, route_id: str | None, when_dt: dateti
     return {"rows": [], "fallback_before": False}
 
 
+def web_fallback_schedule_answer(message: str) -> dict | None:
+    """
+    Use the mirrored website Q&A as a last-resort schedule source.
+    Requires OPENAI_API_KEY and webqa available.
+    """
+    if not webqa:
+        return None
+    if not os.environ.get("OPENAI_API_KEY", "").strip():
+        return None
+    try:
+        ans, src = webqa.answer(message)
+        if not ans:
+            return None
+        return {
+            "answer": ans,
+            "sources": [{"type": "web_fallback", "urls": src}],
+        }
+    except Exception as e:
+        print("web_fallback_error:", repr(e))
+        return None
+
+
 def format_realtime_answer(lang: str, usable_preds: list[dict]) -> str:
     lines = []
     for p in usable_preds[:3]:
@@ -649,6 +677,11 @@ def try_transit_answer(message: str) -> dict | None:
                 ),
                 "sources": [{"type": "gtfs_schedule", "stop_id": stop_id, "route_id": route_id}],
             }
+
+        # Final fallback: try website Q&A (mirror)
+        web_ans = web_fallback_schedule_answer(msg)
+        if web_ans:
+            return web_ans
 
         return {
             "answer": tmsg(
