@@ -57,6 +57,16 @@ def get_stop_name(route_id: str, stop_id: str) -> str | None:
     """
     Try to resolve a stop name from Bustime by scanning stops for route directions.
     """
+    def _norm_stop(s: str | None) -> str | None:
+        if not s:
+            return None
+        digits = "".join(ch for ch in str(s) if ch.isdigit())
+        if not digits:
+            return None
+        if len(digits) > 4:
+            digits = digits[-4:]
+        return digits.zfill(4)
+
     try:
         dirs = get_directions_raw(route_id).get("directions", []) or []
         dir_ids = []
@@ -73,14 +83,15 @@ def get_stop_name(route_id: str, stop_id: str) -> str | None:
     if not dir_ids:
         dir_ids = COMMON_DIRECTIONS
 
+    target = _norm_stop(stop_id)
     for d in dir_ids:
         try:
             stops = get_stops_raw(route_id, d).get("stops", []) or []
         except Exception:
             stops = []
         for s in stops:
-            sid = s.get("stpid")
-            if str(sid) == str(stop_id):
+            sid = _norm_stop(s.get("stpid"))
+            if sid and sid == target:
                 return (s.get("stpnm") or "").strip() or None
 
     return None

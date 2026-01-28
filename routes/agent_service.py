@@ -382,12 +382,22 @@ def schedule_next_departures(stop_id: str, route_id: str | None, when_dt: dateti
                 stop_name = None
 
             if stop_name:
-                name_queries = [
-                    stop_name,
-                    stop_name.split("/")[0].strip(),
-                    stop_name.split(" - ")[0].strip(),
-                ]
-                name_queries = [q for q in name_queries if q]
+                # Build a few reasonable name queries (full + simplified)
+                name_queries = []
+                name_queries.append(stop_name)
+                name_queries.append(stop_name.split("/")[0].strip())
+                name_queries.append(stop_name.split(" - ")[0].strip())
+
+                # Token-based fallback (e.g., "Rosa Parks Downtown Station")
+                tokens = re.findall(r"[a-z0-9]+", stop_name.lower())
+                tokens = [t for t in tokens if len(t) >= 4]
+                if len(tokens) >= 2:
+                    name_queries.append(" ".join(tokens[:2]))
+                if tokens:
+                    name_queries.append(tokens[0])
+
+                # De-dupe
+                name_queries = [q for q in dict.fromkeys([q.strip() for q in name_queries if q])]
 
                 for q in name_queries:
                     candidates = gtfs_db.find_stops(q, limit=5)
