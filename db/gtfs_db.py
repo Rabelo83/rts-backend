@@ -312,9 +312,9 @@ def next_departures_window(
         if stop_code:
             stop_ids = _resolve_stop_ids_from_code(con, stop_code)
 
-        # Fallback: treat provided value as stop_id directly
-        if not stop_ids:
-            stop_ids = _canonical_stop_codes(key_stop)
+        # Fallback: treat provided value as stop_id directly (no normalization)
+        if not stop_ids and stop_id:
+            stop_ids = [key_stop]
 
         if not stop_ids:
             return {"rows": []}
