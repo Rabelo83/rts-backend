@@ -59,7 +59,14 @@ def get_stop_name(route_id: str, stop_id: str) -> str | None:
     """
     try:
         dirs = get_directions_raw(route_id).get("directions", []) or []
-        dir_ids = [(d.get("id") if isinstance(d, dict) else d) for d in dirs]
+        dir_ids = []
+        for d in dirs:
+            if isinstance(d, dict):
+                dir_id = d.get("id") or d.get("dir") or d.get("dirId") or d.get("dirid") or d.get("direction")
+            else:
+                dir_id = d
+            if dir_id:
+                dir_ids.append(str(dir_id))
     except Exception:
         dir_ids = []
 

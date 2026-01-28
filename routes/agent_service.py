@@ -382,24 +382,52 @@ def schedule_next_departures(stop_id: str, route_id: str | None, when_dt: dateti
                 stop_name = None
 
             if stop_name:
-                candidates = gtfs_db.find_stops(stop_name, limit=5)
-                if candidates:
+                name_queries = [
+                    stop_name,
+                    stop_name.split("/")[0].strip(),
+                    stop_name.split(" - ")[0].strip(),
+                ]
+                name_queries = [q for q in name_queries if q]
+
+                for q in name_queries:
+                    candidates = gtfs_db.find_stops(q, limit=5)
+                    if not candidates:
+                        continue
                     gtfs_stop_id = candidates[0].get("stop_id")
-                    if gtfs_stop_id:
-                        result = gtfs_db.next_departures_window(
-                            stop_id=gtfs_stop_id,
-                            route_short_name=route_id,
-                            start_dt=start_dt,
-                            end_dt=end_dt,
-                            limit=max(6, limit * 3),
-                        )
-                        rows = result.get("rows") or []
-                        if rows:
-                            return {
-                                "rows": rows,
-                                "fallback_before": False,
-                                "fallback_name": stop_name,
-                            }
+                    if not gtfs_stop_id:
+                        continue
+
+                    result = gtfs_db.next_departures_window(
+                        stop_id=gtfs_stop_id,
+                        route_short_name=route_id,
+                        start_dt=start_dt,
+                        end_dt=end_dt,
+                        limit=max(6, limit * 3),
+                    )
+                    rows = result.get("rows") or []
+                    if rows:
+                        return {
+                            "rows": rows,
+                            "fallback_before": False,
+                            "fallback_name": stop_name,
+                        }
+
+                    # If the route filter yields nothing, try the same stop without route filter.
+                    result = gtfs_db.next_departures_window(
+                        stop_id=gtfs_stop_id,
+                        route_short_name=None,
+                        start_dt=start_dt,
+                        end_dt=end_dt,
+                        limit=max(6, limit * 3),
+                    )
+                    rows = result.get("rows") or []
+                    if rows:
+                        return {
+                            "rows": rows,
+                            "fallback_before": False,
+                            "fallback_name": stop_name,
+                            "fallback_no_route": True,
+                        }
 
         return {"rows": [], "fallback_before": False}
 
@@ -585,6 +613,15 @@ def try_transit_answer(message: str) -> dict | None:
                 }
 
             if result.get("fallback_name"):
+                if result.get("fallback_no_route"):
+                    return {
+                        "answer": tmsg(
+                            lang,
+                            f"I couldn’t find Route {route_id} schedule at that stop. Here are other scheduled departures near '{result.get('fallback_name')}':\n- " + "\n- ".join(lines),
+                            f"No encontré horarios de la Ruta {route_id} en esa parada. Otras salidas programadas cerca de '{result.get('fallback_name')}':\n- " + "\n- ".join(lines),
+                        ),
+                        "sources": [{"type": "gtfs_schedule_name_any_route", "stop_id": stop_id, "route_id": route_id}],
+                    }
                 return {
                     "answer": tmsg(
                         lang,
