@@ -694,7 +694,10 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 # Preserve prior route context when user confirms a landmark
                 prev = _last_user_with_context(history)
                 route = extract_route_id_regex(prev or "")
-                if route:
+                if prev:
+                    # Keep original time/date/first/last context
+                    msg_ctx = prev
+                elif route:
                     msg_ctx = f"route {route} schedule from {landmark}"
                 else:
                     msg_ctx = f"schedule from {landmark}"
