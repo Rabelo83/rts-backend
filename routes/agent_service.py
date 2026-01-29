@@ -201,6 +201,14 @@ def guess_destination_hint(text: str) -> str | None:
         return "UF"
     return None
 
+def extract_origin_place(text: str) -> str | None:
+    if not text:
+        return None
+    m = re.search(r"(from|leaving)\s+(.+?)(?:\s+on|\s+at|\s+around|\?|$)", text, re.IGNORECASE)
+    if m:
+        return m.group(2).strip()
+    return None
+
 
 def tmsg(lang: str, en: str, es: str) -> str:
     return es if (lang or "").lower().startswith("es") else en
@@ -745,6 +753,42 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             res = BB_ANSWER_FN(msg_ctx)
             if isinstance(res, dict):
                 answer_text = res.get("response_text") or str(res)
+                raw = res.get("raw") or {}
+                # Direction disambiguation: if user said "leaving/from X", prefer headsigns
+                # that do NOT contain the origin place name.
+                origin = extract_origin_place(msg_ctx)
+                if origin and isinstance(raw, dict):
+                    next_by_dir = raw.get("next_by_direction") or []
+                    if next_by_dir:
+                        origin_l = origin.lower()
+                        filtered = [(t, h) for (t, h) in next_by_dir if origin_l not in (h or "").lower()]
+                        if filtered:
+                            raw["next_by_direction"] = filtered
+                            # rebuild answer text using filtered options if we have keys
+                            if all(k in raw for k in ("route", "stop", "date", "time")):
+                                lines = [
+                                    f"Next departures for route {raw['route']} from {raw['stop']} on "
+                                    f"{raw['date']} after {raw['time']}:"
+                                ]
+                                for t, headsign in filtered:
+                                    lines.append(f"- {t} ({headsign})")
+                                answer_text = "\n".join(lines)
+
+                # If multiple headsigns remain and no destination hint, ask to clarify.
+                if isinstance(raw, dict):
+                    next_by_dir = raw.get("next_by_direction") or []
+                    headsigns = [h for _, h in next_by_dir if h]
+                    uniq = sorted(set(headsigns))
+                    if len(uniq) > 1 and not destination_hint:
+                        options = "; ".join(uniq)
+                        return {
+                            "answer": tmsg(
+                                lang,
+                                f"I can help-are you headed toward {options}? Reply with the destination or direction.",
+                                f"Puedo ayudar-estas yendo hacia {options}? Responde con el destino o la direccion."
+                            ),
+                            "sources": [{"type": "need_direction_schedule"}],
+                        }
             else:
                 answer_text = str(res)
             # If multiple headsigns are present, ask for direction/landmark
