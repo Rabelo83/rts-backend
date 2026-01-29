@@ -330,6 +330,8 @@ def _is_next_request(text: str) -> bool:
 
 def _has_next_intent(text: str) -> bool:
     t = (text or "").lower()
+    if "first" in t or "last" in t:
+        return False
     return any(kw in t for kw in ("next", "soonest", "upcoming", "leaving", "depart"))
 
 def _normalize_time_tokens(text: str) -> str:
@@ -650,6 +652,14 @@ def format_time_12h(hhmmss: str) -> str:
         h12 = 12
     return f"{h12}:{mm:02d} {ap}"
 
+
+def normalize_times_in_text(text: str) -> str:
+    if not text:
+        return text
+    def repl(m):
+        return format_time_12h(m.group(0))
+    return re.sub(r"\b\d{1,2}:\d{2}:\d{2}\b", repl, text)
+
 # ------------------------------------------------------------
 # Core agent logic
 # ------------------------------------------------------------
@@ -924,6 +934,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                     for t, headsign in next_by_dir:
                         lines.append(f"- {format_time_12h(t)} ({headsign})")
                     answer_text = "\n".join(lines)
+            answer_text = normalize_times_in_text(answer_text)
             # If multiple headsigns are present, ask for direction/landmark
             if isinstance(res, dict):
                 raw = res.get("raw") or {}

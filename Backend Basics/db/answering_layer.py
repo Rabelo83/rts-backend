@@ -373,14 +373,14 @@ def answer_question(question):
             if len(candidates) == 1:
                 stop = candidates[0]
             elif len(candidates) > 1:
-                names = ", ".join([c.stop_name for c in candidates[:5]])
+                names = ", ".join([f"{c.stop_name} (Stop {c.stop_id_padded})" for c in candidates[:5]])
                 return f"Multiple stops on route {route} match: {names}."
             else:
                 fuzzy = find_stops_fuzzy(conn, stop_term if m else question, route)
                 if len(fuzzy) == 1:
                     stop = fuzzy[0]
                 elif len(fuzzy) > 1:
-                    names = ", ".join([c.stop_name for c in fuzzy[:5]])
+                    names = ", ".join([f"{c.stop_name} (Stop {c.stop_id_padded})" for c in fuzzy[:5]])
                     return f"Multiple fuzzy matches on route {route}: {names}."
                 else:
                     return "I couldn't find a matching stop on that route."
