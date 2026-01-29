@@ -35,6 +35,26 @@ except Exception as e:
     print("backend_basics_import_error:", repr(e))
 
 
+def ensure_backend_basics() -> bool:
+    global BACKEND_BASICS_AVAILABLE, BB_ANSWER_FN
+    if BACKEND_BASICS_AVAILABLE and BB_ANSWER_FN:
+        return True
+    try:
+        backend_basics_db = Path(__file__).resolve().parents[1] / "Backend Basics" / "db"
+        if not backend_basics_db.exists():
+            return False
+        if str(backend_basics_db) not in sys.path:
+            sys.path.insert(0, str(backend_basics_db))
+        import answering_layer as _bb_answering_layer
+
+        BB_ANSWER_FN = _bb_answering_layer.answer_question
+        BACKEND_BASICS_AVAILABLE = True
+        return True
+    except Exception as e:
+        print("backend_basics_import_error_runtime:", repr(e))
+        return False
+
+
 # ------------------------------------------------------------
 # Basic helpers
 # ------------------------------------------------------------
@@ -760,7 +780,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         }
 
     # Schedule questions (Backend Basics preferred)
-    if prefer_schedule and BACKEND_BASICS_AVAILABLE and BB_ANSWER_FN:
+    if prefer_schedule and ensure_backend_basics() and BB_ANSWER_FN:
         try:
             # If "next" with no explicit time, inject current time so schedules can answer.
             if _has_next_intent(msg_ctx) and not has_explicit_timeframe(msg_ctx):
@@ -918,7 +938,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         }
 
     # If no real-time ETAs, fall back to schedule when possible
-    if BACKEND_BASICS_AVAILABLE and BB_ANSWER_FN and route_id and (destination_hint or "from" in msg_ctx.lower() or "leaving" in msg_ctx.lower()):
+    if ensure_backend_basics() and BB_ANSWER_FN and route_id and (destination_hint or "from" in msg_ctx.lower() or "leaving" in msg_ctx.lower()):
         try:
             if _has_next_intent(msg_ctx) and not has_explicit_timeframe(msg_ctx):
                 now = datetime.now(TZ)
