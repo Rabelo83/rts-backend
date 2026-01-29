@@ -257,6 +257,16 @@ def _assistant_asked_time(text: str) -> bool:
         or "last service" in t
     )
 
+def _explicit_date_or_weekday(text: str) -> bool:
+    t = (text or "").lower()
+    if re.search(r"20\d{2}-\d{2}-\d{2}", t) or re.search(r"\d{1,2}/\d{1,2}/\d{2,4}", t):
+        return True
+    if any(w in t for w in ("today", "tomorrow", "tonight")):
+        return True
+    if any(w in t for w in ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")):
+        return True
+    return False
+
 def _is_next_request(text: str) -> bool:
     t = (text or "").strip().lower()
     return t in (
@@ -600,7 +610,11 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             ampm = "am" if now.hour < 12 else "pm"
             time_str = f"{hour}:{now.minute:02d} {ampm}"
             if prev:
-                msg_ctx = f"{prev} around {time_str}"
+                # Keep existing date/week context if provided (tomorrow, Tuesday, etc.)
+                if _explicit_date_or_weekday(prev):
+                    msg_ctx = f"{prev} around {time_str}"
+                else:
+                    msg_ctx = f"{prev} around {time_str}"
                 msg = msg_ctx
             else:
                 msg_ctx = f"schedule around {time_str}"
