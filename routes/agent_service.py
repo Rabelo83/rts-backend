@@ -232,6 +232,41 @@ def _history_text(history) -> str:
     return " ".join(parts[-3:])
 
 
+def _last_assistant_message(history) -> str:
+    if not history:
+        return ""
+    for item in reversed(history):
+        if isinstance(item, dict):
+            role = (item.get("role") or "").lower()
+            if role == "assistant":
+                return (item.get("content") or "").strip()
+    return ""
+
+
+def _is_confirmation(text: str) -> bool:
+    t = (text or "").strip().lower()
+    return t in ("yes", "y", "yeah", "yep", "si", "s")
+
+
+def _is_rejection(text: str) -> bool:
+    t = (text or "").strip().lower()
+    return t in ("no", "n", "nope", "nah")
+
+
+def _extract_confirm_stop_id(assistant_text: str) -> str | None:
+    if not assistant_text:
+        return None
+    m = re.search(r"\bStop\s+([0-9]{4})\b", assistant_text)
+    return m.group(1) if m else None
+
+
+def _extract_confirm_landmark(assistant_text: str) -> str | None:
+    if not assistant_text:
+        return None
+    m = re.search(r"schedules\s+for\s+(.+?)\?", assistant_text, re.IGNORECASE)
+    return m.group(1).strip() if m else None
+
+
 
 def parse_when_dt_from_message(msg: str) -> datetime:
     """
@@ -464,6 +499,38 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     if not msg:
         return None
 
+    # Handle confirmation replies using last assistant prompt
+    if _is_confirmation(msg):
+        last_assistant = _last_assistant_message(history)
+        stop_id = _extract_confirm_stop_id(last_assistant)
+        if stop_id:
+            msg = f"ETA stop {stop_id}"
+            msg_ctx = msg
+        else:
+            landmark = _extract_confirm_landmark(last_assistant)
+            if landmark:
+                msg_ctx = f"schedule from {landmark}"
+    elif _is_rejection(msg):
+        last_assistant = _last_assistant_message(history)
+        if _extract_confirm_stop_id(last_assistant):
+            return {
+                "answer": tmsg(
+                    detect_language_simple(msg),
+                    "Okay, tell me the stop ID or stop name.",
+                    "Esta bien, dime el ID de la parada o el nombre."
+                ),
+                "sources": [{"type": "need_stop_after_reject"}],
+            }
+        if _extract_confirm_landmark(last_assistant):
+            return {
+                "answer": tmsg(
+                    detect_language_simple(msg),
+                    "No problem. Which stop or landmark should I use?",
+                    "No hay problema. Que parada o lugar debo usar?"
+                ),
+                "sources": [{"type": "need_landmark_after_reject"}],
+            }
+
     # Digits-only messages: clarify route vs stop OR auto-ETA for likely stop IDs
     if re.fullmatch(r"\d{1,6}", msg):
         lang = detect_language_simple(msg)
@@ -535,6 +602,16 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             "sources": [{"type": "need_stop_schedule"}],
         }
 
+    if prefer_schedule and route_id and destination_hint and not stop_id and not re.search(r"\b(from|at|near)\b", msg_ctx.lower()):
+        return {
+            "answer": tmsg(
+                lang,
+                f"Do you want schedules for {destination_hint}? Reply yes or no.",
+                f"Quieres horarios para {destination_hint}? Responde si o no."
+            ),
+            "sources": [{"type": "confirm_landmark_schedule"}],
+        }
+
     # Schedule questions (Backend Basics preferred)
     if prefer_schedule and BACKEND_BASICS_AVAILABLE and BB_ANSWER_FN:
         try:
@@ -576,10 +653,10 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 stop_id = candidates[0]["id"]
             elif len(candidates) > 1:
                 return {
-                    "answer": fmt_stop_list(
+                    "answer": tmsg(
                         lang,
-                        f"I can calculate ETA, but I need the boarding Stop ID. These Route {route_id} stops match your message:",
-                        candidates
+                        f"Did you mean Stop {candidates[0]['id']}: {candidates[0]['name']}? Reply yes or no.",
+                        f"Te refieres a la parada {candidates[0]['id']}: {candidates[0]['name']}? Responde si o no."
                     ),
                     "sources": [{"type": "stop_suggestions_bustime", "route_id": route_id}],
                 }
