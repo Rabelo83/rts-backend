@@ -912,14 +912,24 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 "sources": [{"type": "need_direction_schedule"}],
             }
 
-        lines = [
-            f"Next departures for route {data['route']} from {data['stop']} on {data['date']} after {format_time_12h(data['time'])}:"
-        ]
-        for t, headsign in next_by_dir:
-            lines.append(f"- {format_time_12h(t)} ({headsign})")
+        if data.get("time"):
+            lines = [
+                f"Next departures for route {data['route']} from {data['stop']} on {data['date']} after {format_time_12h(data['time'])}:"
+            ]
+            for t, headsign in next_by_dir:
+                lines.append(f"- {format_time_12h(t)} ({headsign})")
+            return {
+                "answer": "\n".join(lines),
+                "sources": [{"type": "schedule_next"}],
+            }
+
         return {
-            "answer": "\n".join(lines),
-            "sources": [{"type": "schedule_next"}],
+            "answer": tmsg(
+                lang,
+                "I couldn't find schedule times for that request. Please try a Stop ID or a different time.",
+                "No pude encontrar horarios para esa solicitud. Prueba con un Stop ID o una hora diferente.",
+            ),
+            "sources": [{"type": "schedule_no_time"}],
         }
 
     # Schedule questions (Backend Basics preferred)
