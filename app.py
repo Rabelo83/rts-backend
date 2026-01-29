@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 
 # Blueprints (your split routes)
@@ -15,16 +15,20 @@ except Exception:
 
 
 def create_app() -> Flask:
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder="public_html", static_url_path="/static")
     CORS(app)
 
     # Register routes
-    app.register_blueprint(health_bp)     # "/"
+    app.register_blueprint(health_bp)     # /api/health
     app.register_blueprint(bustime_bp)    # /api/routes, /api/predictions, etc.
     app.register_blueprint(agent_bp)      # /api/agent
 
     if web_index_bp:
         app.register_blueprint(web_index_bp)
+
+    @app.route("/")
+    def index():
+        return send_from_directory(app.static_folder, "index.html")
 
     return app
 

@@ -6,7 +6,7 @@ import web_index
 
 health_bp = Blueprint("health", __name__)
 
-@health_bp.route("/")
+@health_bp.route("/api/health")
 def health():
     has_index = os.path.exists(web_index.INDEX_PATH)
     # Backend Basics schedule engine (optional)

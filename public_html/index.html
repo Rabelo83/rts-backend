@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>RTS Bus Tracker</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/static/style.css?v=7" />
+<style>
+  /* Hard overrides for chat UI */
+  #chat-input-row { 
+    display: flex !important; 
+    align-items: stretch !important; 
+    gap: 8px !important; 
+    padding: 10px !important;
+    border-top: 1px solid #e5e7eb !important;
+  }
+  #chat-input {
+    flex: 1 1 auto !important;
+    display: block !important;
+    min-height: 88px !important;    /* ~4 lines */
+    height: 88px !important;
+    max-height: 220px !important;
+    padding: 10px 12px !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 8px !important;
+    line-height: 1.35 !important;
+    font-size: 0.95rem !important;
+    resize: vertical !important;
+  }
+  #chat-send {
+    height: 88px !important;         /* match textarea */
+    padding: 0 16px !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    background: #2563eb !important;
+    color: #fff !important;
+    border: none !important;
+  }
+  @media (max-width: 420px){
+    #chat-panel{ width: 95vw !important; right: 2.5vw !important; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Top brand bar -->
+  <header class="app-header">
+    <div class="app-header-inner">
+      <h1 class="app-title">RTS Bus Tracker</h1>
+      <p class="app-subtitle">Live route, stop, and arrival info</p>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- CARD: Plan by Route -->
+    <section class="card">
+      <div class="card-header-row">
+        <h2>
+          Plan by Route
+          <span class="tag">Browse</span>
+        </h2>
+      </div>
+
+      <!-- Route -->
+      <div class="control-block">
+        <label for="routeSelect">Route</label>
+        <select id="routeSelect">
+          <!-- JS injects:
+          <option value="">Select a Route</option>
+          <option value="1">1 - Rosa Parks to Butler Plaza TS</option>
+          -->
+        </select>
+      </div>
+
+      <!-- Direction -->
+      <div class="control-block">
+        <label for="directionSelect">Direction</label>
+        <select id="directionSelect" disabled>
+          <!-- JS injects:
+          <option value="">Select Direction</option>
+          <option value="INBOUND">INBOUND</option>
+          -->
+        </select>
+      </div>
+
+      <!-- Stop -->
+      <div class="control-block">
+        <label for="stopSelect">Stop</label>
+        <select id="stopSelect" disabled>
+          <!-- JS injects:
+          <option value="">Select Stop</option>
+          <option value="0773">Bus Stop 0773 - Butler Plaza Transfer Station</option>
+          -->
+        </select>
+      </div>
+    </section>
+
+    <!-- CARD: Quick Stop Lookup -->
+    <section class="card">
+      <div class="card-header-row">
+        <h2>
+          Quick Stop Lookup
+          <span class="tag">Fast</span>
+        </h2>
+      </div>
+
+      <div class="stop-id-row">
+        <label for="stopIdInput">Enter Stop ID:</label>
+
+        <div class="stop-id-input-wrapper">
+          <input
+            id="stopIdInput"
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            maxlength="4"
+            placeholder="e.g. 0773"
+          />
+          <button id="stopIdBtn">Check Stop</button>
+        </div>
+      </div>
+
+      <div class="helper-text">
+        Tip: You can enter 773 and we'll search 0773.
+      </div>
+    </section>
+
+    <!-- CARD: Results -->
+    <section class="card results-block">
+      <div class="results-header-row">
+        <h2>Next Buses</h2>
+
+        <div class="results-actions">
+          <button class="btn-small btn-refresh" id="refreshBtn">Refresh</button>
+          <button class="btn-small btn-clear" id="clearBtn">Clear</button>
+        </div>
+      </div>
+
+      <ul id="predictionsList">
+        <!-- JS fills live arrivals here -->
+      </ul>
+    </section>
+
+    <div class="footer-note">
+      Data updates in real time. Stop IDs are printed on most bus stop signs.
+    </div>
+
+  </main>
+
+  <!-- Logic -->
+  <script src="/static/frontend.js?v=4"></script>
+  <!-- Assistant Chat UI -->
+<div id="chat-toggle">Ask RTS</div>
+<div id="chat-panel">
+  <div id="chat-header">RTS Assistant</div>
+  <div id="chat-messages"></div>
+  <div id="chat-input-row">
+    <textarea id="chat-input" placeholder="Ask about RTS or ETAs (e.g., “ETA 1493”)"></textarea>
+    <button id="chat-send">Send</button>
+  </div>
+</div>
+
+<!-- Chat script -->
+<script src="/static/chat.js?v=2"></script>
+</body>
+</html>
