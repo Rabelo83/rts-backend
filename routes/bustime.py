@@ -22,6 +22,42 @@ def normalize_stop_id(s: str):
 def digits_only(s: str) -> str:
     return re.sub(r"[^0-9]", "", s or "")
 
+def _gtfs_direction_id(direction_id: str) -> int | None:
+    d = (direction_id or "").strip().lower()
+    if d in ("inbound", "ib", "in"):
+        return 1
+    if d in ("outbound", "ob", "out"):
+        return 0
+    return None
+
+def _direction_headsign(route_id: str, direction_id: str) -> str | None:
+    if not route_id or not GTFS_DB_PATH.exists():
+        return None
+    dir_id = _gtfs_direction_id(direction_id)
+    if dir_id is None:
+        return None
+    try:
+        conn = sqlite3.connect(GTFS_DB_PATH)
+        conn.row_factory = sqlite3.Row
+        try:
+            row = conn.execute(
+                """
+                SELECT t.trip_headsign
+                FROM trips t
+                JOIN routes r ON r.route_id = t.route_id
+                WHERE r.route_short_name = ?
+                  AND t.direction_id = ?
+                  AND t.trip_headsign IS NOT NULL
+                LIMIT 1
+                """,
+                (route_id, dir_id),
+            ).fetchone()
+            return (row["trip_headsign"] if row else None) or None
+        finally:
+            conn.close()
+    except Exception:
+        return None
+
 def order_stops_by_gtfs(route_id: str, direction_hint: str, stops: list[dict]) -> list[dict]:
     if not route_id or not stops or not GTFS_DB_PATH.exists():
         return stops
@@ -101,6 +137,9 @@ def api_directions():
     for d in dirs_raw:
         dir_id = d.get("id") or d.get("dir") or d.get("dirId") or d.get("dirid") or d
         dir_name = d.get("name") or d.get("dir") or d.get("dirName") or d.get("dirname") or dir_id
+        headsign = _direction_headsign(route_id, dir_id)
+        if headsign and "to" not in dir_name.lower():
+            dir_name = f"{dir_name} - to {headsign}"
         cleaned.append({"id": dir_id, "name": dir_name})
     return jsonify({"directions": cleaned})
 
