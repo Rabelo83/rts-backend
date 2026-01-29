@@ -1,0 +1,23 @@
+metric,value
+total_stops,1616
+matched_stops,959
+unmatched_stops,657
+metadata_totalStops,1616
+metadata_ufStops,106
+metadata_nonUfStops,1510
+metadata_status_active,1026
+metadata_status_inactive,572
+metadata_status_proposed,18
+
+status,count
+ACTIVE,1026
+INACTIVE,572
+PROPOSED,18
+
+area,count
+AL,264
+CG,1122
+Lake City,3
+Trenton City,1
+UF,218
+UNKNOWN,8

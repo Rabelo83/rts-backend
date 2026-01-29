@@ -1,0 +1,24 @@
+{
+  "default_stops": [
+    {
+      "alias": "rosa parks",
+      "stop_id_padded": "0001",
+      "stop_name": "Rosa Parks Downtown Station"
+    },
+    {
+      "alias": "the hub",
+      "stop_id_padded": "0925",
+      "stop_name": "The HUB"
+    },
+    {
+      "alias": "reitz union",
+      "stop_id_padded": "0473",
+      "stop_name": "Reitz Union"
+    },
+    {
+      "alias": "butler plaza",
+      "stop_id_padded": "1492",
+      "stop_name": "Butler Plaza"
+    }
+  ]
+}

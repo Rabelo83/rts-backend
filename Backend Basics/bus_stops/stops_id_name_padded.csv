@@ -1,0 +1,1617 @@
+stopId_padded,stopId,stopName
+0001,1,Rosa Parks Downtown Station
+0002,2,Hampton Inn Hotel
+0003,3,Westbound SW 2nd Avenue @ SW 2nd Street
+0004,4,The Continuum
+0005,5,GRU Building
+0006,6,Ayers Medical Plaza
+0007,7,Infinity Hall
+0008,8,Courtyard Apartments
+0009,9,Campus USA Bank
+0010,10,Norman Hall
+0011,11,Norman Parking Garage
+0012,12,Norman Field @ SW 8th Avenue
+0013,13,Beaty Towers
+0014,14,Frazier Rogers Hall
+0015,15,Benton Hall
+0016,16,Shands Hospital @ Basic Science Building
+0017,17,Shands Hospital @ Dental Science Building
+0018,18,Shands Hospital @ Davis Cancer Pavilion
+0019,19,Campus Edge Condominiums
+0020,20,Mt Vernon Apartments
+0021,21,Norman Mehrhof Hall
+0022,22,Country Village Apartments
+0023,23,UF Surge Area Drive
+0024,24,Tropic Carwash
+0025,25,Westbound Archer Road @ SW 34th Street
+0026,26,Whole Foods @ Butler Town Center
+0027,27,Chili's Grill and Bar @ Butler Plaza
+0028,28,Bonefish Grill Seafood Restaurant @ Butler Plaza
+0029,29,Publix @ Butler Plaza
+0030,30,Staging Area @ Butler Plaza
+0031,31,Regal  Cinema 14 @ Butler Plaza
+0032,32,Lowe's Home Improvement @ Butler Plaza
+0033,33,Spanish Trace Apartments
+0034,34,Radio Shack @ Archer Road
+0035,35,Silver Creek Apartments
+0036,36,Capstone Quarters Apartments
+0037,37,Brandywine Apartments
+0038,38,University Commons Apartments @ Archer Road
+0039,39,The Bartram Apartments
+0040,40,Shands Care Helicopter Pad
+0041,41,Shands Hospital @ Dental Science Building
+0042,42,Shands Hospital @ HPNP Building
+0043,43,Greenhouse - Agronomy Building
+0044,44,Frazier Rogers Hall
+0045,45,University Police Department
+0046,46,Beaty Towers
+0047,47,Sorority Row @ SW 8th Avenue
+0048,48,Norman Hall
+0049,49,Norman Hall Addition
+0050,50,Campus USA Bank
+0051,51,Camden Court Apartments
+0052,52,Eastbound SW 2nd Avenue @ SW 10th Street
+0053,53,Eastbound SW 2nd Ave @ SW 7th Terrace
+0054,54,Alachua General Hospital @ SW 2nd Avenue
+0055,55,Second Avenue Center Apartments
+0056,56,Eastbound SW 2nd Ave @ SW 2nd St
+0057,57,Hippodrome Theater
+0058,58,Southbound SE 4th Street @ SE 7th Avenue
+0059,59,RTS Rear Entrance
+0060,60,RTS Entrance
+0061,61,Dignity Project
+0062,62,Southbound SE 4th Street @ SE 13th Lane
+0063,63,NorWOOD Neighborhood
+0064,64,Sugarhill Neighborhood @ SE 4th Street
+0065,65,Jackson Stone Works
+0066,66,Eastbound SE 22nd Avenue @ SE 12th Street
+0067,67,Eastbound SE 22nd Avenue @ SE 13th Street
+0068,68,Southbound SE 15th Street @ SE 24th Avenue
+0069,69,Showers of Blessing
+0070,70,Southbound SE 15th Street @ SE 29th Avenue
+0071,71,Southbound SE 15th Street @ SE 30th Place
+0072,72,Boulware Springs Nature Park
+0073,73,Robinson Height Neighborhood
+0074,74,Robinson Height Neighborhood
+0075,75,Robinson Heights
+0076,76,Prairie View Elementary School
+0077,77,Northbound SE 15th Street @ SE 30th Place
+0078,78,Northbound SE 15th Street @ SE 29th Avenue
+0079,79,Showers of Blessings Harvest Center
+0080,80,Northbound SE 15th Street @ SE 24th Avenue
+0081,81,Calf Pond Creek
+0082,82,McPherson Recreational Center
+0083,83,Northbound SE 15th Street @ SE 14th Avenue
+0084,84,Northbound SE 15th Street @ SE 13th Place
+0085,85,Lincoln Estate Neighborhood
+0086,86,Lincoln Estate Neighborhood
+0087,87,Lincoln Estate Neighborhood
+0088,88,Girls Club
+0089,89,Lincoln Estate Neighborhood
+0090,90,Lincoln Estate Neighborhood
+0091,91,Lincoln Estate Neighborhood
+0092,92,Lincoln Estate Neighborhood
+0093,93,Lincoln Estate Neighborhood
+0094,94,Church of God by Faith
+0095,95,Northbound SE 15th Street @ SE 4th Avenue
+0096,96,Northbound SE 15th Street @ SE 3rd Avenue
+0097,97,Veteran's Honor Center
+0098,98,SE Hawthorne Rd @ SE 18th St Eastbound
+0099,99,SE Hawthorne Rd @ SE 21st St Eastbound
+0100,100,GTEC
+0101,101,SE 24th Street - Dollar General Store
+0102,102,Alachua County Health Department
+0103,103,Northbound SE 24th Street @ E University Avenue
+0104,104,Eastbound NE 3rd Place @ NE 26th Terrace
+0105,105,Southbound NE 26th Terrace @ NE 2nd Place
+0106,106,Pine Meadows
+0107,107,Inside Alachua County Health Department
+0108,108,SE 24th Street at Hawthorne Road
+0109,109,Phase III Supply
+0110,110,Veteran's Honor Center
+0111,111,Southbound SE 15th Street @ SE 4th Avenue
+0112,112,Southbound SE 15th Street @ SE 4th Avenue
+0113,113,Southbound SE 15th Street @ SE 7th Avenue
+0114,114,Williams Elementary School
+0115,115,Williams Elementary School
+0116,116,Waldo Rd @ SE 7th Avenue
+0117,117,Lincoln Middle School
+0118,118,Shands Cancer Hospital
+0119,119,Lincoln Middle School
+0120,120,Carver Gardens Apartments
+0121,121,Lincoln Estates
+0122,122,Lincoln Estates Neighborhood
+0123,123,Lincoln Estates Neighborhood
+0124,124,Lincoln Estates Neighborhood
+0125,125,Westbound SE 12th Avenue @ SE 18th Terrace
+0126,126,Lincoln Estates Neighborhood
+0127,127,Lincoln Estates Neighborhood
+0128,128,Southbound SE 15th Street @ SE 14th Avenue
+0129,129,McPherson Recreational Center
+0130,130,Calf Pond Creek
+0131,131,Westbound SE 22nd Avenue @ SE 13th Street
+0132,132,Westbound SE 22nd Avenue @ SE 12th Street
+0133,133,Gainesville Housing Authority
+0134,134,NorWOOD Neighborhood
+0135,135,Dignity Project
+0136,136,RTS Entrance
+0137,137,RTS Rear Entrance
+0138,138,Northbound SE 4th Street @ SE 7th Avenue
+0139,139,City Hall
+0140,140,Alachua County Office of the State Attorney
+0141,141,The Vault Night Club
+0142,142,Seagle Building
+0143,143,Santa Fe College Charles L. Blount Center
+0144,144,Leonardo's 706
+0145,145,Westbound W University Ave @ NW 10th St
+0146,146,Holiday Inn @ W University Avenue
+0147,147,Target Copy @ W University Avenue
+0148,148,Smathers Library
+0149,149,Swamp Restaurant
+0150,150,University Lutheran Church
+0151,151,Emerson Hall
+0152,152,Hillel at the University of Florida
+0153,153,Westbound University Avenue @ NW 22nd Street
+0154,154,Westbound University Avenue @ NW 23rd Drive
+0155,155,Westbound University Avenue @ NW 25th Street
+0156,156,Women Center
+0157,157,West Gate Shopping Center
+0158,158,BURRITO FAMOUS @ W University Avenue
+0159,159,Fire Station @ W university Ave
+0160,160,Fire Station @ W university Ave
+0161,161,Plaza Royale
+0162,162,Tire Kingdom @ Newberry Road
+0163,163,Allstate Insurance @ Newberry Road
+0164,164,Millennium Center
+0165,165,Orthopedic Institute
+0166,166,Gainesville Health & Fitness
+0167,167,SunTrust Bank @ Newberry Road
+0168,168,Capital City Bank @ Newberry Road
+0169,169,Quinn Eye Center
+0170,170,Park Avenue Women's Center
+0171,171,Oaks Mall @ NW 62nd ST
+0172,172,Terwilliger Elementary School
+0173,173,Oaks Mall
+0174,174,Terwilliger Elementary School
+0175,175,HOBBY LOBBY @ NW 62nd St
+0176,176,Panera Bread @ Newberry Road
+0177,177,Durant Estate
+0178,178,Eastbound Newberry Rd @ NW 55th Street
+0179,179,Eastbound W Newberry Rd @ NW 53rd Terrace
+0180,180,Eastbound W Newberry Rd @ NW 53rd Terrace
+0181,181,Millpond Apartments
+0182,182,Gainesville Health & Fitness
+0183,183,Gainesville Health & Fitness
+0184,184,Renasant Bank
+0185,185,SIMED
+0186,186,Life South Blood Center
+0187,187,CenterState Bank
+0188,188,Regal Royal Park Stadium 16
+0189,189,SW 2nd AVE and SW 36th TER - CIL
+0190,190,The WynWOOD Apartments
+0191,191,Westgate Shopping Center
+0192,192,UF Golf Course
+0193,193,Golfview Neighborhood
+0194,194,Eastbound SW 2nd Avenue @ SW 26th Street
+0195,195,University of Florida Law School
+0196,196,Pressly Stadium
+0197,197,Ben Hill Griffin Stadium
+0198,198,St. Augustine Catholic Church
+0199,199,Keene Flint Hall
+0200,200,Anderson Hall
+0201,201,Leonardo's Pizza By The Slice
+0202,202,Leonardo's Pizza By The Slice
+0203,203,University of Florida Human Resources
+0204,204,Ayers Medical Plaza
+0205,205,The Continuum
+0206,206,AT&T Building
+0207,207,Alachua County Office of the State Attorney
+0208,208,Bo Diddley Community Plaza
+0209,209,Alachua County Courthouse
+0210,210,Wells Fargo Downtown
+0211,211,The 400
+0212,212,Sapp's Pawn Shop
+0213,213,Santa Fe College Charles L. Blount Center
+0214,214,Santa Fe College Charles L. Blount Center
+0215,215,Williams Fellowship Hall
+0216,216,Gainesville Police Department
+0217,217,Big Ron's Yoga
+0218,218,Bailey Village Assisted Living
+0219,219,Bly's School of Cosmetology Inc.
+0220,220,Medical Marihuana Treatment Center
+0221,221,Sixth Street Plaza
+0222,222,Hand & Hand Day Care
+0223,223,Cecile's
+0224,224,Progressive Insurance @ NW 6th Street
+0225,225,Northbound NW 6th Street @ NW 26th Avenue
+0226,226,Oak Gate Apartments
+0227,227,Northbound NW 6th Street @ NW 31st Avenue
+0228,228,Northbound NW 6th Street @ NW 33rd Avenue
+0229,229,Northbound NW 6th Street @ NW 36th Avenue
+0230,230,Stephen Foster Elementary School
+0231,231,Stephen Foster Elementary School
+0232,232,Schwab Building Corp
+0233,233,Gainesville Tire Service
+0234,234,Powder Coating of Gainesville
+0235,235,Oak Ridge Apartments
+0236,236,Early Learning Coalition
+0237,237,Sandy's Boutique
+0238,238,CVS @ NW 13th Street
+0239,239,Publix @ NW 39th Avenue
+0240,240,Tires Plus @ NW 13th Street
+0241,241,Grace Presbyterian Church
+0242,242,McDonald's @ NW 13th Street
+0243,243,Verizon Shop
+0244,244,SB NW 13th ST at NW 23rd AVE (Furniture Country)
+0245,245,Plaza Verde @ NW 13th St Southbound
+0246,246,Oak Park Offices
+0247,247,Gainesville High School
+0248,248,Gainesville High School
+0249,249,Georgetown Apartments
+0250,250,Gainesville High School Tennis Courts
+0251,251,Gainesville High School Baseball Field
+0252,252,Plaza Verde - NW 23rd Avenue
+0253,253,Plaza Verde - NW 23rd Avenue
+0254,254,Big Lot on NW 13th Street
+0255,255,Burlington @ NW 13th Street
+0256,256,Mount Pleasant Cemetary
+0257,257,Mount Pleasant Cemetary
+0258,258,Johnson & Fletcher Insurance
+0259,259,ALDI Food market
+0260,260,Auto Zone @ NW 13th Street
+0261,261,Sunshine Inn
+0262,262,Westgate Mobile Manor Park
+0263,263,Oak Ridge Apartments
+0264,264,Service Experts
+0265,265,Gainesville Tire Service
+0266,266,Melody Plaza
+0267,267,Seminole Arms Apartments
+0268,268,Professional Academy Magnet
+0269,269,Kangaroo Gas @ E Hawthorne Road
+0270,270,Santa Fe College Charles L. Blount Center
+0271,271,Santa Fe College Charles L. Blount Center
+0272,272,University of Florida Family Medicine
+0273,273,University of Florida Family Medicine
+0274,274,Lincoln Middle School
+0275,275,Furniture & Antique @ NW 6th Street
+0276,276,NW 6th ST at NW 19th LN (Hand N' Hand Childcare)
+0277,277,Acupuncture Center
+0278,278,Atlantic Design
+0279,279,GrannyD's
+0280,280,American Auto Insurance
+0281,281,Jon Uman Attorney
+0282,282,Greater Bethel African Methodist Episcopal Church
+0283,283,Southbound NW 6th Street @ NW 5th Avenue
+0284,284,Santa Fe College Charles L. Blount Center
+0285,285,Santa Fe CIED
+0286,286,The 400
+0287,287,Wells Fargo @ NW 1st Avenue
+0288,288,Alachua County Courthouse
+0289,289,St Francis House
+0290,290,St Francis House
+0291,291,Eastbound SE Depot Avenue @ SE 7th Street
+0292,292,The Cotton Club
+0293,293,Mt Moriah Baptist Church
+0294,294,Tools for Schools
+0295,295,Williams Elementary School
+0296,296,Williams Elementary School Field
+0297,297,Eastbound SE 7th Avenue @ SE 15th Street
+0298,298,GRU Bank
+0299,299,GRU Bank
+0300,300,Fast Eddie's Restaurant
+0301,301,Eastbound University Avenue @ SE 15th Street
+0302,302,Eastbound University Avenue @ SE 17th Street
+0303,303,Alachua County School Board Administration Annex
+0304,304,Eastbound University Avenue @ SE 21st Street
+0305,305,Eastbound University Avenue @ SE 22nd Street
+0306,306,Eastbound University Avenue @ SE 24th Street
+0307,307,Southeast Gator Liquor @ Hawthorne Road
+0308,308,Eastbound Hawthorne Road @ SE 26th Street
+0309,309,Alachua County Sheriff's Office
+0310,310,Southbound SE 27th Street @ SE 13th Avenue
+0311,311,Southbound SE 27th Street @ SE 15th Avenue
+0312,312,Durelle Heights Neighborhood
+0313,313,Lana's Place
+0314,314,Faith Missionary Church
+0315,315,Eastbound SE 21st Avenue @ SE 32nd Terrace
+0316,316,SE 35th St @ SE 21st Avenue
+0317,317,Northbound SE 35th Street @ SE 20th Avenue
+0318,318,Northbound SE 35th Street @ SE 18th Avenue
+0319,319,Northbound SE 35th Street @ SE 16th Avenue
+0320,320,Kangaroo @ SE 35th Street
+0321,321,E Hawthorne Rd @ SE 38th Court
+0322,322,E Hawthorne Road @ SE 39th Terrace
+0323,323,Chevron Food Mart @ SE 43rd Street
+0324,324,Eastside High School
+0325,325,The Glades
+0326,326,EastWOOD Meadows Community
+0327,327,The Verdant Cove
+0328,328,Eastside High School
+0329,329,Chevron Food Mart @ SE 43rd Street
+0330,330,Westbound Hawthorne Road @ SE 39th Street
+0331,331,Kangaroo @ SE 35th St
+0332,332,Southbound SE 35th Street @ SE 16th Avenue
+0333,333,Southbound Se 35th Street @ SE 18th Avenue
+0334,334,Southbound SE 35th Street @ SE 20th Avenue
+0335,335,Westbound SE 21st Avenue @ SE 32nd Terrace
+0336,336,Faith Missionary Church
+0337,337,Lana's Place
+0338,338,Durelle Heights Neighborhood
+0339,339,Northbound SE 27th Street @ SE 15th Avenue
+0340,340,Northbound SE 27th Street @ SE 13th Avenue
+0341,341,Alachua County Sheriffs Department
+0342,342,Alachua County Sheriffs Department
+0343,343,Dollar General
+0344,344,Dollar General
+0345,345,76 Gas Station @ E University Avenue
+0346,346,Westbound E University Avenue @ SE 21st Street
+0347,347,SE 18th St @ E University Avenue
+0348,348,Westbound E University Avenue @ SE 17th Street
+0349,349,Westbound E University Avenue @ NE 16th Street
+0350,350,Fast Eddie's Restaurant
+0351,351,Fast Eddie's Restaurant
+0352,352,Fast Eddie's Restaurant
+0353,353,Fast Eddie's Restaurant
+0354,354,Fast Eddie's Restaurant
+0355,355,Fast Eddie's Restaurant
+0356,356,Fast Eddie's Restaurant
+0357,357,SE 7th Avenue @ SE 10th Terrace
+0358,358,The Cotton Club
+0359,359,Westbound SE 7th Avenue @ SE 8th Street
+0360,360,Norman Field
+0361,361,Norman Hall
+0362,362,Social 28 Apartments
+0363,363,Kangaroo @ SW 13th Street
+0364,364,Publix @ NW 13th Street
+0365,365,Mother Earth Market
+0366,366,University House Apartments
+0367,367,Xerographic Copy Center
+0368,368,LifeSouth Community Blood Center @ NW 13th Street
+0369,369,CVS @ NW 13th Street
+0370,370,PNC Bank @ NW 13th Street
+0371,371,Gainesville High School
+0372,372,Lux 13 Apartments
+0373,373,Furniture Kingdom
+0374,374,UF Health Homecare
+0375,375,Brook WOOD Terrace Neighborhood
+0376,376,Cobblestone Apartments
+0377,377,Westbound NW 23rd Boulevard @ NW 28th Circle
+0378,378,Misty Oaks Apartments
+0379,379,Northbound NW 21st Avenue @ NW 33rd Avenue
+0380,380,Kiwanis Park
+0381,381,Altrusa House of Gainesville
+0382,382,Ridgeview Baptist Church
+0383,383,Ridgeview Park
+0384,384,Girls Place of Alachua County
+0385,385,Equilease Square
+0386,386,Forest of the Unicorn Neighborhood
+0387,387,Walnut Creek Neighborhood
+0388,388,Assembly of Gods Church
+0389,389,Westbound NW 39th Avenue @ NW 31st Street
+0390,390,Westbound NW 39th Avenue @ NW 34th Street
+0391,391,Gethsemane Lutheran Church
+0392,392,A Child's Dream Pre-School
+0393,393,Capri Neighborhood
+0394,394,Family Dollar @ NW 34th Street
+0395,395,YMCA @ NW 34th Street
+0396,396,Barnhill Clinic
+0397,397,Eastbound NW 53rd Avenue @ NW 24th Boulevard
+0398,398,Sorrento New Home Community
+0399,399,The Home Depot @ NW 53rd Avenue
+0400,400,Florida Highway Patrol
+0401,401,Alachua County Driver's Licenses
+0402,402,ABC Liquor Store @ NW 34th Street
+0403,403,Kangaroo Gas @ NW 34th Street
+0404,404,Pine Ridge Apartments
+0405,405,Pine Ridge Apartments
+0406,406,Northbound NW 23rd Terrace @ NW 62nd Avenue
+0407,407,Hampton Court Apartments
+0408,408,Northbound NW 23rd Terrace @ US Hwy 441
+0409,409,Walmart Northbound
+0410,410,Northside Park
+0411,411,Northside Park
+0412,412,NorthWOOD Pines Neighborhood
+0413,413,NorthWOOD Oaks Neighborhood
+0414,414,Barnhill Clinic
+0415,415,YMCA @ NW 34th Street
+0416,416,Pizza Hut @ NW 34th Street
+0417,417,Capri Neighborhood
+0418,418,Southbound NW 34th Street @ NW 41st Avenue
+0419,419,Eastbound NW 39th Avenue @ NW 34th Street
+0420,420,First Assembly Church
+0421,421,Walnut Creek Neighborhood
+0422,422,Uptown Village Apartments
+0423,423,Palmetto WOODs Neighborhood
+0424,424,Girls Place of Alachua County
+0425,425,Eastbound NW 39th Ave at NW 19th St Green Tree Pk
+0426,426,Ridgeview Baptist Church
+0427,427,Altrusa House of Gainesville
+0428,428,Southbound NW 21st Street @ NW 36th Avenue
+0429,429,Glen Springs Apartments
+0430,430,Misty Oaks Apartments
+0431,431,Gainesville Chinese Church
+0432,432,Cobblestone Apartments
+0433,433,BrookWOOD Terrace
+0434,434,Direct Auto Insurance
+0435,435,State Farm Insurance @ NW 13th Street
+0436,436,Applebee's @ NW 13th Street
+0437,437,All Star Automotive
+0438,438,The Gate Food Store @ NW 13th Street
+0439,439,ABC Liquor Store @ NW 13th Street
+0440,440,The Standard
+0441,441,Tigert Hall
+0442,442,Southbound SW 13th Street @ Inner Road
+0443,443,Southbound SW 13th Street @ Museum Road
+0444,444,University Housing Office
+0445,445,Health Science Center Administration
+0446,446,Shands Hospital @ Archer Road
+0447,447,Hunters Run Apartments
+0448,448,Westbound SW 40th Place @ NW 26th Terrace
+0449,449,Campus Lodge Apartments
+0450,450,Lexington Crossing Apartments
+0451,451,Lexington Crossing Apartments
+0452,452,Gainesville Place Apartments @ SW 35th Place
+0453,453,Windsor Park Apartments
+0454,454,Northbound SW 27th Street @ SW 35th Place
+0455,455,Casablanca East Apartments
+0456,456,Arbor Park Apartments
+0457,457,Hickory Place Apartments
+0458,458,Gator Place Condominiums
+0459,459,UF Beef Teaching Unit
+0460,460,Towne Parc Apartments
+0461,461,University Club Apartments
+0462,462,University of Florida Energy Research
+0463,463,University Commons Apartments
+0464,464,Mt Vernon Apartments @ SW 23rd Drive
+0465,465,Campus Edge Condominiums
+0466,466,Forestry Field Lab/Plant Growth
+0467,467,Cancer and Genetics Research
+0468,468,Parking & Transportation Services
+0469,469,Commuter Lot Parking Garage @ Gale Lemerand
+0470,470,Physics Building
+0471,471,Northbound NW 34th Street @ NW 24th Terrace
+0472,472,Rawlings Hall
+0473,473,Reitz Student Union
+0474,474,Commuter Lot Parking Garage
+0475,475,Commuter Lot Parking Garage
+0476,476,Parking & Transportation Services
+0477,477,Cancer & Genetics Research Center
+0478,478,IFAS Lab
+0479,479,Campus Edge Condominiums
+0480,480,Mt Vernon Apartments
+0481,481,University Commons Apartments
+0482,482,University of Florida Energy Research
+0483,483,University Club Apartments
+0484,484,Towne Parc Apartments
+0485,485,SouthWOOD Apartments
+0486,486,Gator Place Condominiums
+0487,487,Countryside at the University Apartments
+0488,488,Countryside at the University Apartments
+0489,489,Southbound SW 23rd Street @ Williston Road
+0490,490,The Polos Apartments
+0491,491,The Polos Apartments
+0492,492,The Polos Apartments
+0493,493,NW 17th ST @ NW 16th Avenue
+0494,494,Westbound NW 16th Avenue @ NW 18th Street
+0495,495,Westbound NW 16th Avenue @ NW 20th Way
+0496,496,Forest Ridge Neighborhood
+0497,497,Westbound NW 16th Avenue @ NW 23rd Street
+0498,498,NW 24th St @ NW 16th Avenue
+0499,499,Westbound NW 16th Avenue @ NW 25th Street
+0500,500,NW 27th Terrace @ NW 16th Avenue
+0501,501,NW 30th Terrace @ NW 16th Avenue
+0502,502,Zion Evangelical Lutheran Church
+0503,503,Willowcroft Neighborhood
+0504,504,NW 16th Boulevard @ NW 37th Boulevard
+0505,505,B'Nai Israel School & Day Care
+0506,506,Westbound NW 16th Boulevard @ NW 39th Street
+0507,507,Capital City Bank @ NW 16th Boulevard
+0508,508,Millhopper Shopping Center
+0509,509,Floral Expressions
+0510,510,Westbound NW 23rd Avenue @ NW 46th Terrace
+0511,511,First Church of the Nazarene
+0512,512,Northwest Baptist Church
+0513,513,Misty Hollow Neighborhood
+0514,514,Westbound NW 23rd Avenue @ NW 63rd Terrace
+0515,515,Hickory WOODs Neighborhood
+0516,516,Quail Ridge Neighborhood
+0517,517,Shenandoah Neighborhood
+0518,518,Santa Fe College @ NW 83rd Street
+0519,519,Santa Fe College Baseball Field
+0520,520,Santa Fe College
+0521,521,Santa Fe College
+0522,522,The Pentecostals of Gainesville
+0523,523,Shenandoah Neighborhood
+0524,524,Quail Ridge Neighborhood
+0525,525,Hickory WOODs Neighborhood
+0526,526,Eastbound NW 23rd Avenue @ NW 63rd Terrace
+0527,527,Misty Hollow Neighborhood
+0528,528,Northwest Baptist Church
+0529,529,First Church of the Nazarene
+0530,530,Imagine Learning Center
+0531,531,Eastbound NW 23rd Avenue @ NW 46th Street
+0532,532,Floral Expressions
+0533,533,Millhopper Shopping Center @ NW 16th Boulevard
+0534,534,Eastbound NW 16th Boulevard @ NW 39th Drive
+0535,535,B'Nai Israel School & Day Care
+0536,536,Gainesville Baptist
+0537,537,Willowcroft Neighborhood
+0538,538,Covenant Church
+0539,539,BryWOOD Neighborhood
+0540,540,Hampton Lane Neighborhood
+0541,541,Raintree Neighborhood
+0542,542,Eastbound NW 16th Avenue @ NW 23rd St
+0543,543,Forest Ridge Neighborhood
+0544,544,Eastbound NW 16th Avenue @ NW 20th Way
+0545,545,Colony Park Apartments
+0546,546,Georgetown Apartments
+0547,547,Georgetown Apartments
+0548,548,Georgetown Apartments
+0549,549,Georgetown Apartments
+0550,550,Georgetown Apartments
+0551,551,Georgetown Apartments
+0552,552,Georgetown Apartments
+0553,553,Downtown Library
+0554,554,Salvation Army Thrift Store
+0555,555,Eastbound E University Avenue @ SE 8th Street
+0556,556,Northbound NE 9th Street @ E University Avenue
+0557,557,Northbound NE 9th Street @ NE 3rd Avenue
+0558,558,Northbound NE 9th Street @ NE 5th Avenue
+0559,559,Northbound NE 9th Street @ NE 6th Avenue
+0560,560,Northbound NE 9th Street @ NE 8th Avenue
+0561,561,Eastbound NE 8th Avenue @ NE 11th Street
+0562,562,Sunny Food Mart
+0563,563,Jones Edmunds
+0564,564,MLK Center
+0565,565,MLK Center
+0566,566,MLK Center
+0567,567,MLK Center
+0568,568,Mount Zion Church of God
+0569,569,Duval Elementary School
+0570,570,Eastbound NE 8th Avenue @ NE 22nd Street
+0571,571,Northbound NE 24th Street @ NE 8th Avenue
+0572,572,Northbound NE 24th Street @ NE 10th Avenue
+0573,573,Northbound NE 24th Street @ NE 10th Avenue
+0574,574,Northbound NE 24th Avenue @ NE 24th Street
+0575,575,Eastbound NE 12th Avenue @ NE 24th Terrace
+0576,576,Southbound NE 25th Street @ NE 11th Place
+0577,577,Southbound NE 25th Street @ NE 10th Avenue
+0578,578,Southbound NE 25th Street @ NE 8th Avenue
+0579,579,Southbound NE 25th Street @ NE 6th Avenue
+0580,580,Southbound NE 25th Street @ NE 5th Avenue
+0581,581,Southbound NE 25th Street @ NE 3rd Place
+0582,582,Eastbound NE 3rd Place @ NE 25th Terrace
+0583,583,Eastbound NE 3rd Place @ NE 25th Terrace
+0584,584,Eastbound NE 3rd Place @ NE 25th Terrace
+0585,585,Eastbound SE 25th Terrace @ E University Avenue
+0586,586,Pine Meadows Apartments
+0587,587,Fred Cone Park
+0588,588,Morningside Nature Center
+0589,589,Eastside Plaza
+0590,590,Southbound SE 43rd Street @ E University Avenue
+0591,591,Compassionate Outreach
+0592,592,Lake Forest Trails Neighborhood
+0593,593,Lake Forest Trails Neighborhood
+0594,594,Lake Forest Trails Neighborhood
+0595,595,Lake Forest Trails Neighborhood
+0596,596,Lake Forest Elementary School
+0597,597,Sunrise Store @ SE 43rd Street
+0598,598,Eastside Plaza
+0599,599,Morningside Nature Center
+0600,600,E. University Ave - Loften High School
+0601,601,Fred Cone Park
+0602,602,Pine Meadows Apartments
+0603,603,Pine Meadows Apartments
+0604,604,Pine Meadows Apartments
+0605,605,Pine Meadows Apartments
+0606,606,Pine Meadows Apartments
+0607,607,Northbound SE 25th Street @ NE 5th Avenue
+0608,608,Northbound NE 25th Street @ NE 6th Avenue
+0609,609,Mt Carmel Baptist Church
+0610,610,Northbound NE 25th Street @ NE 10th Avenue
+0611,611,Northbound NE 25th Street @ NE 11th Place
+0612,612,Westbound NE 12th Avenue @ NE 24th Terrace
+0613,613,Westbound NE 12th Avenue @ NE 24th Street
+0614,614,Southbound NE 24th Street @ NE 8th Avenue
+0615,615,Southbound NE 24th Street @ NE 10th Avenue
+0616,616,Southbound NE 24th Street @ NE 8th Avenue
+0617,617,Westbound NE 8th Avenue @ NE 23nd Street
+0618,618,Duval Elementary School
+0619,619,Bartley Temple United Methodist Church
+0620,620,Bartley Temple United Methodist Church
+0621,621,Bartley Temple United Methodist Church
+0622,622,Bartley Temple United Methodist Church
+0623,623,Westbound NE 13th Street @ NE 8th Avenue
+0624,624,Sunny Food Mart
+0625,625,Westbound NE 8th Avenue @ NE 11th Street
+0626,626,Roundabout NE 8th Avenue @ NE 9th Street
+0627,627,Southbound NE 9th Street @ NE 7th Avenue
+0628,628,Southbound NE 9th Street @ NE 6th Avenue
+0629,629,Southbound NE 9th Street @ NE 5th Avenue
+0630,630,Southbound NE 9th Street @ NE 3rd Avenue
+0631,631,Psychic Reader
+0632,632,Birth Center of Gainesville
+0633,633,Gainesville Eye Doctors
+0634,634,Alachua County School Board Administration
+0635,635,Gateway at Gainesville Apartments
+0636,636,Greenwich Green Apartments
+0637,637,Aspen Ridge Apartments
+0638,638,Hannah's Condominiums
+0639,639,Bella Apartments
+0640,640,Park Meadows Health and Rehabilitation Center
+0641,641,Summer Place Apartments
+0642,642,University Terrace Condominiums
+0643,643,Ridgemar Apartments
+0644,644,Kangaroo @ SW 34th Street
+0645,645,University Town Center
+0646,646,University Town Center
+0647,647,University Town Center
+0648,648,University Town Center
+0649,649,University Town Center
+0650,650,University Town Center
+0651,651,University Town Center
+0652,652,Shands Hospital @ Helipad
+0653,653,Shands Hospital @ Parking Garage 9
+0654,654,Shands Hospital @ Davis Cancer Pavilion
+0655,655,Shands Hospital @ Davis Cancer Pavilion
+0656,656,Shands Hospital @ Davis Cancer Pavilion
+0657,657,Shands Hospital @ Davis Cancer Pavilion
+0658,658,Shands Hospital @ Davis Cancer Pavilion
+0659,659,Shands Hospital @ Parking Garage 9
+0660,660,Shands Hospital @ Helipad
+0661,661,Regions Bank @ SW 37th Boulevard
+0662,662,McKnight Brain Institute
+0663,663,Shands Hospital @ East Parking Garage
+0664,664,UF Health Shands North Tower
+0665,665,Veteran's Administration Hospital
+0666,666,Health Science Center Administration
+0667,667,Summit House Condominiums
+0668,668,Ronald McDonald House of Gainesville
+0669,669,Liv+ Apartments 13th St
+0670,670,Dollar General
+0671,671,Lakeshore Towers Apartments
+0672,672,City College Gainesville
+0673,673,Wyndham Garden Hotel
+0674,674,Paramount Plaza Hotel & Suites
+0675,675,Paramount Plaza Hotel & Suites
+0676,676,Chop Stix Cafe
+0677,677,The Landings Apartments
+0678,678,Residence Inn
+0679,679,Meridian Behavioral Healthcare
+0680,680,Bridge House
+0681,681,US441 South
+0682,682,Budget Inn
+0683,683,Meridian Behavioral Healthcare
+0684,684,Residence Inn
+0685,685,The Landings Apartments
+0686,686,CDS Family and Behavioral Services
+0687,687,Bivens Cove Apartments
+0688,688,TangleWOOD Apartments
+0689,689,Boardwalk Apartments
+0690,690,Econo Lodge
+0691,691,Quality Inn Motel
+0692,692,Village Square
+0693,693,home2 Suites by Hilton
+0694,694,Subway @ SW 13th Street
+0695,695,Oakbrook Walk Condominiums
+0696,696,University Police Department
+0697,697,Masonic Temple
+0698,698,Sun Trust Bank @ N Main Street
+0699,699,Partnership for Strong Families
+0700,700,Fire Stone @ N Main Street
+0701,701,CVS Pharmacy @ N Main Street
+0702,702,CVS Pharmacy @ N Main Street
+0703,703,US Post Office @ Main St
+0704,704,Kangaroo @ N Main St
+0705,705,Parkview Plaza
+0706,706,Laundry Mart
+0707,707,Pine Grove Apartments
+0708,708,McCoy Court Apartments
+0709,709,McCoy Court Apartments
+0710,710,Pointe 23 Apartments
+0711,711,Chelsea Apartments (across)
+0712,712,Eastbound NE 23rd Avenue @ NE 9th Terrace
+0713,713,NE 23rd Avenue @ NE 11th Terrace
+0714,714,Boulware Charter School
+0715,715,Smokey Bear Park
+0716,716,NE 28th Avenue @ NE 15th Street
+0717,717,Northbound NE 15th Street @ NE 28th Avenue
+0718,718,Northbound NE 15th Street @ NE 31st Avenue
+0719,719,Village Green Apartments
+0721,721,NE 39th Ave @ Farside NE 15th St Westbound
+0722,722,Eden Park at IronWOOD
+0723,723,Highland Court
+0724,724,Westbound NE 39th Ave at Main St - Gsville Nissan
+0725,725,Southeast Car Agency
+0726,726,Bella Vista Village
+0727,727,Oasis Carwash
+0728,728,Stephen Foster Elementary School
+0729,729,Southbound SW 6th Street @ NW 36th Avenue
+0730,730,Southbound NW 6th Street @ NW 32nd Place
+0731,731,Southbound NW 6th Street @ NW 30th Avenue
+0732,732,Oak Gate Condominiums
+0733,733,IBEW Local 1205
+0734,734,Progressive Insurance @ NW 6th Street
+0735,735,Renas Let's Dance
+0736,736,Wesley United Methodist Church
+0737,737,NW 23rd Avenue @ NW 12th St
+0738,738,Palms at Brook Valley Apartments
+1620,1620,Eastbound NW 39th Avenue @ NW 10th Street
+0740,740,Stephen Foster Elementary School @ 39th Ave
+0741,741,Gainesville Public Works
+0742,742,Bella Vista Village (across)
+0743,743,Pine Forest Homes
+0744,744,Wade Raulerson Honda Dealership
+0745,745,Highland Court Manor
+0746,746,Eden Park Apartments
+0747,747,Quick Mart @ NE 15th Street
+0748,748,Fearnside Family Services Center
+0749,749,Village Green Apartments
+0750,750,Southbound NE 15th St
+0751,751,Southbound NE 15th St
+0752,752,NE 15th St @ NE 26th AVE
+0753,753,Smokey Bear Park
+0754,754,NE 23rd Ave Farside NE 14th St Westbound
+0755,755,Highland Court Manor
+0756,756,Westbound NE 23rd AVE @ NE 9th ST
+0757,757,Pointe 23 Apartments
+0758,758,David's BBQ
+0759,759,Pine Grove Apartments
+0760,760,Laundry Mart
+0761,761,Sandwich Inn @ NE 16th Ave
+0762,762,Midas @ N Main Street
+0763,763,Publix @ N Main Street
+0764,764,Gainesville Shopping Center South
+0765,765,Gainesville Shopping Center South
+0766,766,Fire Stone @ N Main Street
+0767,767,Southbound N Main Street @ NE 6th Avenue
+0768,768,Friends of the Library Alachua County
+0769,769,The Collier Companies
+0770,770,SCP Distributors
+0771,771,Gator Fire Equipment
+0772,772,Classic Car Cleaners
+0773,773,Arbor Park Apartments
+0774,774,Treehouse Village Apartments
+0775,775,Sweetwater on 16th Apartments
+0776,776,Spring Hill Church
+0777,777,Sugarhill Neighborhood @ Williston Road
+0778,778,Sugarhill Neighborhood @ SE 1st Terrace
+0779,779,Sugarhill Neighborhood @ SE 19th Avenue
+0780,780,Sugarhill Neighborhood @ SE 20th Place
+0781,781,Sugarhill Neighborhood @ SE 20th Place
+0782,782,Boys & Girls Club of Alachua County
+0783,783,Chevron Gas Station @ Williston Road
+0784,784,Southbound Williston Road @ SE 1st Terrace
+0785,785,Springhill Baptist Church
+0786,786,Sweetwater on 16th Apartments (across)
+0787,787,Treehouse Village Apartments
+0788,788,Winn Dixie @ SW 16th Avenue
+0789,789,Sun Bay Apartments
+0790,790,Parklands Rehab & Nursing Center
+0791,791,Oakbrook Walk Condominiums @ SW 16th Avenue
+0792,792,Backstage Lounge
+0793,793,Suncoast Design Center
+0794,794,Sai Quick Stop
+0795,795,The Retreat Apartments
+0796,796,Sun Bay Apartments
+0797,797,Hume Hall
+0798,798,Sigma Alpha Epsilon
+0799,799,Lake Alice Field
+0800,800,Corry Village
+0801,801,Baughman Center
+0802,802,Lakeside Apartments
+0803,803,UF Counseling and Wellness Center
+0804,804,Family Housing
+0805,805,University Village Field
+0806,806,Southwest Recreation Center
+0807,807,University Village South Apartments
+0808,808,Hilton University of Florida Conference Center
+0809,809,Hilton University of Florida Conference Center
+0810,810,Windsor Terrace Apartments
+0811,811,Pinnacle Point Apartments
+0812,812,University Terrace West Apartments
+0813,813,Kensington Apartments North
+0814,814,Pinetree Gardens
+0815,815,Circle K SW 20th Ave Westbound
+0816,816,Canopy Apartments
+0817,817,Cabana Beach Apartments
+0818,818,The WOODlands Apartments
+0819,819,RockWOOD Villas Apartments
+0820,820,Spyglass Apartments
+0821,821,Cypress Pointe Apartments
+0822,822,Palm Garden of Gainesville
+0823,823,Hampton Oaks Apartments
+0824,824,Hampton Oaks Apartments
+0825,825,Fairmont Oaks Apartments
+0826,826,Cypress Pointe Apartments
+0827,827,LakeWOOD Villas Apartments
+0828,828,RockWOOD Villas Apartments
+0829,829,The District Apartments
+0830,830,Cabana Beach Apartments
+0831,831,Forest Park Apartments
+0832,832,Liv Apartments
+0833,833,Addison Lane
+0834,834,Mill Run Condominiums
+0835,835,Kensington Apartments South
+0836,836,Courtney Greens Apartments
+0837,837,Southwest Villas Apartments
+0838,838,West 20 Apartments
+0839,839,Florida Department Of Agriculture
+0840,840,Hilton University of Florida Conference Center
+0841,841,Harn Museum
+0842,842,Southwest Recreation Center
+0843,843,Southwest Softball Court
+0844,844,Maguire Field
+0845,845,Lakeside Residential Complex
+0846,846,Lakeside Residential Complex
+0847,847,Corry Village
+0848,848,Lake Alice Field
+0849,849,Hume Hall
+0850,850,GRU Administration Building
+0851,851,Eastbound SE 4th Avenue @ SE 8th Street
+0852,852,Triangle Club
+0853,853,Northbound SE 11th Street @ SE 2nd Avenue
+0854,854,CVS @ Waldo Road
+0855,855,Walgreens @ NE 3rd Avenue
+0856,856,UF Health Family Medicine Eastside (across)
+0857,857,Episcopal Children's Services (across)
+0858,858,Lakeside Housing Complex
+0859,859,Cabana Beach Apartments
+0860,860,Cabana Beach Apartments
+0861,861,Cabana Beach Apartments
+0862,862,Northbound NE 9th Street @ NE 9th Avenue
+0863,863,Northbound NE 9th Street @ NE 10th Place
+0864,864,Northbound NE 9th Street @ NE 14th Avenue
+0865,865,Department of Children and Families
+0866,866,Highland Presbyterian Church
+0867,867,Auto Audio
+0868,868,Michelle Garden Apartments
+0869,869,Fair View Apartments
+0870,870,Tacachale Center
+0871,871,Family Worship Center
+0872,872,University of Florida Eastside Campus @ Waldo Road
+0873,873,BP Gas Station @ NE 23rd Avenue
+0874,874,University of Florida East Campus Office Building
+0875,875,Bertie Heating & Air
+0876,876,Smokey Bear Park
+0877,877,Quick Mart @ NE 15th Street
+0878,878,IronWOOD Golf Course
+0879,879,Double Envelope Corporation
+0880,880,Gainesville Regional Airport Grounds
+0881,881,NE 49th AVE - Brittany Estates Neighborhood
+0882,882,NE49th AVE - PFG Foods
+0883,883,Cox Cable
+0884,884,Florida Air Conditioning
+0885,885,Nordstrom Distribution Center
+0886,886,Job Corps Center
+0887,887,BP Gas Station @ Waldo Road
+0888,888,Invivo Imaging
+0889,889,Invivo Imaging
+0890,890,GRU Water Treatment Center
+0891,891,Lewis Place @ IronWOOD Apartments
+0892,892,One Room School
+0893,893,Bertie Heating & Air
+0894,894,UF Eastside Campus @ NE 23rd Avenue
+0895,895,BP Gas Station @ NE 23rd Avenue
+0896,896,University of Florida Eastside Campus @ Waldo Road
+0897,897,Crab House
+0898,898,Rose Food Store
+0899,899,Michelle Garden Apartments
+0900,900,Auto Audio
+0901,901,Highland Presbyterian Church
+0902,902,Department of Children and Families
+0903,903,Southbound NE 9th Street @ NE 14th Avenue
+0904,904,Southbound NE 9th Street @ Ne 10th Place
+0905,905,Southbound NE 9th Street @ NE 9th Avenue
+0906,906,Southbound NE 9th Street @ NE 9th Avenue
+0907,907,Southbound NE 9th Street @ NE 9th Avenue
+0908,908,Southbound NE 9th Street @ NE 9th Avenue
+0909,909,Episcopal Children's Services
+0910,910,UF Health Family Medicine Eastside
+0911,911,Southbound Waldo Road @ NE 3rd Avenue
+0912,912,Kangaroo @ Waldo Road
+0913,913,Southbound SE 11th Street @ SE 2nd Avenue
+0914,914,Southbound SE 11th Street @ SE 2nd Avenue
+0915,915,Triangle Club
+0916,916,Westbound SE 4th Avenue @ SE 9th Street
+0917,917,Westbound SE 4th Avenue @ SE 8th Street
+0918,918,Westbound SE 4th Avenue @ SE 7th Street
+0919,919,Westbound SE 4th Avenue @ SE 6th Street
+0920,920,GRU Administration Building
+0921,921,Eastbound NW 31st Place @ NW 19th st
+0922,922,Eastbound NW 29th Road @ NW 17th Street
+0923,923,Eagle Trace Townhomes
+0924,924,Checkers @ NW 29th Road
+0925,925,The HUB
+0926,926,Leigh Hall
+0927,927,Ben Hill Griffin Stadium North End Zone
+0928,928,O'Connell Center @ Gale Lemerand
+0929,929,O'Connell Center @ Stadium Road
+0930,930,Gale Lemerand Athletic Center
+0931,931,Percy Beard Track Field
+0932,932,UF Law School
+0933,933,Westbound SW 2nd Avenue @ SW 26th Street
+0934,934,Campus Church of Christ
+0935,935,Westbound SW 2nd Avenue @ SW 30th Street
+0936,936,Publix @ SW 34th Street
+0937,937,Point West Apartments
+0938,938,Maguire Village @ SW 34th Street
+0939,939,Orthopaedics and Sports Medicine Institute
+0940,940,Orthopaedics and Sports Medicine Institute
+0941,941,Orthopaedics and Sports Medicine Institute
+0942,942,34th Street Plaza
+0943,943,Kelly's Kwik Stop
+0944,944,BBVA Compass @ Archer & 34th ST
+0945,945,Ridgemar Commons
+0946,946,Victoria Station Apartments
+0947,947,Gainesville Place Apartments @ SW 35th Place
+0948,948,Casablanca West Condominiums
+0949,949,Lexington Crossing Apartments
+0950,950,Lexington Crossing Apartments
+0951,951,Southbound SW 26th Drive @ SW 40th Place
+0952,952,Gainesville Place Apartments
+0953,953,Gainesville Place Apartments
+0954,954,Enclave Apartments
+0955,955,Gainesville Place Apartments
+0956,956,Old Archer Road @ SW 34th Street
+0957,957,Regency Oaks Apartments
+0958,958,34th Street Plaza
+0959,959,Family Housing @ SW 34th Street
+0960,960,34th Street Wall
+0961,961,Basketball Practice Facility
+0962,962,Keys Residential Complex
+0963,963,Keys Residential Complex
+0964,964,Tolbert Hall
+0965,965,Gator Corner Dining
+0966,966,Weimer Hall
+0967,967,Hunters Run Apartments
+0968,968,Campus Lodge Apartments
+0969,969,Nationwide Insurance @ Williston Road
+0970,970,Williston Plaza
+0971,971,US Post Office @ SW 34th Street
+0972,972,Laurels Apartments
+0973,973,Pickwick Park Apartments
+0974,974,Dollar General
+0975,975,Dollar General
+0976,976,Dollar General
+0977,977,Millennium Center
+0978,978,Lenox Place
+0979,979,Landmark WOODs Neighborhood
+0980,980,NW 14th Place @ NW 43rd Street
+0981,981,Northbound NW 43rd Street @ NW 16th Place
+0982,982,Northbound NW 43rd Street @ NW 18th Place
+0983,983,Millhopper Pines Apartments
+0984,984,Millhopper Square
+0985,985,Thorn Brook Shops
+0986,986,Bank of America @ NW 43rd Street
+0987,987,Millhopper Branch Library
+0988,988,Monterey Apartments
+0989,989,PineWOOD Apartments
+0990,990,Magnolia Park
+0991,991,Magnolia Park Neighborhood
+0992,992,Tire Plus @ NW 39th Avenue
+0993,993,Huntington Lakes Apartments
+0994,994,Faith Presbyterian Church
+0995,995,Summer Creek Neighborhood
+0996,996,Emerald WOODs Neighborhood
+0997,997,Robin Lane Neighborhood
+0998,998,Springhill Professional Center
+0999,999,Northridge Neighborhood
+1000,1000,The Arc
+1001,1001,Santa Fe College @ NW 83rd Street
+1002,1002,Santa Fe College @ NW 83rd Street
+1003,1003,The Arc
+1004,1004,Windsor Assisted Living
+1005,1005,Springhill Professional Center
+1006,1006,Robin Lane Neighborhood
+1007,1007,Unicorn Hill Farm
+1008,1008,Greystone Community
+1009,1009,Faith Presbyterian Church
+1010,1010,Huntington Lakes Apartments
+1011,1011,NW Grille Seafood
+1012,1012,Autumn WOODs Neighborhood
+1013,1013,Pine WOODs Apartments
+1014,1014,Allstate Insurance
+1015,1015,Southbound NW 43rd Street @ NW 33rd Court
+1016,1016,Millhopper Branch Library
+1017,1017,Sunstate Insurance
+1018,1018,CVS @ Millhopper
+1019,1019,St. Michael's Day School
+1020,1020,Southbound NW 43rd Street @ NW 19th Avenue
+1021,1021,Southbound NW 43rd Street @ NW 17th Place
+1022,1022,Southbound NW 43rd Street @ NW 15th Place
+1023,1023,Suburban Heights Neighborhood
+1024,1024,Landmark WOODs Neighborhood
+1025,1025,Landmark WOODs Neighborhood
+1026,1026,Holy Faith Catholic Church
+1027,1027,Best Buy @ Butler Plaza
+1028,1028,Pollo Tropical @ Butler Plaza West
+1029,1029,PK Yonge Developmental Research School
+1030,1030,Royal Village Apartments
+1031,1031,Royal Village Apartments
+1032,1032,Winn Dixie @ SW 6th Street
+1033,1033,Westbound Archer Road @ SW 50th Street
+1034,1034,Madison Cove Apartments
+1035,1035,Kanapaha Botanical Gardens
+1036,1036,Westgate Mobile Manor Park
+1037,1037,Einstein Montessori School
+1038,1038,A Child's Place
+1039,1039,Kanapaha Station Plaza
+1040,1040,Town & Country Veterinarians
+1041,1041,Bank of America @ Tower Square on Archer Road
+1042,1042,Publix @ Tower Square on SW 75th Street
+1043,1043,Asbury Park Apartments
+1044,1044,Kanapaha Middle School
+1045,1045,Wiles Elementary School
+1046,1046,Tower Village Apartments
+1047,1047,SW 75th Street @ SW 42nd Place
+1048,1048,Kanapaha Park
+1049,1049,Tower Road Branch Library
+1050,1050,Bellamy Grand
+1051,1051,Walgreens @ SW 24th Avenue
+1052,1052,WOODland Nursing Home
+1053,1053,Infinite Energy
+1054,1054,Tower Oaks Glenn Apartments
+1055,1055,Grove Villas Apartments
+1056,1056,Linton Oaks Neighborhood
+1057,1057,Linton Oaks Neighborhood @ SW 61st Street
+1058,1058,Shell Rock Villas Neighborhood
+1059,1059,Linton Oaks Neighborhood @ SW 64th Terrace
+1060,1060,Linton Oaks Neighborhood @ SW 9th Avenue
+1061,1061,Linton Oaks Neighborhood @ SW 64th Terrace
+1062,1062,Linton Oaks Neighborhood @ SW 61st Street
+1063,1063,Linton Oaks Neighborhood
+1064,1064,Treebecka Park Apartments
+1065,1065,Tower Oaks Glenn Apartments
+1066,1066,KISS 105.3 FM Station
+1067,1067,Carriage House Lane
+1068,1068,CVS Pharmacy @ SW 75th Street
+1069,1069,Sunrise Apartments
+1070,1070,Oak Hall School
+1071,1071,The WOODlands Neighborhood
+1072,1072,Sparrow Apartments
+1073,1073,WOODside Villas
+1074,1074,Holly Heights Apartments
+1075,1075,Eastbound SW 6th Place @ SW 69th Terrace
+1076,1076,Eastbound SW 6th Place @ SW 69th Terrace
+1077,1077,Eastbound SW 6th Place @ SW 67th Terrace
+1078,1078,Gordon Manor Neighborhood
+1079,1079,Westbound SW 8th Avenue @ SW 70th Terrace
+1080,1080,WOODside Villas Neighborhood
+1081,1081,Sparrow Apartments
+1082,1082,Sparrow Apartments
+1083,1083,Cricket Club Apartments
+1084,1084,Reflections Apartments
+1085,1085,The Gardens Apartments
+1086,1086,Fox Hollow Apartments
+1087,1087,Pine Meadow Apartments
+1088,1088,BrentWOOD Neighborhood
+1089,1089,Harbor Cove Apartments
+1090,1090,Fairfield Inn
+1091,1091,Home Depot @ NW 4th Boulevard
+1092,1092,Tower Center
+1093,1093,Park Place Car Wash
+1094,1094,Clarion Inn
+1095,1095,BP Gas Station @ Newberry Road
+1096,1096,Oaks Square Complex
+1097,1097,Oaks Mall
+1098,1098,North Florida Regional Medical Center
+1099,1099,SUBWAY@ Newberry RD
+1100,1100,West Newberry Road Nearside NW 69th Ter
+1101,1101,Tower Plaza
+1102,1102,Advance Auto Parts
+1103,1103,Tower Hill
+1104,1104,The Gardens Apartments
+1105,1105,Cricket Club Apartments
+1106,1106,The WOODlands Neighborhood
+1107,1107,Oak Hall School
+1108,1108,Sunrise Apartments
+1109,1109,Tower 24 Shopping Center
+1110,1110,Tower Road Library
+1111,1111,KenWOOD Neighborhood
+1112,1112,KenWOOD Neighborhood
+1113,1113,Tower Village
+1114,1114,Haile Plantation Neighborhood
+1115,1115,Stillwind Neighborhood
+1116,1116,ValWOOD Neighborhood
+1117,1117,Tower Square @ SW 75th Street
+1118,1118,Arredondo Farms
+1119,1119,CROM Equipment Rentals
+1120,1120,Business Park Self Storage
+1121,1121,SunState
+1122,1122,Westgate Manor Park
+1123,1123,Broken Arrow Bluff Community
+1124,1124,DogWOOD Dog Park
+1125,1125,Hailey Forest Condominiums
+1126,1126,Haystacks Housing Complex
+1127,1127,The Reserve at Kanapaha
+1128,1128,Cracker Barrel Old Country Store
+1129,1129,Burger King @ Archer Road
+1130,1130,Midas @ Archer Road
+1131,1131,Chick-Fil-A @ Archer Road
+1132,1132,Gator City (LG Only)
+1133,1133,Fraternity Row @ West Fraternity Dr
+1134,1134,Reitz Student Union
+1135,1135,Shands Visitor Parking
+1136,1136,Wilmot Gardens
+1137,1137,Savannah Place Apartments
+1138,1138,Arbor Apartments
+1139,1139,Casablanca Apartments
+1140,1140,Southbound SW 27th Street @ SW 35th Place
+1141,1141,Wilmot Gardens
+1142,1142,Hunters Run Apartments (LG only)
+1143,1143,Fraternity Row (LG Only)
+1144,1144,Fraternity Row
+1145,1145,Fraternity Row II across Springs
+1146,1146,Beta Theta Pi across Springs
+1147,1147,Beta Theta Pi across Springs
+1148,1148,Beta Theta Pi across Springs
+1149,1149,Beta Theta Pi across Springs
+1150,1150,Criser Hall
+1151,1151,Plaza of the Americas
+1152,1152,Florida Gym
+1153,1153,Tolbert Residence Hall
+1154,1154,Graham Hall
+1155,1155,Spanish Trace Apartments
+1156,1156,Windmeadows Apartments
+1157,1157,Publix @ Butler Plaza
+1158,1158,Walker Hall
+1159,1159,Phi Kappa Tau
+1160,1160,Phi Kappa Tau
+1161,1161,Springs Residence Building
+1162,1162,Springs Residence Building
+1163,1163,Sonny's Barbecue @ Waldo Road
+1164,1164,Merita Bread Box
+1165,1165,Hills Mini Storage
+1166,1166,IronWOOD Golf Course
+1167,1167,IronWOOD Golf Course
+1168,1168,NorthWOOD Oaks Neighborhood
+1169,1169,NorthWOOD Pines Neighborhood
+1170,1170,Pine Ridge Apartments
+1171,1171,Pine Ridge Apartments
+1172,1172,Pine Ridge Apartments
+1173,1173,Southwest Recreation Center
+1174,1174,Lacrosse Field
+1175,1175,Orange Grove
+1176,1176,Fifield Hall
+1177,1177,Fifield Hall
+1178,1178,Orange Grove
+1179,1179,Pressly Softball Stadium
+1180,1180,Southwest Recreation Center
+1181,1181,UF Orthopaedics Institute
+1182,1182,Park and Ride II
+1183,1183,Cultural Plaza Park and Ride 1
+1184,1184,Weed Science Building
+1185,1185,Microbiology/Cell Science Building
+1186,1186,Lakeside Residential Building
+1187,1187,Microbiology/Cell Science Building
+1188,1188,Softball Stadium @ Museum Road
+1189,1189,Corry Village
+1190,1190,Family Housing
+1191,1191,Family Housing
+1192,1192,Turlington Hall
+1193,1193,Rawlings Hall
+1194,1194,Commuter Lot Parking Garage
+1195,1195,Commuter Lot Parking Garage
+1196,1196,Animal Science Building
+1197,1197,Webb Livestock Pavilion
+1198,1198,Royal Village Apartments
+1199,1199,VA Hospital @ Archer Rd
+1200,1200,VA Hospital @ Archer Rd
+1201,1201,Greyhound Station
+1202,1202,Greyhound Station
+1203,1203,Winn Dixie @ SW 6th Street
+1204,1204,Oxford Terrace Apartments
+1205,1205,Oxford Terrace Apartments
+1206,1206,Arlington Square Apartments
+1207,1207,Century Tower
+1208,1208,Campus Walk Condominiums
+1209,1209,Oxford Terrace Apartments
+1210,1210,Oxford Terrace Apartments
+1211,1211,Oxford Terrace Apartments
+1212,1212,Oxford Terrace Apartments
+1213,1213,Lexington Crossing Apartments
+1214,1214,Corry Village
+1215,1215,Tigert Hall
+1216,1216,Arlington Square Apartments
+1217,1217,Schiebler Childrens Medical Facility
+1218,1218,Vet Medical Training Hospital @ SW 16th Avenue
+1219,1219,Webb Livestock Pavilion
+1220,1220,Campus View Place Condominiums
+1221,1221,Eastbound NW 23rd Avenue @ NW 13th Street
+1222,1222,Hearing Aid Gainesville
+1223,1223,Forest Meadows Funeral Home
+1224,1224,Graduate Apartments
+1225,1225,Alachua General Hospital @ SW 4th Avenue
+1226,1226,Jefferson 2nd Avenue Apartments
+1227,1227,Alachua County Courthouse
+1228,1228,Alachua County Courthouse
+1229,1229,Jefferson 2nd Avenue Apartments
+1230,1230,Alachua General Hospital @ SW 4th Avenue
+1231,1231,Graduate Apartments
+1232,1232,Eagle Trace Townhomes
+1233,1233,Westbound NW 31st Place @ NW 19th Street
+1234,1234,Super Wal-mart @ NE 12th Avenue
+1235,1235,Super Wal-mart @ NE 12th Avenue
+1236,1236,Cabana Beach Apartments
+1237,1237,Museum Walk Apartments
+1238,1238,Sorority Row @ SW 11th Street
+1239,1239,Caroline Manor Affordable Housing
+1240,1240,Northbound NE 25th Street @ NE 3rd Place
+1241,1241,Newell Drive across Hub
+1242,1242,Newell Drive across Hub
+1243,1243,GRU Administration Building
+1244,1244,Arlington Square Apartments
+1245,1245,Depot Park
+1246,1246,Depot Park
+1247,1247,Depot Park
+1248,1248,Parkside II Apartments
+1249,1249,Gainesville Ale House
+1250,1250,Mobil Gas Station @ Archer Road
+1251,1251,The Reserve at Kanapaha
+1252,1252,Gainesville Council on Aging
+1253,1253,Graham Hall
+1254,1254,Gator Corner Dining Facility @ Gale Lemerand
+1255,1255,Southbound SE 4th Street @ SE 11th Avenue
+1256,1256,1329 Building
+1257,1257,Westbound SW 4th Avenue @ SW 10th Street
+1258,1258,Eastbound SW 4th Avenue @ SW 10th Street
+1259,1259,Exxon Gas Station @ E University Avenue
+1260,1260,Exxon Gas Station @ E University Avenue
+1261,1261,Gardenia Gardens
+1262,1262,The Highway Church
+1263,1263,Royal Village Apartments
+1264,1264,Cottage Grove Apartments at Gainesville
+1265,1265,Westbound NW 31st AVE @ NW 21st ST
+1266,1266,Eastbound NW 31st AVE @ NW 21st ST
+1267,1267,University Commons Apartments
+1268,1268,Brandywine Apartments
+1269,1269,Archer Court Apartments
+1270,1270,Gainesville Place Apartments
+1271,1271,MarchWOOD Townhomes
+1272,1272,Eastbound SW 24th Avenue @ SW 43rd Street
+1273,1273,Kensington Apartments @ SW 38th Terrace
+1274,1274,Krystal @ Newberry Road
+1275,1275,Westbound Newberry Road @ Fort Clarke Boulevard
+1276,1276,Paddock Club Apartments
+1277,1277,Legacy @ Fort Clarke Apartments
+1278,1278,Northbound Fort Clarke Boulevard @ Eagle Point
+1279,1279,Hidden Oak Elementary School
+1280,1280,Hidden Oak Elementary School
+1281,1281,Eastbound NW 23rd Avenue @ NW 88th Street
+1282,1282,Westbound NW 23rd Avenue @ NW 88th Street
+1283,1283,Ft Clarke Middle School
+1284,1284,Ft Clarke Middle School
+1285,1285,Southbound Fort Clarke Boulevard @ Eagle Point
+1286,1286,Legacy @ Fort Clarke Apartments
+1287,1287,Paddock Club Apartments
+1288,1288,Eastbound Newberry Road @ Fort Clarke Boulevard
+1289,1289,Pepboys Auto @ Newberry RD
+1290,1290,Alachua County Courthouse
+1291,1291,Westbound NW 29th Road @ NW 13th Street
+1292,1292,Westbound NW 29th Road @ NW 18th Street
+1293,1293,Campus View Place Condominiums
+1294,1294,Southbound SW 10th ST at SW 4th Ave (Deco 39)
+1295,1295,Stratford Court Apartments
+1296,1296,Ivy House Apartment
+1297,1297,100 SE 10th Ave Westbound
+1298,1298,100 SE 10th Ave Eastbound
+1299,1299,Kohl's Department Store @ SW 34th ST
+1300,1300,HH Gregg @ SW 34th ST
+1301,1301,Stoneridge Apartments
+1302,1302,Greenwich Green Apartments
+1303,1303,O2B Kids @ SW 37th BLVD
+1304,1304,Regions Bank @ Archer Road
+1305,1305,Best Buy @ Butler Plaza
+1306,1306,Publix @ Butler Plaza
+1307,1307,Alarion Bank @ 34th ST
+1308,1308,US Post Office @ SW 34th Street
+1309,1309,Williston Plaza
+1310,1310,Walker Furniture
+1311,1311,Westbound Depot Avenue @ SW 3rd Street
+1312,1312,Eastbound Depot Avenue @ SW 3rd Street
+1313,1313,Bed and Breakfast District
+1314,1314,Bed and Breakfast District
+1315,1315,Super Wal-Mart @ Waldo Road
+1316,1316,Super Wal-Mart @ Waldo Road
+1317,1317,GRACE Marketplace
+1318,1318,GRACE Marketplace
+1319,1319,Gainesville Regional Airport Outbound
+1320,1320,Gainesville Regional Airport
+1321,1321,The Enclave Apartments
+1322,1322,Rocky Point Apartments
+1323,1323,College Manor Apartments
+1324,1324,Sorority Row
+1325,1325,Division of Blind Services
+1326,1326,UF Counseling and Wellness Center
+1327,1327,Eastbound SW 7th AVE @ SW 12th ST
+1328,1328,Eastbound SW 7th AVE @ SW 10th ST
+1329,1329,Alachua County Juvenile Detention
+1330,1330,Alachua County Juvenile Detention
+1331,1331,Outside Cabana Beach
+1332,1332,Outside Cabana Beach
+1333,1333,Enclave 1
+1334,1334,Enclave 2
+1335,1335,Enclave 2
+1336,1336,Enclave 2
+1337,1337,Enclave 5
+1338,1338,Sonny's Barbecue @ Waldo Road
+1339,1339,Merita Bread Box
+1340,1340,Butler Plaza 2
+1341,1341,Enclave 4
+1342,1342,Royal Village
+1343,1343,Gainesville Senior Recreational Center
+1344,1344,Westbound NE 8th AVE @ 7th TER
+1345,1345,Westbound NE 8th AVE @ NE 5th ST
+1346,1346,Oak Park
+1347,1347,Ivy House
+1348,1348,Ashton Lane
+1349,1349,Hilton Garden Inn
+1350,1350,B&B Office Systems
+1351,1351,Hailey Gardens
+1352,1352,Forest Park
+1353,1353,College Park @ NW 17th ST
+1354,1354,College Park @ NW 4th AVE
+1355,1355,Institute of Hispanic/Latino Culture
+1356,1356,Dauer Hall
+1357,1357,College of Veterinary Medicine
+1358,1358,SW 16TH Avenue Building A
+1359,1359,Gainesville Healthcare Center
+1360,1360,The Estates
+1361,1361,Gainesville Rock Gym
+1362,1362,UF & Shands Family Medicine Main Street
+1363,1363,UF Health Parking Garage 2
+1364,1364,Southbound SE 19th TER @ SE 12th AVE
+1365,1365,Southbound NW 15th ST @ NW 3rd AVE
+1366,1366,Westbound NW 8th AVE @ NW 4th ST
+1367,1367,Eastbound SE 2nd AVE @ SE 10th ST
+1368,1368,Westbound SE 2nd AVE @ SE 10th ST
+1369,1369,Eastbound SW 4th Avenue @ SW 3rd ST
+1370,1370,Westbound SW 4th AVE @ SW 3rd ST
+1371,1371,University Commons @ Archer Road
+1372,1372,Newberry Rd @ NW 75th
+1373,1373,CVS @ SW 13th ST
+1374,1374,Westbound NW 39th AVE @ NW 19th TER
+1375,1375,Westbound NW 39th AVE @ NW 17th TER
+1376,1376,Westbound NW 39th AVE @ NW 15th ST
+1377,1377,CVS - NW 39th AVE @ NW 13th ST
+1378,1378,Westbound NW 39th AVE @ NW 12th ST
+1379,1379,Westbound NW 39th AVE @ NW 10th ST
+1380,1380,Westbound NW 39th AVE @ NW 7th ST
+1381,1381,Publix - NW 39th AVE @ NW 13th ST
+1382,1382,Eastbound NW 39th AVE @ NW 16th ST
+1383,1383,Eastbound NW 39th AVE @ NW 17th TER
+1384,1384,Metrocorp Center
+1385,1385,Foxfire WOODs Neighborhood
+1386,1386,Breckenridge Neighborhood
+1387,1387,Sable Chase Neighborhood
+1388,1388,Sable Chase Neighborhood
+1389,1389,Eastbound NW 39th AVE @ NW 37th ST
+1390,1390,The Valley Neighborhood
+1391,1391,Metrocorp Center
+1392,1392,Northbound NW 55th ST @ NW 9th LN
+1393,1393,Northbound NW 55th ST @ NW 14th AVE
+1394,1394,Southbound NW 55th ST @ NW 14th AVE
+1395,1395,Southbound NW 55th ST @ NW 9th LN
+1396,1396,Eastbound SW 24th AVE @ SW 61st ST
+1397,1397,Westbound SW 24th AVE @ SW 61st ST
+1398,1398,Westbound SW 24th AVE @ SW 75th ST
+1399,1399,Westbound SW 24th AVE @ SW 81st ST
+1400,1400,Westbound SW 24th AVE @ SW 84th ST
+1401,1401,Westbound 25th LN  @ SW 87th DR
+1402,1402,Westbound SW 87th DR @ SW 91st ST
+1403,1403,Haile Market Square
+1404,1404,Eastbound SW 24th AVE @ SW 87th WAY
+1405,1405,Eastbound SW 24th AVE @ SW 84th ST
+1406,1406,Eastbound SW 24th AVE @ SW 81st ST
+1407,1407,Eastbound SW 24th AVE @ SW 76th ST
+1408,1408,Eastbound NW 5th AVE @ NW 17th ST
+1409,1409,Northbound NW 17th ST @ NW 7th AVE
+1410,1410,Eastbound NW 7th AVE @ NW 15th ST
+1411,1411,Eastbound NW 7th AVE @ NW 13th ST
+1412,1412,College Park @ NW 5th AVE
+1413,1413,College Park @ NW 17th ST
+1414,1414,Northbound NW 17th ST @ NW 5th AVE
+1415,1415,Family Dollar @ NE 23rd AVE
+1416,1416,Butler Plaza @ Windmeadows BLVD
+1417,1417,Wade Raulerson
+1418,1418,Cade Museum on Depot AVE
+1419,1419,Dollar General on S Main ST
+1420,1420,Southbound SW 13th ST @ SW 13th AVE
+1421,1421,Well Fargo @ Oaks Mall
+1422,1422,Best Buy @ Windmeadows BLVD
+1423,1423,Best Buy @ Windmeadows BLVD
+1424,1424,Springtree Park
+1425,1425,Springtree Park
+1426,1426,Baby Gator
+1427,1427,Holy Faith Catholic Church
+1428,1428,FDOT Operations Center
+1429,1429,NE 39th Ave @ Waldo Rd
+1430,1430,NE 39th Ave @ Waldo Rd
+1431,1431,Health Park
+1432,1432,Unity of Gainesville
+1433,1433,Walgreens
+1434,1434,Walgreens
+1435,1435,Santa Fe Apt
+1436,1436,Santa Fe West Entrance
+1437,1437,SF Fitness Center
+1438,1438,SF Fitness Center
+1439,1439,Cohens Temple
+1440,1440,Mt. Olive Primitive Baptist Church
+1441,1441,Lewis Place @ IronWOOD Apartments
+1442,1442,North Point @ IronWOOD
+1443,1443,North Point @ IronWOOD
+1444,1444,University House
+1445,1445,Westbound NW 23rd Avenue @ NW 2nd Street
+1446,1446,GlenWOOD Plaza
+1447,1447,Gardenia Gardens
+1448,1448,Northwest 8 Avenue @ farside NW 4th St
+1449,1449,Sonic Drive Inn
+1450,1450,Northside Shopping Center West
+1451,1451,Northside Shopping Center East
+1452,1452,La Mancha North
+1453,1453,St. Patrick Catholic Church
+1454,1454,Northeast Park
+1455,1455,Walmart Northbound
+1456,1456,NE 49th AVE
+1457,1457,Physical Plant Radio Road
+1458,1458,Northside Family Housing
+1459,1459,Kensington Apartments Eastside
+1460,1460,Enclave 3
+1461,1461,Lake Wauburg North Park
+1462,1462,NE 18 ST @ NE 3 AVE
+1463,1463,NE 18 ST @ NE 3 AVE
+1464,1464,NE 18th St
+1465,1465,NE 18th St
+1466,1466,NE 18th St @ NE 8th Ave
+1467,1467,NE 18th St @ NE 8th Ave
+1468,1468,Gainesville Scooter
+1469,1469,Eastbound University Avenue @ SW 23rd DR
+1470,1470,Women's Club
+1471,1471,Domino's Pizza
+1472,1472,Kauffman Tires
+1473,1473,Fire Station
+1474,1474,Renaissance Jewelers
+1475,1475,President's Park
+1476,1476,McDonalds
+1477,1477,Kangaroo Station
+1478,1478,Great Lakes Carpet @ NW 53rd Avenue
+1479,1479,Sorrento New Home Community
+1480,1480,Rahma Mercy Clinic
+1481,1481,Cancer/Genetics Research Complex
+1482,1482,Lake Alice Conservation Area
+1483,1483,aloft Hotel @ Hull Rd Eastbound
+1484,1484,Varsity House Apartments @ SW 38th Ter
+1485,1485,Forest Park (Inside)
+1486,1486,Campus Circle Apartments @ 38th Ter
+1487,1487,New RTS Maintenance Facility North
+1488,1488,New RTS Maintenance Facility South
+1489,1489,Aloft Hotel @ Hull Rd Westbound
+1490,1490,Lake Wauburg South Shore
+1491,1491,Tax Collector @ Butler Plaza Eastbound
+1492,1492,Lowe's @ Butler Plaza Westbound
+1493,1493,Butler Plaza RTS Transfer Station
+1494,1494,NE 15th St @ NE 19th Ln
+1495,1495,NE 15th St @ NE 19th Pl
+1496,1496,Family Dollar Shopping Center
+1497,1497,Alachua School Bus Parking Lot
+1498,1498,NE 15th St @ NE 3rd Ave Farside
+1499,1499,NE 15th St @ NE 3rd Ave Nearside
+1500,1500,NE 15th St @ NE 7th Ave
+1501,1501,NE 15th St @ NE 8th Ave
+1502,1502,Northbound Metcalfe Elementary School
+1503,1503,Southbound Metcalfe Elementary School
+1504,1504,PPG Paints Store
+1505,1505,Planned Furnishings
+1506,1506,The Trophy Shop
+1507,1507,UF & Shands at Springhill
+1508,1508,Commuter Lot (Outside the Lot)
+1509,1509,Loblolly WOODs South Entrance
+1510,1510,Southbound NW 34th St @ 5th Ave
+1511,1511,Northbound NW 34th St @ NW 8th Ave
+1512,1512,Southbound NW 34th St @ NW 7th Ave
+1513,1513,Westside Recreation Center
+1514,1514,LittleWOOD Elementary School
+1515,1515,Northbound WestWOOD Middle School
+1516,1516,Southbound WestWOOD Middle School
+1517,1517,Northbound NW 34th St @ NW 16th Ave
+1518,1518,Greenbriar Terrace Community
+1519,1519,Northbound NW 34th St @ NW 21st Pl
+1520,1520,Southbound NW 34th St @ NW 21st Pl
+1521,1521,Northbound NW 34th St @ NW 26th Ave
+1522,1522,Southbound NW 34th St @ NW 26th Pl
+1523,1523,Northbound NW 34th St @ NW 33rd Ln
+1524,1524,Southbound NW 34th St @ NW 33rd Ln
+1525,1525,Northbound NW 34th St @ NW 31st Blvd
+1526,1526,Southbound NW 34th St @ NW 37th Ave
+1527,1527,Northbound NW 43rd St @ NW 39th Ave
+1528,1528,Southbound NW 43rd St @ NW 41st Pl
+1529,1529,PineWOOD Terrace Community
+1530,1530,Southbound NW 43rd St @ NW 44th Ave
+1531,1531,Northbound NW 43rd St @ NW 46th Ave
+1532,1532,Southbound NW 43rd St @ NW 46th Ave
+1533,1533,Northbound NW 43rd St @ NW 48th Pl
+1534,1534,Hunter's Crossing Apartments
+1535,1535,Northbound NW 34th St @ NW 31st Ave
+1536,1536,Southbound NW 34th St @ NW 30th Pl
+1537,1537,Walgreens on NW 43rd Street
+1538,1538,Hunter's Crossing Shopping Center
+1539,1539,Possum Creek Park
+1540,1540,Kiwanis Challenge Park
+1541,1541,Old Archer Rd. @ Gainesville Place Ent
+1542,1542,The Polos Southwest Entrance
+1543,1543,NW 2nd St @ NW 16th Ave Northbound
+1544,1544,Sisler Hall
+1545,1545,Fresenius Medical Care
+1546,1546,The Clock Restaurant
+1547,1547,Sam's Club Westbound
+1548,1548,Sam's Club Eastbound
+1549,1549,Hilton Garden Inn
+1550,1550,Hotel Eleo @ SW 16th Ave Westbound
+1551,1551,Social Security Administration
+1552,1552,Kangaroo Excpress @ Newberry/Tower Road
+1553,1553,Alachua County Health Department
+1554,1554,Pod @ Plaza Blvd Westbound
+1555,1555,Pod @ Plaza Blvd Eastbound
+1556,1556,The Ridge @ SW 38th Ter Southbound
+1557,1557,The Ridge @ SW 38th TER Northbound
+1558,1558,Clark Butler BLVD@ Plaza BLVD northbound
+1559,1559,Clark Butler BLVD @ Plaza southbound
+1560,1560,EastWOOD Meadows Community
+1561,1561,Haile Plantation I
+1562,1562,Haile Plantation II
+1563,1563,Haile Plantation III
+1564,1564,Bulter Plaza Walmart Supercenter
+1565,1565,Butler Plaza RTS
+1566,1566,The Standard
+1567,1567,UF Health
+1568,1568,Wildflower Apartments
+1569,1569,Alachua PNR
+1570,1570,Lake City PNR
+1571,1571,Tioga
+1572,1572,Newberry PNR
+1573,1573,Trenton PNR
+1574,1574,E. University Ave Microbus
+1575,1575,E. Hawthorne Rd Microbus
+1576,1576,Lake City PNR
+1577,1577,Lake City PNR
+1578,1578,Celebration Pointe PNR
+1579,1579,Outside of Butler Plaza TS
+1580,1580,Celebration Pointe at Regal Cinema 10
+1581,1581,McKnight Brain Institute
+1582,1582,Fifield PNR
+1583,1583,Duckpond
+1584,1584,Aero Apartments
+1585,1585,Northbound NW 6th St @ NW 3rd Ave
+1586,1586,Southwest Downtown Parking Garage @ SW 2nd St
+1587,1587,SW 2nd Ave @ SW 12th St Eastbound
+1588,1588,Innovation Square
+1589,1589,Chiles Elementary WB
+1590,1590,Chiles Elementary EB
+1591,1591,Elementary School 'I'
+1592,1592,KFC @ Archer Rd
+1593,1593,Circle K @ NW 13th St
+1594,1594,AT&T Store  @ NW 4th Place
+1595,1595,UF Heart Hospital Parking
+1600,1600,Markets West
+1601,1601,Markets West
+1602,1602,Abiding Savior Lutheran Church
+1603,1603,Westside Baptist Church
+1604,1604,Ellis Park
+1605,1605,Ellis Park
+1606,1606,Fort Clarke Middle School
+1607,1607,Fort Clarke Middle School
+1608,1608,Shell Rock Villas Neighborhood
+1609,1609,JONESVILLE ARBOR GREENS
+1610,1610,JONESVILLE PUBLIX
+1611,1611,NW 2ND LANE
+1612,1612,                          TOWN OF TIOGA
+1613,1613,                          TOWN OF TIOGA
+1614,1614,                     CELEBRATION POINT
+1615,1615,                    VA MEDICAL CLINIC
+1616,1616,                   HAILE PLANTATION
+1617,1617,                  HAILE PLANTATION
+1618,1618,              QUEEN OF PEACE CHURCH
+1619,1619,                QUEEN OF PEACE CHURCH
+1620,1620,             HAILE MARKET SQUARE
+1621,1621,              GORDON MANOR

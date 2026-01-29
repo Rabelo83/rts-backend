@@ -1,0 +1,2 @@
+feed_publisher_name,feed_publisher_url,feed_lang,feed_contact_url,feed_contact_email,feed_start_date,feed_end_date,feed_version
+Regional Transit System,http://www.go-rts.com/,en,,walkerrt@cityofgainesville.org,20250818,20260503,"Updated: Jan 16, 2026, 8:47 AM"
