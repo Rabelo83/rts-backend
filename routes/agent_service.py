@@ -814,7 +814,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     prefer_schedule = has_time or (intent == "schedule") or (wants_schedule(msg_ctx) and not wants_realtime(msg_ctx))
 
     # If user asks for "next" with a route + landmark, prefer schedule (no stop_id yet)
-    if not prefer_schedule and route_id and destination_hint and not stop_id and _has_next_intent(msg_ctx):
+    if not prefer_schedule and route_id and destination_hint and not stop_id and _has_next_intent(msg_ctx) and not wants_realtime(msg_ctx):
         prefer_schedule = True
 
     wants_first = "first" in msg_ctx.lower()
