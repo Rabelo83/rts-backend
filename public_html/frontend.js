@@ -29,7 +29,8 @@ async function fetchJSON(url) {
 function setPredictionsMessage(msg) {
   predictionsList.innerHTML = "";
   const li = document.createElement("li");
-  li.innerHTML = msg;
+  li.className = "empty-state";
+  li.textContent = msg;
   predictionsList.appendChild(li);
 }
 
@@ -45,10 +46,17 @@ function renderPredictions(predictions) {
 
   predictions.forEach(p => {
     const li = document.createElement("li");
+    const mins = (p.minutes || "").toString().toUpperCase();
+    const minsLabel = mins === "DUE" ? "Due" : `${mins} min`;
     li.innerHTML = `
-      <strong>${p.minutes} min</strong> - Route ${p.route} toward ${p.destination}
-      <br />
-      <small>Bus #${p.vehicle_id} * ${p.arrival_time}</small>
+      <div class="arrival-card">
+        <div class="arrival-main">
+          <div class="arrival-route">Route ${p.route}</div>
+          <div class="arrival-dest">to ${p.destination}</div>
+        </div>
+        <div class="arrival-min">${minsLabel}</div>
+      </div>
+      <div class="arrival-meta">Bus #${p.vehicle_id || "—"} · ${p.arrival_time || "—"}</div>
     `;
     predictionsList.appendChild(li);
   });

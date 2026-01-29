@@ -18,102 +18,109 @@
   </header>
 
   <main class="container">
+    <div class="layout">
+      <div class="col col-left">
 
-    <!-- CARD: Plan by Route -->
-    <section class="card">
-      <div class="card-header-row">
-        <h2>
-          Plan by Route
-          <span class="tag">Browse</span>
-        </h2>
-        <div class="card-subtitle">Pick a route, then direction and stop.</div>
+        <!-- CARD: Plan by Route -->
+        <section class="card">
+          <div class="card-header-row">
+            <h2>
+              Plan by Route
+              <span class="tag">Browse</span>
+            </h2>
+            <div class="card-subtitle">Pick a route, then direction and stop.</div>
+          </div>
+
+          <!-- Route -->
+          <div class="control-block">
+            <label for="routeSelect"><span class="label-step">1</span> Route</label>
+            <select id="routeSelect">
+              <!-- JS injects:
+              <option value="">Select a Route</option>
+              <option value="1">1 - Rosa Parks to Butler Plaza TS</option>
+              -->
+            </select>
+          </div>
+
+          <!-- Direction -->
+          <div class="control-block">
+            <label for="directionSelect"><span class="label-step">2</span> Direction of Travel</label>
+            <select id="directionSelect" disabled>
+              <!-- JS injects:
+              <option value="">Select Direction</option>
+              <option value="INBOUND">INBOUND</option>
+              -->
+            </select>
+          </div>
+
+          <!-- Stop -->
+          <div class="control-block">
+            <label for="stopSelect"><span class="label-step">3</span> Stop</label>
+            <select id="stopSelect" disabled>
+              <!-- JS injects:
+              <option value="">Select Stop</option>
+              <option value="0773">Bus Stop 0773 - Butler Plaza Transfer Station</option>
+              -->
+            </select>
+          </div>
+        </section>
+
+        <div class="or-divider"><span>OR</span></div>
+
+        <!-- CARD: Quick Stop Lookup -->
+        <section class="card">
+          <div class="card-header-row">
+            <h2>
+              Quick Stop Lookup
+              <span class="tag">Fast</span>
+            </h2>
+            <div class="card-subtitle">Jump straight to arrivals using a stop ID.</div>
+          </div>
+
+          <div class="stop-id-row">
+            <label for="stopIdInput">Enter Stop ID:</label>
+
+            <div class="stop-id-input-wrapper">
+              <input
+                id="stopIdInput"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                maxlength="4"
+                placeholder="e.g. 0773"
+              />
+              <button id="stopIdBtn">Check Stop</button>
+            </div>
+          </div>
+
+          <div class="helper-text">
+            Tip: You can enter 773 and we'll search 0773.
+          </div>
+        </section>
       </div>
 
-      <!-- Route -->
-      <div class="control-block">
-        <label for="routeSelect"><span class="label-step">1</span> Route</label>
-        <select id="routeSelect">
-          <!-- JS injects:
-          <option value="">Select a Route</option>
-          <option value="1">1 - Rosa Parks to Butler Plaza TS</option>
-          -->
-        </select>
-      </div>
+      <div class="col col-right">
 
-      <!-- Direction -->
-      <div class="control-block">
-        <label for="directionSelect"><span class="label-step">2</span> Direction of Travel</label>
-        <select id="directionSelect" disabled>
-          <!-- JS injects:
-          <option value="">Select Direction</option>
-          <option value="INBOUND">INBOUND</option>
-          -->
-        </select>
-      </div>
+        <!-- CARD: Results -->
+        <section class="card results-block">
+          <div class="results-header-row">
+            <h2>Next Buses</h2>
 
-      <!-- Stop -->
-      <div class="control-block">
-        <label for="stopSelect"><span class="label-step">3</span> Stop</label>
-        <select id="stopSelect" disabled>
-          <!-- JS injects:
-          <option value="">Select Stop</option>
-          <option value="0773">Bus Stop 0773 - Butler Plaza Transfer Station</option>
-          -->
-        </select>
-      </div>
-    </section>
+            <div class="results-actions">
+              <button class="btn-small btn-refresh" id="refreshBtn" aria-label="Refresh arrivals">Refresh</button>
+              <button class="btn-small btn-clear" id="clearBtn" aria-label="Clear selections">Clear</button>
+            </div>
+          </div>
 
-    <div class="or-divider"><span>OR</span></div>
+          <ul id="predictionsList" aria-live="polite" aria-label="Next bus arrivals">
+            <!-- JS fills live arrivals here -->
+          </ul>
+        </section>
 
-    <!-- CARD: Quick Stop Lookup -->
-    <section class="card">
-      <div class="card-header-row">
-        <h2>
-          Quick Stop Lookup
-          <span class="tag">Fast</span>
-        </h2>
-        <div class="card-subtitle">Jump straight to arrivals using a stop ID.</div>
-      </div>
-
-      <div class="stop-id-row">
-        <label for="stopIdInput">Enter Stop ID:</label>
-
-        <div class="stop-id-input-wrapper">
-          <input
-            id="stopIdInput"
-            type="text"
-            inputmode="numeric"
-            pattern="[0-9]*"
-            maxlength="4"
-            placeholder="e.g. 0773"
-          />
-          <button id="stopIdBtn">Check Stop</button>
+        <div class="footer-note">
+          Data updates in real time. Stop IDs are printed on most bus stop signs.
         </div>
       </div>
-
-      <div class="helper-text">
-        Tip: You can enter 773 and we'll search 0773.
-      </div>
-    </section>
-
-    <!-- CARD: Results -->
-    <section class="card results-block">
-      <div class="results-header-row">
-        <h2>Next Buses</h2>
-
-        <div class="results-actions">
-          <button class="btn-small btn-refresh" id="refreshBtn">Refresh</button>
-          <button class="btn-small btn-clear" id="clearBtn">Clear</button>
-        </div>
-      </div>
-
-      <ul id="predictionsList">
-        <!-- JS fills live arrivals here -->
-      </ul>
-    </section>
-
-    <div class="footer-note">
-      Data updates in real time. Stop IDs are printed on most bus stop signs.
     </div>
 
   </main>
