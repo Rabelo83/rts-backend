@@ -10,7 +10,7 @@ health_bp = Blueprint("health", __name__)
 def health():
     has_index = os.path.exists(web_index.INDEX_PATH)
     # Backend Basics schedule engine (optional)
-    project_root = Path(__file__).resolve().parents[2]
+    project_root = Path(__file__).resolve().parents[1]
     bb_db = project_root / "Backend Basics" / "db" / "rts_gtfs.sqlite"
     bb_layer = project_root / "Backend Basics" / "db" / "answering_layer.py"
     bb_available = bb_db.exists() and bb_layer.exists()
