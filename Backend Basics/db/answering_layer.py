@@ -81,6 +81,10 @@ def parse_date(text):
 
 def parse_time(text):
     text = text.lower()
+    if "noon" in text:
+        return "12:00:00"
+    if "midnight" in text:
+        return "00:00:00"
     m = re.search(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b", text)
     if not m:
         return None

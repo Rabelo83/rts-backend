@@ -161,6 +161,8 @@ def has_explicit_timeframe(text: str) -> bool:
     # explicit times like 2pm, 2:30 pm
     if re.search(r"\b\d{1,2}(:\d{2})?\s*(am|pm)\b", t):
         return True
+    if "noon" in t or "midnight" in t:
+        return True
     # explicit dates like 2026-01-31 or 01/31/2026
     if re.search(r"20\d{2}-\d{2}-\d{2}", t) or re.search(r"\d{1,2}/\d{1,2}/\d{2,4}", t):
         return True
@@ -324,6 +326,16 @@ def _is_next_request(text: str) -> bool:
 def _has_next_intent(text: str) -> bool:
     t = (text or "").lower()
     return any(kw in t for kw in ("next", "soonest", "upcoming", "leaving", "depart"))
+
+def _normalize_time_tokens(text: str) -> str:
+    if not text:
+        return text
+    t = text.lower()
+    t = re.sub(r"\bnoon time\b", "noon", t)
+    t = re.sub(r"\bmidnight time\b", "midnight", t)
+    # normalize odd separators like "12..00pm" -> "12:00pm"
+    t = re.sub(r"\b(\d{1,2})\D{1,3}(\d{2})\s*(am|pm)\b", r"\1:\2 \3", t)
+    return t
 
 def _has_strong_context(text: str) -> bool:
     if not text:
@@ -637,7 +649,7 @@ def format_time_12h(hhmmss: str) -> str:
 # Core agent logic
 # ------------------------------------------------------------
 def try_transit_answer(message: str, history=None) -> dict | None:
-    msg = (message or "").strip()
+    msg = _normalize_time_tokens((message or "").strip())
     ctx = _history_text(history)
     # If user provides a stop ID without a route, don't carry prior route context.
     if extract_stop_id_regex(msg) and not extract_route_id_regex(msg):
