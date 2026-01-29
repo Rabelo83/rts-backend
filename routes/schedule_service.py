@@ -205,31 +205,31 @@ def resolve_stop(conn, route, text, stop_id=None, stop_name=None):
     return None
 
 
-def next_departures_per_headsign(conn, route_short_name, stop_id_padded, date_str, time_str):
+def next_departures_per_headsign(conn, route_short_name, stop_id_padded, date_iso, date_compact, time_str):
     sql = """
     WITH base_services AS (
       SELECT c.service_id
       FROM calendar c
-      WHERE :date BETWEEN c.start_date AND c.end_date
+      WHERE :date_compact BETWEEN c.start_date AND c.end_date
         AND (
-          (c.monday = 1 AND strftime('%w', :date) = '1') OR
-          (c.tuesday = 1 AND strftime('%w', :date) = '2') OR
-          (c.wednesday = 1 AND strftime('%w', :date) = '3') OR
-          (c.thursday = 1 AND strftime('%w', :date) = '4') OR
-          (c.friday = 1 AND strftime('%w', :date) = '5') OR
-          (c.saturday = 1 AND strftime('%w', :date) = '6') OR
-          (c.sunday = 1 AND strftime('%w', :date) = '0')
+          (c.monday = 1 AND strftime('%w', :date_iso) = '1') OR
+          (c.tuesday = 1 AND strftime('%w', :date_iso) = '2') OR
+          (c.wednesday = 1 AND strftime('%w', :date_iso) = '3') OR
+          (c.thursday = 1 AND strftime('%w', :date_iso) = '4') OR
+          (c.friday = 1 AND strftime('%w', :date_iso) = '5') OR
+          (c.saturday = 1 AND strftime('%w', :date_iso) = '6') OR
+          (c.sunday = 1 AND strftime('%w', :date_iso) = '0')
         )
     ),
     exception_add AS (
       SELECT service_id
       FROM calendar_dates
-      WHERE date = :date AND exception_type = 1
+      WHERE date = :date_compact AND exception_type = 1
     ),
     exception_remove AS (
       SELECT service_id
       FROM calendar_dates
-      WHERE date = :date AND exception_type = 2
+      WHERE date = :date_compact AND exception_type = 2
     ),
     active_services AS (
       SELECT service_id FROM base_services
@@ -257,35 +257,41 @@ def next_departures_per_headsign(conn, route_short_name, stop_id_padded, date_st
     """
     return conn.execute(
         sql,
-        {"date": date_str, "route": route_short_name, "stop_id": stop_id_padded, "time": time_str},
+        {
+            "date_iso": date_iso,
+            "date_compact": date_compact,
+            "route": route_short_name,
+            "stop_id": stop_id_padded,
+            "time": time_str,
+        },
     ).fetchall()
 
 
-def first_or_last_departure(conn, route_short_name, stop_id_padded, date_str, first=True):
+def first_or_last_departure(conn, route_short_name, stop_id_padded, date_iso, date_compact, first=True):
     sql = """
     WITH base_services AS (
       SELECT c.service_id
       FROM calendar c
-      WHERE :date BETWEEN c.start_date AND c.end_date
+      WHERE :date_compact BETWEEN c.start_date AND c.end_date
         AND (
-          (c.monday = 1 AND strftime('%w', :date) = '1') OR
-          (c.tuesday = 1 AND strftime('%w', :date) = '2') OR
-          (c.wednesday = 1 AND strftime('%w', :date) = '3') OR
-          (c.thursday = 1 AND strftime('%w', :date) = '4') OR
-          (c.friday = 1 AND strftime('%w', :date) = '5') OR
-          (c.saturday = 1 AND strftime('%w', :date) = '6') OR
-          (c.sunday = 1 AND strftime('%w', :date) = '0')
+          (c.monday = 1 AND strftime('%w', :date_iso) = '1') OR
+          (c.tuesday = 1 AND strftime('%w', :date_iso) = '2') OR
+          (c.wednesday = 1 AND strftime('%w', :date_iso) = '3') OR
+          (c.thursday = 1 AND strftime('%w', :date_iso) = '4') OR
+          (c.friday = 1 AND strftime('%w', :date_iso) = '5') OR
+          (c.saturday = 1 AND strftime('%w', :date_iso) = '6') OR
+          (c.sunday = 1 AND strftime('%w', :date_iso) = '0')
         )
     ),
     exception_add AS (
       SELECT service_id
       FROM calendar_dates
-      WHERE date = :date AND exception_type = 1
+      WHERE date = :date_compact AND exception_type = 1
     ),
     exception_remove AS (
       SELECT service_id
       FROM calendar_dates
-      WHERE date = :date AND exception_type = 2
+      WHERE date = :date_compact AND exception_type = 2
     ),
     active_services AS (
       SELECT service_id FROM base_services
@@ -310,7 +316,13 @@ def first_or_last_departure(conn, route_short_name, stop_id_padded, date_str, fi
         agg="MIN" if first else "MAX"
     )
     row = conn.execute(
-        sql, {"date": date_str, "route": route_short_name, "stop_id": stop_id_padded}
+        sql,
+        {
+            "date_iso": date_iso,
+            "date_compact": date_compact,
+            "route": route_short_name,
+            "stop_id": stop_id_padded,
+        },
     ).fetchone()
     return row["result"] if row else None
 
@@ -328,24 +340,25 @@ def get_schedule(route, text, stop_id=None, stop_name=None, kind="next"):
 
         q_date = parse_date(text)
         q_time = parse_time(text)
-        date_str = q_date.strftime("%Y-%m-%d")
+        date_iso = q_date.strftime("%Y-%m-%d")
+        date_compact = q_date.strftime("%Y%m%d")
 
         if kind == "first":
-            first_time = first_or_last_departure(conn, route, stop["stop_id_padded"], date_str, first=True)
-            return {"route": route, "stop": stop["stop_name"], "date": date_str, "first_departure": first_time}
+            first_time = first_or_last_departure(conn, route, stop["stop_id_padded"], date_iso, date_compact, first=True)
+            return {"route": route, "stop": stop["stop_name"], "date": date_iso, "first_departure": first_time}
         if kind == "last":
-            last_time = first_or_last_departure(conn, route, stop["stop_id_padded"], date_str, first=False)
-            return {"route": route, "stop": stop["stop_name"], "date": date_str, "last_departure": last_time}
+            last_time = first_or_last_departure(conn, route, stop["stop_id_padded"], date_iso, date_compact, first=False)
+            return {"route": route, "stop": stop["stop_name"], "date": date_iso, "last_departure": last_time}
 
         if not q_time:
             now = datetime.now(TZ)
             q_time = now.strftime("%H:%M:%S")
 
-        rows = next_departures_per_headsign(conn, route, stop["stop_id_padded"], date_str, q_time)
+        rows = next_departures_per_headsign(conn, route, stop["stop_id_padded"], date_iso, date_compact, q_time)
         return {
             "route": route,
             "stop": stop["stop_name"],
-            "date": date_str,
+            "date": date_iso,
             "time": q_time,
             "next_by_direction": [(r["departure_time"], r["trip_headsign"]) for r in rows],
         }
