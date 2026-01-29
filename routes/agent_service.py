@@ -228,8 +228,8 @@ def _history_text(history) -> str:
         content = content.strip()
         if content:
             parts.append(content)
-    # keep last 3 user messages
-    return " ".join(parts[-3:])
+    # keep last 6 user messages to preserve context like place/time
+    return " ".join(parts[-6:])
 
 
 def _last_assistant_message(history) -> str:
@@ -240,6 +240,27 @@ def _last_assistant_message(history) -> str:
             role = (item.get("role") or "").lower()
             if role in ("assistant", "bot"):
                 return (item.get("content") or "").strip()
+    return ""
+
+def _assistant_asked_route_number(text: str) -> bool:
+    t = (text or "").lower()
+    return ("route number" in t) or ("what route" in t) or ("which route" in t)
+
+
+def _last_user_with_context(history) -> str:
+    if not history:
+        return ""
+    for item in reversed(history):
+        if not isinstance(item, dict):
+            continue
+        role = (item.get("role") or "").lower()
+        if role and role != "user":
+            continue
+        content = (item.get("content") or "").strip()
+        if not content:
+            continue
+        if has_explicit_timeframe(content) or guess_destination_hint(content) or re.search(r"\b(from|at|near)\b", content.lower()):
+            return content
     return ""
 
 
@@ -530,6 +551,14 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 ),
                 "sources": [{"type": "need_landmark_after_reject"}],
             }
+
+    # If assistant asked for a route number and user replies with digits, carry prior context
+    if re.fullmatch(r"\d{1,2}", msg):
+        last_assistant = _last_assistant_message(history)
+        if _assistant_asked_route_number(last_assistant):
+            prev = _last_user_with_context(history)
+            msg = f"route {msg}"
+            msg_ctx = f"{prev} {msg}".strip() if prev else msg
 
     # Digits-only messages: clarify route vs stop OR auto-ETA for likely stop IDs
     if re.fullmatch(r"\d{1,6}", msg):
