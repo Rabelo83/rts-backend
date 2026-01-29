@@ -279,6 +279,10 @@ def _is_next_request(text: str) -> bool:
         "soonest",
     )
 
+def _has_next_intent(text: str) -> bool:
+    t = (text or "").lower()
+    return any(kw in t for kw in ("next", "soonest", "upcoming", "leaving", "depart"))
+
 
 def _last_user_with_context(history) -> str:
     if not history:
@@ -692,6 +696,10 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     has_time = has_explicit_timeframe(msg_ctx)
     prefer_schedule = has_time or (intent == "schedule") or (wants_schedule(msg_ctx) and not wants_realtime(msg_ctx))
 
+    # If user asks for "next" with a route + landmark, prefer schedule (no stop_id yet)
+    if not prefer_schedule and route_id and destination_hint and not stop_id and _has_next_intent(msg_ctx):
+        prefer_schedule = True
+
 
     if prefer_schedule and not route_id:
         return {
@@ -726,6 +734,14 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     # Schedule questions (Backend Basics preferred)
     if prefer_schedule and BACKEND_BASICS_AVAILABLE and BB_ANSWER_FN:
         try:
+            # If "next" with no explicit time, inject current time so schedules can answer.
+            if _has_next_intent(msg_ctx) and not has_explicit_timeframe(msg_ctx):
+                now = datetime.now(TZ)
+                hour = now.hour % 12
+                hour = 12 if hour == 0 else hour
+                ampm = "am" if now.hour < 12 else "pm"
+                time_str = f"{hour}:{now.minute:02d} {ampm}"
+                msg_ctx = f"{msg_ctx} around {time_str}"
             res = BB_ANSWER_FN(msg_ctx)
             if isinstance(res, dict):
                 answer_text = res.get("response_text") or str(res)
@@ -836,6 +852,29 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             "answer": humanize_answer(format_realtime_answer(lang, usable), lang),
             "sources": [{"type": "realtime", "stop_id": stop_id, "route_id": route_id}],
         }
+
+    # If no real-time ETAs, fall back to schedule when possible
+    if BACKEND_BASICS_AVAILABLE and BB_ANSWER_FN and route_id and (destination_hint or "from" in msg_ctx.lower() or "leaving" in msg_ctx.lower()):
+        try:
+            if _has_next_intent(msg_ctx) and not has_explicit_timeframe(msg_ctx):
+                now = datetime.now(TZ)
+                hour = now.hour % 12
+                hour = 12 if hour == 0 else hour
+                ampm = "am" if now.hour < 12 else "pm"
+                time_str = f"{hour}:{now.minute:02d} {ampm}"
+                msg_ctx = f"{msg_ctx} around {time_str}"
+            res = BB_ANSWER_FN(msg_ctx)
+            if isinstance(res, dict):
+                answer_text = res.get("response_text") or str(res)
+            else:
+                answer_text = str(res)
+            answer_text = humanize_answer(answer_text, lang)
+            return {
+                "answer": answer_text,
+                "sources": [{"type": "backend_basics_schedule_fallback"}],
+            }
+        except Exception:
+            pass
 
     return {
         "answer": humanize_answer(tmsg(
