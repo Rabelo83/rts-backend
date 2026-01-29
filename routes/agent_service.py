@@ -619,6 +619,20 @@ def format_realtime_answer(lang: str, usable_preds: list[dict]) -> str:
     return tmsg(lang, "Real-time ETA:\n- ", "ETA en tiempo real:\n- ") + "\n- ".join(lines)
 
 
+def format_time_12h(hhmmss: str) -> str:
+    if not hhmmss:
+        return hhmmss
+    m = re.match(r"^(\d{1,2}):(\d{2})(?::\d{2})?$", hhmmss.strip())
+    if not m:
+        return hhmmss
+    hh = int(m.group(1))
+    mm = int(m.group(2))
+    ap = "AM" if hh < 12 else "PM"
+    h12 = hh % 12
+    if h12 == 0:
+        h12 = 12
+    return f"{h12}:{mm:02d} {ap}"
+
 # ------------------------------------------------------------
 # Core agent logic
 # ------------------------------------------------------------
@@ -824,10 +838,10 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                             if all(k in raw for k in ("route", "stop", "date", "time")):
                                 lines = [
                                     f"Next departures for route {raw['route']} from {raw['stop']} on "
-                                    f"{raw['date']} after {raw['time']}:"
+                                    f"{raw['date']} after {format_time_12h(raw['time'])}:"
                                 ]
                                 for t, headsign in filtered:
-                                    lines.append(f"- {t} ({headsign})")
+                                    lines.append(f"- {format_time_12h(t)} ({headsign})")
                                 answer_text = "\n".join(lines)
 
                 # If multiple headsigns remain and no destination hint, ask to clarify.
@@ -847,6 +861,18 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                         }
             else:
                 answer_text = str(res)
+            # Normalize any 24h times in the default response
+            if isinstance(res, dict):
+                raw = res.get("raw") or {}
+                next_by_dir = raw.get("next_by_direction") or []
+                if next_by_dir and all(k in raw for k in ("route", "stop", "date", "time")):
+                    lines = [
+                        f"Next departures for route {raw['route']} from {raw['stop']} on "
+                        f"{raw['date']} after {format_time_12h(raw['time'])}:"
+                    ]
+                    for t, headsign in next_by_dir:
+                        lines.append(f"- {format_time_12h(t)} ({headsign})")
+                    answer_text = "\n".join(lines)
             # If multiple headsigns are present, ask for direction/landmark
             if isinstance(res, dict):
                 raw = res.get("raw") or {}
@@ -968,6 +994,8 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 answer_text = res.get("response_text") or str(res)
             else:
                 answer_text = str(res)
+            # Strip any unexpected Stop ID tokens from schedule text
+            answer_text = re.sub(r"\s*\\(Stop ID:\\s*\\d+\\)", "", answer_text)
             answer_text = humanize_answer(answer_text, lang)
             return {
                 "answer": answer_text,
