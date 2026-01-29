@@ -121,8 +121,8 @@ def find_stops_like(conn, name_like, route_short_name=None):
         JOIN stop_times st ON st.stop_id = s.stop_id
         JOIN trips t ON t.trip_id = st.trip_id
         JOIN routes r ON r.route_id = t.route_id
-        WHERE r.route_short_name = :route
-          AND s.stop_name LIKE :like
+        WHERE TRIM(r.route_short_name) = :route
+          AND LOWER(TRIM(s.stop_name)) LIKE LOWER(:like)
         ORDER BY s.stop_name;
         """
         params["route"] = route_short_name
@@ -130,7 +130,7 @@ def find_stops_like(conn, name_like, route_short_name=None):
         sql = """
         SELECT stop_id_padded, stop_name
         FROM stops
-        WHERE stop_name LIKE :like
+        WHERE LOWER(TRIM(stop_name)) LIKE LOWER(:like)
         ORDER BY stop_name;
         """
     rows = conn.execute(sql, params).fetchall()
@@ -153,7 +153,7 @@ def find_stops_fuzzy(conn, name_text, route_short_name=None):
         JOIN routes r ON r.route_id = t.route_id
         WHERE f.entity_type = 'stop'
           AND f.normalized LIKE :pattern
-          AND r.route_short_name = :route
+          AND TRIM(r.route_short_name) = :route
         ORDER BY s.stop_name;
         """
         params["route"] = route_short_name
@@ -180,7 +180,7 @@ def stop_on_route(conn, route_short_name, stop_id_padded):
         JOIN stop_times st ON st.stop_id = s.stop_id
         JOIN trips t ON t.trip_id = st.trip_id
         JOIN routes r ON r.route_id = t.route_id
-        WHERE r.route_short_name = ?
+        WHERE TRIM(r.route_short_name) = ?
           AND s.stop_id_padded = ?
         LIMIT 1
         """,
@@ -355,7 +355,15 @@ def get_schedule(route, text, stop_id=None, stop_name=None, kind="next", debug=F
     try:
         stop = resolve_stop(conn, route, text, stop_id=stop_id, stop_name=stop_name)
         if not stop:
-            return {"error": "stop_not_found"}
+            out = {"error": "stop_not_found"}
+            if debug:
+                out["debug"] = {
+                    "route": route,
+                    "stop_id": stop_id,
+                    "stop_name": stop_name,
+                    "stop_term": extract_stop_term(text) or text,
+                }
+            return out
         if isinstance(stop, dict) and "candidates" in stop:
             return {"error": "multiple_stops", "candidates": stop["candidates"]}
 
