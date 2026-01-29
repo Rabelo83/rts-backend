@@ -170,6 +170,25 @@ def find_stops_fuzzy(conn, name_text, route_short_name=None):
     return [{"stop_id_padded": r["stop_id_padded"], "stop_name": r["stop_name"]} for r in rows]
 
 
+def stop_on_route(conn, route_short_name, stop_id_padded):
+    if not route_short_name or not stop_id_padded:
+        return False
+    row = conn.execute(
+        """
+        SELECT 1
+        FROM stops s
+        JOIN stop_times st ON st.stop_id = s.stop_id
+        JOIN trips t ON t.trip_id = st.trip_id
+        JOIN routes r ON r.route_id = t.route_id
+        WHERE r.route_short_name = ?
+          AND s.stop_id_padded = ?
+        LIMIT 1
+        """,
+        (route_short_name, stop_id_padded),
+    ).fetchone()
+    return bool(row)
+
+
 def resolve_stop(conn, route, text, stop_id=None, stop_name=None):
     if stop_id:
         row = conn.execute(
@@ -188,7 +207,9 @@ def resolve_stop(conn, route, text, stop_id=None, stop_name=None):
 
     stop = find_stop_by_alias(stop_term, defaults)
     if stop:
-        return stop
+        # Only use defaults if the stop is actually on the requested route.
+        if stop_on_route(conn, route, stop["stop_id_padded"]):
+            return stop
 
     candidates = find_stops_like(conn, stop_term, route)
     if len(candidates) == 1:
