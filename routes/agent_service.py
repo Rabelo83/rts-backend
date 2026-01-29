@@ -168,7 +168,7 @@ def has_explicit_timeframe(text: str) -> bool:
         return True
     # time hints
     time_words = [
-        'after', 'before', 'around', 'at', 'by',
+        'after', 'before', 'around', 'by',
         'today', 'tomorrow', 'tonight',
         'morning', 'afternoon', 'evening',
         'weekday', 'weekdays', 'weekend',
@@ -240,9 +240,12 @@ def guess_destination_hint(text: str) -> str | None:
 def extract_origin_place(text: str) -> str | None:
     if not text:
         return None
-    m = re.search(r"(from|leaving)\s+(.+?)(?:\s+on|\s+at|\s+around|\?|$)", text, re.IGNORECASE)
+    m = re.search(r"(from|leaving|at)\s+(.+?)(?:\s+on|\s+at|\s+around|\?|$)", text, re.IGNORECASE)
     if m:
-        return m.group(2).strip()
+        cand = m.group(2).strip()
+        if re.search(r"\d", cand) or re.search(r"\b(am|pm)\b", cand.lower()):
+            return None
+        return cand
     return None
 
 
@@ -867,7 +870,8 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                     next_by_dir = raw.get("next_by_direction") or []
                     headsigns = [h for _, h in next_by_dir if h]
                     uniq = sorted(set(headsigns))
-                    if len(uniq) > 1 and not destination_hint:
+                    origin = extract_origin_place(msg_ctx)
+                    if len(uniq) > 1 and (not destination_hint or (origin and destination_hint.lower() == origin.lower())):
                         options = "; ".join(uniq)
                         return {
                             "answer": tmsg(
