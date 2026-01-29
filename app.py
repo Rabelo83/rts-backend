@@ -4,7 +4,6 @@ from flask_cors import CORS
 # Blueprints (your split routes)
 from routes.health import health_bp
 from routes.bustime import bustime_bp
-from routes.schedule_api import schedule_bp
 from routes.agent_api import bp as agent_bp
 
 # If you have web index routes, keep this import.
@@ -22,7 +21,6 @@ def create_app() -> Flask:
     # Register routes
     app.register_blueprint(health_bp)     # "/"
     app.register_blueprint(bustime_bp)    # /api/routes, /api/predictions, etc.
-    app.register_blueprint(schedule_bp)   # /api/schedule/*
     app.register_blueprint(agent_bp)      # /api/agent
 
     if web_index_bp:

@@ -8,10 +8,6 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import rts_api
-from db import gtfs_db
-import requests
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin
 
 # OpenAI is OPTIONAL (agent still works without it)
 try:
@@ -27,7 +23,8 @@ TZ = ZoneInfo("America/New_York")
 BACKEND_BASICS_AVAILABLE = False
 BB_ANSWER_FN = None
 try:
-    backend_basics_db = Path(__file__).resolve().parents[2] / "Backend Basics" / "db"
+    # Repo root is one level above routes/
+    backend_basics_db = Path(__file__).resolve().parents[1] / "Backend Basics" / "db"
     if backend_basics_db.exists():
         sys.path.insert(0, str(backend_basics_db))
         import answering_layer as _bb_answering_layer
@@ -123,6 +120,57 @@ def wants_realtime(text: str) -> bool:
     ]
     return any(k in t for k in rt_words)
 
+
+
+def has_explicit_timeframe(text: str) -> bool:
+    t = (text or '').lower()
+    # explicit times like 2pm, 2:30 pm
+    if re.search(r"\d{1,2}(:\d{2})?\s*(am|pm)", t):
+        return True
+    # explicit dates like 2026-01-31 or 01/31/2026
+    if re.search(r"20\d{2}-\d{2}-\d{2}", t) or re.search(r"\d{1,2}/\d{1,2}/\d{2,4}", t):
+        return True
+    # time hints
+    time_words = [
+        'after', 'before', 'around', 'at', 'by',
+        'today', 'tomorrow', 'tonight',
+        'morning', 'afternoon', 'evening',
+        'weekday', 'weekdays', 'weekend',
+        'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+        # Spanish (ASCII only)
+        'hoy', 'manana', 'tarde', 'noche',
+        'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo',
+    ]
+    return any(k in t for k in time_words)
+
+
+def humanize_answer(text: str, lang: str) -> str:
+    if not text:
+        return text
+    if os.getenv('HUMANIZE_ENABLED', 'true').lower() == 'false':
+        return text
+    api_key = os.getenv('OPENAI_API_KEY', '').strip()
+    if OpenAI is None or not api_key:
+        return text
+    try:
+        client = OpenAI(api_key=api_key)
+        model = os.getenv('HUMANIZE_MODEL', 'gpt-4o-mini')
+        sys_msg = (
+            'You are a friendly RTS assistant. Rewrite the answer to be clear and human. '
+            'Preserve all times, stop IDs, and route numbers exactly. Do not add facts.'
+        )
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {'role': 'system', 'content': sys_msg},
+                {'role': 'user', 'content': text},
+            ],
+            temperature=0.2,
+        )
+        out = (resp.choices[0].message.content or '').strip()
+        return out or text
+    except Exception:
+        return text
 
 def is_transit_keywords(text: str) -> bool:
     t = (text or "").lower()
@@ -372,344 +420,6 @@ def fmt_stop_list(lang: str, title: str, candidates: list[dict]) -> str:
 
 
 # ------------------------------------------------------------
-# Schedule via GTFS
-# ------------------------------------------------------------
-def schedule_next_departures(stop_id: str, route_id: str | None, when_dt: datetime, limit: int = 3) -> dict:
-    """
-    stop_id here is the rider-facing 4-digit stop number -> treat as GTFS stop_code.
-    If nothing is scheduled at/after the requested time, return the closest
-    scheduled departure before that time within a small window.
-    """
-    window_before = int(os.getenv("SCHEDULE_WINDOW_BEFORE_MIN", "90"))
-    window_after = int(os.getenv("SCHEDULE_WINDOW_AFTER_MIN", "180"))
-
-    start_dt = when_dt - timedelta(minutes=window_before)
-    end_dt = when_dt + timedelta(minutes=window_after)
-
-    result = gtfs_db.next_departures_window(
-        stop_code=stop_id,
-        route_short_name=route_id,
-        start_dt=start_dt,
-        end_dt=end_dt,
-        limit=max(6, limit * 3),
-    )
-    rows = result.get("rows") or []
-    if not rows:
-        # Fallback: try Bustime stop name -> GTFS stop_name search -> stop_id lookup
-        if route_id:
-            try:
-                stop_name = rts_api.get_stop_name(route_id, stop_id)
-            except Exception:
-                stop_name = None
-
-            if stop_name:
-                # Build a few reasonable name queries (full + simplified)
-                name_queries = []
-                name_queries.append(stop_name)
-                name_queries.append(stop_name.split("/")[0].strip())
-                name_queries.append(stop_name.split(" - ")[0].strip())
-
-                # Token-based fallback (e.g., "Rosa Parks Downtown Station")
-                tokens = re.findall(r"[a-z0-9]+", stop_name.lower())
-                tokens = [t for t in tokens if len(t) >= 4]
-                if len(tokens) >= 2:
-                    name_queries.append(" ".join(tokens[:2]))
-                if tokens:
-                    name_queries.append(tokens[0])
-
-                # De-dupe
-                name_queries = [q for q in dict.fromkeys([q.strip() for q in name_queries if q])]
-
-                for q in name_queries:
-                    candidates = gtfs_db.find_stops(q, limit=5)
-                    if not candidates:
-                        continue
-                    gtfs_stop_id = candidates[0].get("stop_id")
-                    if not gtfs_stop_id:
-                        continue
-
-                    result = gtfs_db.next_departures_window(
-                        stop_id=gtfs_stop_id,
-                        route_short_name=route_id,
-                        start_dt=start_dt,
-                        end_dt=end_dt,
-                        limit=max(6, limit * 3),
-                    )
-                    rows = result.get("rows") or []
-                    if rows:
-                        return {
-                            "rows": rows,
-                            "fallback_before": False,
-                            "fallback_name": stop_name,
-                        }
-
-                    # If the route filter yields nothing, try the same stop without route filter.
-                    result = gtfs_db.next_departures_window(
-                        stop_id=gtfs_stop_id,
-                        route_short_name=None,
-                        start_dt=start_dt,
-                        end_dt=end_dt,
-                        limit=max(6, limit * 3),
-                    )
-                    rows = result.get("rows") or []
-                    if rows:
-                        return {
-                            "rows": rows,
-                            "fallback_before": False,
-                            "fallback_name": stop_name,
-                            "fallback_no_route": True,
-                        }
-
-        return {"rows": [], "fallback_before": False}
-
-    target_date = when_dt.strftime("%Y%m%d")
-    target_sec = when_dt.hour * 3600 + when_dt.minute * 60 + when_dt.second
-
-    after_rows = []
-    before_rows = []
-
-    for r in rows:
-        svc_date = str(r.get("service_date") or "")
-        dep_secs = r.get("dep_secs")
-        if dep_secs is None:
-            continue
-
-        if svc_date == target_date:
-            delta = dep_secs - target_sec
-        elif svc_date > target_date:
-            delta = (24 * 3600 - target_sec) + dep_secs
-        else:
-            delta = -(target_sec + (24 * 3600 - dep_secs))
-
-        if delta >= 0:
-            after_rows.append((delta, r))
-        else:
-            before_rows.append((delta, r))
-
-    if after_rows:
-        after_rows.sort(key=lambda x: x[0])
-        picked = [r for _, r in after_rows[:limit]]
-        return {"rows": picked, "fallback_before": False}
-
-    if before_rows:
-        # closest before = max delta (least negative)
-        before_rows.sort(key=lambda x: x[0], reverse=True)
-        return {"rows": [before_rows[0][1]], "fallback_before": True}
-
-    return {"rows": [], "fallback_before": False}
-
-
-_WEB_BASE = os.getenv("WEB_SCHEDULE_BASE", "https://53733956.com")
-_WEB_TIMEOUT = int(os.getenv("WEB_SCHEDULE_TIMEOUT", "12"))
-_ROUTE_PAGE_CACHE: dict[str, str] = {}
-
-
-def _normalize_text(s: str) -> str:
-    s = (s or "").lower()
-    s = re.sub(r"[^a-z0-9\s]", " ", s)
-    s = re.sub(r"\s+", " ", s).strip()
-    return s
-
-
-def _route_page_url(route_id: str) -> str | None:
-    if not route_id:
-        return None
-    rid_raw = str(route_id).strip()
-    rid = rid_raw.zfill(3)
-    try:
-        resp = requests.get(_WEB_BASE + "/", timeout=_WEB_TIMEOUT, headers={"User-Agent": "rts-backend/1.0"})
-        resp.raise_for_status()
-    except Exception as e:
-        print("web_schedule_home_error:", repr(e))
-        return None
-
-    soup = BeautifulSoup(resp.text, "html.parser")
-    target_padded = f"route {rid}"
-    target_raw = f"route {rid_raw}"
-    for a in soup.find_all("a", href=True):
-        text = _normalize_text(a.get_text(" "))
-        href = a["href"]
-        if target_padded in text or target_raw in text:
-            return urljoin(_WEB_BASE + "/", href)
-
-        # Also match href patterns like rts005 or rts05
-        href_norm = _normalize_text(href)
-        m = re.search(r"\brts\s*0*(\d{1,3})\b", href_norm)
-        if m and m.group(1).lstrip("0") == rid_raw.lstrip("0"):
-            return urljoin(_WEB_BASE + "/", href)
-    return None
-
-
-def _fetch_route_page(route_id: str) -> str | None:
-    if route_id in _ROUTE_PAGE_CACHE:
-        return _ROUTE_PAGE_CACHE[route_id]
-
-    url = _route_page_url(route_id)
-    if not url:
-        return None
-    try:
-        resp = requests.get(url, timeout=_WEB_TIMEOUT, headers={"User-Agent": "rts-backend/1.0"})
-        resp.raise_for_status()
-        _ROUTE_PAGE_CACHE[route_id] = resp.text
-        return resp.text
-    except Exception as e:
-        print("web_schedule_route_error:", repr(e))
-        return None
-
-
-def _table_label(table) -> str:
-    for tag in table.find_all_previous(["h1", "h2", "h3", "h4"], limit=3):
-        t = _normalize_text(tag.get_text(" "))
-        if t:
-            return t
-    caption = table.find("caption")
-    if caption:
-        return _normalize_text(caption.get_text(" "))
-    return ""
-
-
-def _parse_time_candidates(token: str) -> list[int]:
-    token = token.strip().lower()
-    m = re.search(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b", token)
-    if not m:
-        return []
-    hh = int(m.group(1))
-    mm = int(m.group(2) or 0)
-    ap = (m.group(3) or "").lower()
-    if ap == "am":
-        if hh == 12:
-            hh = 0
-        return [hh * 60 + mm]
-    if ap == "pm":
-        if hh != 12:
-            hh += 12
-        return [hh * 60 + mm]
-    # no am/pm -> return both possibilities
-    if hh == 12:
-        return [0 * 60 + mm, 12 * 60 + mm]
-    return [hh * 60 + mm, (hh + 12) * 60 + mm]
-
-
-def _extract_times(cell_text: str) -> list[int]:
-    out: list[int] = []
-    for token in re.findall(r"\b\d{1,2}(:\d{2})?\s*(am|pm)?\b", cell_text.lower()):
-        # token is tuple due to groups; rebuild
-        pass
-    for m in re.finditer(r"\b\d{1,2}(:\d{2})?\s*(am|pm)?\b", cell_text.lower()):
-        out.extend(_parse_time_candidates(m.group(0)))
-    return out
-
-
-def _best_time(times: list[int], target_min: int) -> int | None:
-    if not times:
-        return None
-    # prefer after
-    after = [t for t in times if t >= target_min]
-    if after:
-        return min(after, key=lambda x: x - target_min)
-    return max(times)
-
-
-def web_schedule_lookup(route_id: str, stop_name: str, when_dt: datetime) -> dict | None:
-    html = _fetch_route_page(route_id)
-    if not html:
-        return None
-    soup = BeautifulSoup(html, "html.parser")
-    tables = soup.find_all("table")
-    if not tables:
-        return None
-
-    day_label = "weekday"
-    if when_dt.weekday() == 5:
-        day_label = "saturday"
-    elif when_dt.weekday() == 6:
-        day_label = "sunday"
-
-    stop_norm = _normalize_text(stop_name)
-    best_candidate = None
-
-    for tbl in tables:
-        label = _table_label(tbl)
-        if label and day_label not in label and any(k in label for k in ["weekday", "saturday", "sunday"]):
-            continue
-
-        rows = tbl.find_all("tr")
-        if not rows:
-            continue
-        headers = [c.get_text(" ").strip() for c in rows[0].find_all(["th", "td"])]
-        header_norm = [_normalize_text(h) for h in headers]
-        if not header_norm:
-            continue
-
-        # find best column match
-        col_idx = None
-        best_score = 0
-        for i, h in enumerate(header_norm):
-            if not h:
-                continue
-            score = 0
-            if stop_norm and stop_norm in h:
-                score = 3
-            else:
-                # token overlap
-                s_tokens = set(stop_norm.split())
-                h_tokens = set(h.split())
-                score = len(s_tokens & h_tokens)
-            if score > best_score:
-                best_score = score
-                col_idx = i
-
-        if col_idx is None or best_score == 0:
-            continue
-
-        times: list[int] = []
-        for r in rows[1:]:
-            cells = r.find_all(["td", "th"])
-            if col_idx >= len(cells):
-                continue
-            cell_text = cells[col_idx].get_text(" ").strip()
-            if not cell_text or cell_text in ("-", "—"):
-                continue
-            times.extend(_extract_times(cell_text))
-
-        if not times:
-            continue
-
-        best_candidate = {
-            "label": label or day_label,
-            "times": times,
-        }
-        break
-
-    if not best_candidate:
-        return None
-
-    target_min = when_dt.hour * 60 + when_dt.minute
-    chosen = _best_time(best_candidate["times"], target_min)
-    if chosen is None:
-        return None
-
-    hh = chosen // 60
-    mm = chosen % 60
-    suffix = "AM"
-    if hh == 0:
-        hh_display = 12
-    elif hh == 12:
-        hh_display = 12
-        suffix = "PM"
-    elif hh > 12:
-        hh_display = hh - 12
-        suffix = "PM"
-    else:
-        hh_display = hh
-    time_str = f"{hh_display}:{mm:02d} {suffix}"
-
-    return {
-        "time_str": time_str,
-        "label": best_candidate["label"],
-    }
-
-
 def format_realtime_answer(lang: str, usable_preds: list[dict]) -> str:
     lines = []
     for p in usable_preds[:3]:
@@ -722,25 +432,6 @@ def format_realtime_answer(lang: str, usable_preds: list[dict]) -> str:
             lines.append(tmsg(lang, f"Route {rt} to {dest}: {mins} min", f"Ruta {rt} hacia {dest}: {mins} min"))
 
     return tmsg(lang, "Real-time ETA:\n- ", "ETA en tiempo real:\n- ") + "\n- ".join(lines)
-
-
-def format_schedule_fallback(lang: str, stop_id: str, when_dt: datetime, rows: list[dict]) -> str:
-    lines = []
-    for r in rows[:3]:
-        dep = r.get("departure_time") or ""
-        rt = r.get("route_id") or ""
-        hs = (r.get("headsign") or "").strip()
-        if hs:
-            lines.append(f"{dep} — Route {rt} ({hs})")
-        else:
-            lines.append(f"{dep} — Route {rt}")
-
-    when_label = when_dt.strftime("%a %b %d %I:%M%p")
-    return tmsg(
-        lang,
-        f"No real-time buses within the next 45 minutes for Stop {stop_id}.\nNext scheduled departures (after {when_label}):\n- " + "\n- ".join(lines),
-        f"No hay buses en tiempo real dentro de los próximos 45 minutos para la parada {stop_id}.\nPróximas salidas programadas (después de {when_label}):\n- " + "\n- ".join(lines),
-    )
 
 
 # ------------------------------------------------------------
@@ -798,7 +489,9 @@ def try_transit_answer(message: str) -> dict | None:
         if not destination_hint:
             destination_hint = guess_destination_hint(msg) or ""
 
-    prefer_schedule = (intent == "schedule") or (wants_schedule(msg) and not wants_realtime(msg))
+    has_time = has_explicit_timeframe(msg)
+    prefer_schedule = has_time or (intent == "schedule") or (wants_schedule(msg) and not wants_realtime(msg))
+    prefer_realtime = (intent == "eta") or (wants_realtime(msg) and not has_time)
 
     # Schedule questions (Backend Basics preferred)
     if prefer_schedule and BACKEND_BASICS_AVAILABLE and BB_ANSWER_FN:
@@ -808,6 +501,7 @@ def try_transit_answer(message: str) -> dict | None:
                 answer_text = res.get("response_text") or str(res)
             else:
                 answer_text = str(res)
+            answer_text = humanize_answer(answer_text, lang)
             return {
                 "answer": answer_text,
                 "sources": [{"type": "backend_basics_schedule"}],
@@ -815,8 +509,8 @@ def try_transit_answer(message: str) -> dict | None:
         except Exception as e:
             print("backend_basics_answer_error:", repr(e))
 
-    # If stop_id missing:
-    if not stop_id:
+    # If stop_id missing (ETA flow only):
+    if not prefer_schedule and not stop_id:
         if route_id:
             candidates = suggest_stops_by_route(route_id, (destination_hint + " " + msg).strip(), limit=8)
 
@@ -842,82 +536,15 @@ def try_transit_answer(message: str) -> dict | None:
                 "sources": [{"type": "need_stop_or_route"}],
             }
 
-    # Schedule questions (GTFS fallback)
+    # Schedule questions (Backend Basics required)
     if prefer_schedule:
-        when_dt = parse_when_dt_from_message(msg)
-        result = schedule_next_departures(stop_id=stop_id, route_id=route_id, when_dt=when_dt, limit=3)
-        rows = result.get("rows") or []
-
-        if rows:
-            lines = []
-            for r in rows[:3]:
-                dep = r.get("departure_time") or ""
-                rt = r.get("route_id") or (route_id or "")
-                hs = (r.get("headsign") or "").strip()
-                if hs:
-                    lines.append(f"{dep} — Route {rt} ({hs})")
-                else:
-                    lines.append(f"{dep} — Route {rt}")
-
-            if result.get("fallback_before"):
-                return {
-                    "answer": tmsg(
-                        lang,
-                        f"No departures at/after your requested time. Closest scheduled departure before then:\n- " + "\n- ".join(lines),
-                        f"No hay salidas a esa hora o después. La salida programada más cercana antes es:\n- " + "\n- ".join(lines),
-                    ),
-                    "sources": [{"type": "gtfs_schedule_before", "stop_id": stop_id, "route_id": route_id}],
-                }
-
-            if result.get("fallback_name"):
-                if result.get("fallback_no_route"):
-                    return {
-                        "answer": tmsg(
-                            lang,
-                            f"I couldn’t find Route {route_id} schedule at that stop. Here are other scheduled departures near '{result.get('fallback_name')}':\n- " + "\n- ".join(lines),
-                            f"No encontré horarios de la Ruta {route_id} en esa parada. Otras salidas programadas cerca de '{result.get('fallback_name')}':\n- " + "\n- ".join(lines),
-                        ),
-                        "sources": [{"type": "gtfs_schedule_name_any_route", "stop_id": stop_id, "route_id": route_id}],
-                    }
-                return {
-                    "answer": tmsg(
-                        lang,
-                        f"Scheduled departures near '{result.get('fallback_name')}' (matched by stop name):\n- " + "\n- ".join(lines),
-                        f"Salidas programadas cerca de '{result.get('fallback_name')}' (por nombre de parada):\n- " + "\n- ".join(lines),
-                    ),
-                    "sources": [{"type": "gtfs_schedule_name", "stop_id": stop_id, "route_id": route_id}],
-                }
-
-            return {
-                "answer": tmsg(
-                    lang,
-                    f"Scheduled departures for Stop {stop_id}:\n- " + "\n- ".join(lines),
-                    f"Salidas programadas para la parada {stop_id}:\n- " + "\n- ".join(lines),
-                ),
-                "sources": [{"type": "gtfs_schedule", "stop_id": stop_id, "route_id": route_id}],
-            }
-
-        # Final fallback: try website schedule parse (mirror)
-        stop_name = rts_api.get_stop_name(route_id, stop_id) if route_id else None
-        if stop_name:
-            web_res = web_schedule_lookup(route_id, stop_name, when_dt)
-            if web_res:
-                return {
-                    "answer": tmsg(
-                        lang,
-                        f"Closest scheduled time near {stop_name} ({web_res.get('label')}) is {web_res.get('time_str')}.",
-                        f"El horario programado más cercano cerca de {stop_name} ({web_res.get('label')}) es {web_res.get('time_str')}.",
-                    ),
-                    "sources": [{"type": "web_schedule_parse", "route_id": route_id, "stop_name": stop_name}],
-                }
-
         return {
             "answer": tmsg(
                 lang,
-                f"I couldn’t find scheduled departures for Stop {stop_id} at that time. Try another stop or route.",
-                f"No encontré salidas programadas para la parada {stop_id} a esa hora. Prueba otra parada o ruta."
+                "Schedule database is unavailable right now. Please try again later.",
+                "La base de datos de horarios no esta disponible en este momento. Intenta mas tarde."
             ),
-            "sources": [{"type": "gtfs_schedule_none", "stop_id": stop_id, "route_id": route_id}],
+            "sources": [{"type": "backend_basics_unavailable"}],
         }
 
     # Real-time predictions (Bustime)
@@ -960,29 +587,18 @@ def try_transit_answer(message: str) -> dict | None:
 
     if usable:
         return {
-            "answer": format_realtime_answer(lang, usable),
+            "answer": humanize_answer(format_realtime_answer(lang, usable), lang),
             "sources": [{"type": "realtime", "stop_id": stop_id, "route_id": route_id}],
         }
 
-    # --- FALLBACK TO GTFS SCHEDULE (Option B) ---
-    when_dt = datetime.now(TZ)
-    sched = schedule_next_departures(stop_id=stop_id, route_id=route_id, when_dt=when_dt, limit=3)
-    rows = sched.get("rows") or []
-    if rows:
-        return {
-            "answer": format_schedule_fallback(lang, stop_id, when_dt, rows),
-            "sources": [{"type": "realtime_none_fallback_schedule", "stop_id": stop_id, "route_id": route_id}],
-        }
-
     return {
-        "answer": tmsg(
+        "answer": humanize_answer(tmsg(
             lang,
-            f"No real-time ETAs (<=45 min) found for Stop {stop_id}. I also couldn’t find a scheduled departure for that stop right now.",
-            f"No hay ETAs en tiempo real (<=45 min) para la parada {stop_id}. Tampoco encontré una salida programada para esa parada ahora."
-        ),
+            f"No real-time ETAs (<=45 min) found for Stop {stop_id}.",
+            f"No hay ETAs en tiempo real (<=45 min) para la parada {stop_id}."
+        ), lang),
         "sources": [{"type": "realtime_none", "stop_id": stop_id, "route_id": route_id}],
     }
-
 
 def handle_agent_message(message: str) -> dict:
     transit = try_transit_answer(message)

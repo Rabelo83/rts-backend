@@ -2,7 +2,6 @@ import re
 from typing import List, Dict
 
 import rts_api
-from db import schedule_db
 from utils.text_utils import normalize_stop_id, digits_only
 
 
@@ -61,7 +60,6 @@ def suggest_stops(route_id: str, text: str, limit: int = 8) -> List[Dict]:
 
     IMPORTANT:
     - We try Bustime stops FIRST (because those stop IDs are real numeric stop signs).
-    - If Bustime fails or returns empty, we fallback to schedule_db but ONLY keep numeric stop IDs.
 
     Returns list of:
       { "id": "1192", "name": "Reitz Union / UF Campus", "source": "bustime" }
@@ -121,39 +119,4 @@ def suggest_stops(route_id: str, text: str, limit: int = 8) -> List[Dict]:
 
         return [s for score, s in scored[:limit]]
 
-    # ----------------------------
-    # 2) Fallback: schedule_db (filter numeric IDs only)
-    # ----------------------------
-    schedule_stops = []
-    try:
-        # We request a lot, then filter down
-        raw = schedule_db.route_stops(route_id, service_id="mon_fri", q=None, limit=500) or []
-        for s in raw:
-            sid_raw = s.get("stop_id") or s.get("id")
-            sid = normalize_stop_id(sid_raw)
-
-            # ONLY allow numeric 4-digit IDs.
-            # This prevents weird values like "butler_11_48_plaza_r".
-            if not sid:
-                continue
-            nm = (s.get("stop_name") or s.get("name") or "").strip()
-            if not nm:
-                continue
-            schedule_stops.append({"id": sid, "name": nm, "source": "schedule_db"})
-    except Exception:
-        schedule_stops = []
-
-    if not schedule_stops:
-        return []
-
-    scored = []
-    for s in schedule_stops:
-        scored.append((_score_stop_name(s["name"], tokens), s))
-
-    scored.sort(key=lambda x: x[0], reverse=True)
-
-    if scored and scored[0][0] == 0:
-        schedule_stops.sort(key=lambda x: x["name"])
-        return schedule_stops[:limit]
-
-    return [s for score, s in scored[:limit]]
+    return []
