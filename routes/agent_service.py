@@ -9,6 +9,11 @@ from zoneinfo import ZoneInfo
 
 import rts_api
 
+# Deterministic schedule lookup (GTFS DB)
+try:
+    from routes import schedule_service
+except Exception:
+    schedule_service = None
 # OpenAI is OPTIONAL (agent still works without it)
 try:
     from openai import OpenAI
@@ -849,6 +854,78 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             msg_ctx = f"first {msg_ctx}"
         if wants_last and "last" not in msg_ctx.lower():
             msg_ctx = f"last {msg_ctx}"
+
+    # Schedule questions (deterministic, direct DB)
+    if prefer_schedule and schedule_service and route_id:
+        kind = "first" if wants_first else ("last" if wants_last else "next")
+        stop_name = destination_hint or None
+        data = schedule_service.get_schedule(route_id, msg_ctx, stop_id=stop_id, stop_name=stop_name, kind=kind)
+        if data.get("error") == "multiple_stops":
+            cands = data.get("candidates") or []
+            lines = [f"- {c['stop_name']} (Stop {c['stop_id_padded']})" for c in cands]
+            return {
+                "answer": tmsg(
+                    lang,
+                    "Multiple stops match. Reply with a Stop ID:\n" + "\n".join(lines),
+                    "Coinciden varias paradas. Responde con un Stop ID:\n" + "\n".join(lines),
+                ),
+                "sources": [{"type": "schedule_stop_disambiguate"}],
+            }
+        if data.get("error") == "stop_not_found":
+            return {
+                "answer": tmsg(
+                    lang,
+                    "I couldn't find a matching stop for that route. Please provide a Stop ID.",
+                    "No pude encontrar una parada para esa ruta. Por favor indica un Stop ID.",
+                ),
+                "sources": [{"type": "schedule_stop_not_found"}],
+            }
+        if data.get("error") == "db_unavailable":
+            return {
+                "answer": tmsg(
+                    lang,
+                    "Schedule database is unavailable right now. Please try again later.",
+                    "La base de datos de horarios no esta disponible en este momento. Intenta mas tarde.",
+                ),
+                "sources": [{"type": "backend_basics_unavailable"}],
+            }
+
+        # Format deterministic schedule output
+        if kind == "first" and data.get("first_departure"):
+            return {
+                "answer": f"First departure for route {data['route']} from {data['stop']} on {data['date']}: {format_time_12h(data['first_departure'])}",
+                "sources": [{"type": "schedule_first"}],
+            }
+        if kind == "last" and data.get("last_departure"):
+            return {
+                "answer": f"Last departure for route {data['route']} from {data['stop']} on {data['date']}: {format_time_12h(data['last_departure'])}",
+                "sources": [{"type": "schedule_last"}],
+            }
+
+        next_by_dir = data.get("next_by_direction") or []
+        headsigns = [h for _, h in next_by_dir if h]
+        uniq = sorted(set(headsigns))
+        origin = extract_origin_place(msg_ctx)
+        if len(uniq) > 1 and (not destination_hint or (origin and destination_hint.lower() == origin.lower())):
+            options = "; ".join(uniq)
+            return {
+                "answer": tmsg(
+                    lang,
+                    f"I can help-are you headed toward {options}? Reply with the destination or direction.",
+                    f"Puedo ayudar-estas yendo hacia {options}? Responde con el destino o la direccion."
+                ),
+                "sources": [{"type": "need_direction_schedule"}],
+            }
+
+        lines = [
+            f"Next departures for route {data['route']} from {data['stop']} on {data['date']} after {format_time_12h(data['time'])}:"
+        ]
+        for t, headsign in next_by_dir:
+            lines.append(f"- {format_time_12h(t)} ({headsign})")
+        return {
+            "answer": "\n".join(lines),
+            "sources": [{"type": "schedule_next"}],
+        }
 
     # Schedule questions (Backend Basics preferred)
     if prefer_schedule and ensure_backend_basics() and BB_ANSWER_FN:
