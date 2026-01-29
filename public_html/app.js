@@ -83,8 +83,8 @@ async function loadPredictions() {
   data.predictions.forEach(p => {
     const li = document.createElement("li");
     li.innerHTML = `
-      <strong>${p.minutes} min</strong> — Route ${p.route} toward ${p.destination}
-      <br /><small>Bus #${p.vehicle_id} • ${p.arrival_time}</small>
+      <strong>${p.minutes} min</strong> - Route ${p.route} toward ${p.destination}
+      <br /><small>Bus #${p.vehicle_id} * ${p.arrival_time}</small>
     `;
     predictionsList.appendChild(li);
   });

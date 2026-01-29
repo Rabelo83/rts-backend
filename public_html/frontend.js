@@ -20,6 +20,9 @@ const clearBtn = document.getElementById("clearBtn");
 
 async function fetchJSON(url) {
   const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
   return res.json();
 }
 
@@ -43,9 +46,9 @@ function renderPredictions(predictions) {
   predictions.forEach(p => {
     const li = document.createElement("li");
     li.innerHTML = `
-      <strong>${p.minutes} min</strong> — Route ${p.route} toward ${p.destination}
+      <strong>${p.minutes} min</strong> - Route ${p.route} toward ${p.destination}
       <br />
-      <small>Bus #${p.vehicle_id} • ${p.arrival_time}</small>
+      <small>Bus #${p.vehicle_id} * ${p.arrival_time}</small>
     `;
     predictionsList.appendChild(li);
   });
@@ -91,7 +94,13 @@ async function initRoutes() {
   setPredictionsMessage("Choose a stop or enter a Stop ID to see arrivals.");
 
   // fetch routes
-  const data = await fetchJSON(`${API_BASE}/routes`);
+  let data;
+  try {
+    data = await fetchJSON(`${API_BASE}/routes`);
+  } catch (e) {
+    setPredictionsMessage("Unable to load routes right now. Please try again.");
+    return;
+  }
 
   // fill routeSelect
   routeSelect.disabled = false;
@@ -121,9 +130,15 @@ async function handleRouteChange() {
     return;
   }
 
-  const data = await fetchJSON(
-    `${API_BASE}/directions?route_id=${encodeURIComponent(route_id)}`
-  );
+  let data;
+  try {
+    data = await fetchJSON(
+      `${API_BASE}/directions?route_id=${encodeURIComponent(route_id)}`
+    );
+  } catch (e) {
+    setPredictionsMessage("Unable to load directions right now. Please try again.");
+    return;
+  }
 
   enableSelect(directionSelect, "Select Direction");
 
@@ -150,9 +165,15 @@ async function handleDirectionChange() {
     return;
   }
 
-  const data = await fetchJSON(
-    `${API_BASE}/stops?route_id=${encodeURIComponent(route_id)}&direction_id=${encodeURIComponent(direction_id)}`
-  );
+  let data;
+  try {
+    data = await fetchJSON(
+      `${API_BASE}/stops?route_id=${encodeURIComponent(route_id)}&direction_id=${encodeURIComponent(direction_id)}`
+    );
+  } catch (e) {
+    setPredictionsMessage("Unable to load stops right now. Please try again.");
+    return;
+  }
 
   enableSelect(stopSelect, "Select Stop");
 
@@ -179,11 +200,14 @@ async function handleStopChange() {
     return;
   }
 
-  const data = await fetchJSON(
-    `${API_BASE}/predictions?stop_id=${encodeURIComponent(stop_id)}`
-  );
-
-  renderPredictions(data.predictions);
+  try {
+    const data = await fetchJSON(
+      `${API_BASE}/predictions?stop_id=${encodeURIComponent(stop_id)}`
+    );
+    renderPredictions(data.predictions);
+  } catch (e) {
+    setPredictionsMessage("Unable to load predictions right now. Please try again.");
+  }
 }
 
 // quick Stop ID lookup button
@@ -196,11 +220,14 @@ async function handleStopIdLookup() {
     return;
   }
 
-  const data = await fetchJSON(
-    `${API_BASE}/predictions?stop_id=${encodeURIComponent(normalized)}`
-  );
-
-  renderPredictions(data.predictions);
+  try {
+    const data = await fetchJSON(
+      `${API_BASE}/predictions?stop_id=${encodeURIComponent(normalized)}`
+    );
+    renderPredictions(data.predictions);
+  } catch (e) {
+    setPredictionsMessage("Unable to load predictions right now. Please try again.");
+  }
 }
 
 // refresh button:
@@ -213,19 +240,29 @@ async function handleRefresh() {
   const normalizedTyped = normalizeStopId(typedStopRaw);
 
   if (selectedStop) {
-    const data = await fetchJSON(
-      `${API_BASE}/predictions?stop_id=${encodeURIComponent(selectedStop)}`
-    );
-    renderPredictions(data.predictions);
-    return;
+    try {
+      const data = await fetchJSON(
+        `${API_BASE}/predictions?stop_id=${encodeURIComponent(selectedStop)}`
+      );
+      renderPredictions(data.predictions);
+      return;
+    } catch (e) {
+      setPredictionsMessage("Unable to load predictions right now. Please try again.");
+      return;
+    }
   }
 
   if (normalizedTyped) {
-    const data = await fetchJSON(
-      `${API_BASE}/predictions?stop_id=${encodeURIComponent(normalizedTyped)}`
-    );
-    renderPredictions(data.predictions);
-    return;
+    try {
+      const data = await fetchJSON(
+        `${API_BASE}/predictions?stop_id=${encodeURIComponent(normalizedTyped)}`
+      );
+      renderPredictions(data.predictions);
+      return;
+    } catch (e) {
+      setPredictionsMessage("Unable to load predictions right now. Please try again.");
+      return;
+    }
   }
 
   setPredictionsMessage("Choose a stop or enter a Stop ID to see arrivals.");

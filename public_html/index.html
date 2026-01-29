@@ -6,42 +6,6 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="/static/style.css?v=7" />
-<style>
-  /* Hard overrides for chat UI */
-  #chat-input-row { 
-    display: flex !important; 
-    align-items: stretch !important; 
-    gap: 8px !important; 
-    padding: 10px !important;
-    border-top: 1px solid #e5e7eb !important;
-  }
-  #chat-input {
-    flex: 1 1 auto !important;
-    display: block !important;
-    min-height: 88px !important;    /* ~4 lines */
-    height: 88px !important;
-    max-height: 220px !important;
-    padding: 10px 12px !important;
-    border: 1px solid #d1d5db !important;
-    border-radius: 8px !important;
-    line-height: 1.35 !important;
-    font-size: 0.95rem !important;
-    resize: vertical !important;
-  }
-  #chat-send {
-    height: 88px !important;         /* match textarea */
-    padding: 0 16px !important;
-    border-radius: 8px !important;
-    font-weight: 600 !important;
-    cursor: pointer !important;
-    background: #2563eb !important;
-    color: #fff !important;
-    border: none !important;
-  }
-  @media (max-width: 420px){
-    #chat-panel{ width: 95vw !important; right: 2.5vw !important; }
-  }
-</style>
 </head>
 <body>
 
@@ -153,12 +117,12 @@
   <!-- Logic -->
   <script src="/static/frontend.js?v=4"></script>
   <!-- Assistant Chat UI -->
-<div id="chat-toggle">Ask RTS</div>
+<div id="chat-toggle" role="button" tabindex="0" aria-controls="chat-panel" aria-expanded="false">Ask RTS</div>
 <div id="chat-panel">
   <div id="chat-header">RTS Assistant</div>
   <div id="chat-messages"></div>
   <div id="chat-input-row">
-    <textarea id="chat-input" placeholder="Ask about RTS or ETAs (e.g., “ETA 1493”)"></textarea>
+    <textarea id="chat-input" placeholder="Ask about RTS or ETAs (e.g., &quot;ETA 1493&quot;)"></textarea>
     <button id="chat-send">Send</button>
   </div>
 </div>

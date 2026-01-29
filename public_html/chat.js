@@ -40,6 +40,7 @@ function appendBubble(text, who='user'){
   li.textContent = text;
   wrap.appendChild(li);
   wrap.scrollTop = wrap.scrollHeight;
+  return li;
 }
 
 async function sendMessage(){
@@ -53,6 +54,7 @@ async function sendMessage(){
 
   // disable UI while sending
   el('chat-send').disabled = true;
+  const thinking = appendBubble('Thinking...', 'bot');
 
   try {
     const res = await fetch(`${BASE}/api/agent`, {
@@ -64,14 +66,18 @@ async function sendMessage(){
         messages: chatHistory
       })
     });
+    if(!res.ok){
+      throw new Error(`HTTP ${res.status}`);
+    }
     const data = await res.json();
     const answer = data.answer || data.error || 'No response.';
-    appendBubble(answer, 'bot');
+    if(thinking){ thinking.textContent = answer; }
     chatHistory.push({ role: 'assistant', content: answer });
     saveHistory();
   } catch (e) {
-    appendBubble('Network error talking to the agent.', 'bot');
-    chatHistory.push({ role: 'assistant', content: 'Network error talking to the agent.' });
+    const msg = 'Network error talking to the agent.';
+    if(thinking){ thinking.textContent = msg; }
+    chatHistory.push({ role: 'assistant', content: msg });
     saveHistory();
   } finally {
     el('chat-send').disabled = false;
@@ -101,8 +107,17 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  toggle.addEventListener('click', () => {
-    panel.classList.toggle('open');
+  function toggleChat(){
+    const isOpen = panel.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+
+  toggle.addEventListener('click', toggleChat);
+  toggle.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' || e.key === ' '){
+      e.preventDefault();
+      toggleChat();
+    }
   });
   send.addEventListener('click', sendMessage);
   input.addEventListener('keydown', (e) => {
