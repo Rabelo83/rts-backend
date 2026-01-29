@@ -238,7 +238,7 @@ def _last_assistant_message(history) -> str:
     for item in reversed(history):
         if isinstance(item, dict):
             role = (item.get("role") or "").lower()
-            if role == "assistant":
+            if role in ("assistant", "bot"):
                 return (item.get("content") or "").strip()
     return ""
 

@@ -21,7 +21,7 @@ def api_agent():
 
     payload = request.get_json(silent=True) or {}
     msg = (payload.get("message") or "").strip()
-    history = payload.get("history") or []
+    history = payload.get("history") or payload.get("messages") or []
 
     if not msg:
         return jsonify({"error": "message is required"}), 400
