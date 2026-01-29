@@ -2,6 +2,8 @@ import os
 import re
 import json
 import traceback
+import sys
+from pathlib import Path
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -18,6 +20,22 @@ except Exception:
     OpenAI = None
 
 TZ = ZoneInfo("America/New_York")
+
+# ------------------------------------------------------------
+# Optional Backend Basics schedule engine
+# ------------------------------------------------------------
+BACKEND_BASICS_AVAILABLE = False
+BB_ANSWER_FN = None
+try:
+    backend_basics_db = Path(__file__).resolve().parents[2] / "Backend Basics" / "db"
+    if backend_basics_db.exists():
+        sys.path.insert(0, str(backend_basics_db))
+        import answering_layer as _bb_answering_layer
+
+        BB_ANSWER_FN = _bb_answering_layer.answer_question
+        BACKEND_BASICS_AVAILABLE = True
+except Exception as e:
+    print("backend_basics_import_error:", repr(e))
 
 
 # ------------------------------------------------------------
@@ -782,6 +800,21 @@ def try_transit_answer(message: str) -> dict | None:
 
     prefer_schedule = (intent == "schedule") or (wants_schedule(msg) and not wants_realtime(msg))
 
+    # Schedule questions (Backend Basics preferred)
+    if prefer_schedule and BACKEND_BASICS_AVAILABLE and BB_ANSWER_FN:
+        try:
+            res = BB_ANSWER_FN(msg)
+            if isinstance(res, dict):
+                answer_text = res.get("response_text") or str(res)
+            else:
+                answer_text = str(res)
+            return {
+                "answer": answer_text,
+                "sources": [{"type": "backend_basics_schedule"}],
+            }
+        except Exception as e:
+            print("backend_basics_answer_error:", repr(e))
+
     # If stop_id missing:
     if not stop_id:
         if route_id:
@@ -809,7 +842,7 @@ def try_transit_answer(message: str) -> dict | None:
                 "sources": [{"type": "need_stop_or_route"}],
             }
 
-    # Schedule questions (GTFS)
+    # Schedule questions (GTFS fallback)
     if prefer_schedule:
         when_dt = parse_when_dt_from_message(msg)
         result = schedule_next_departures(stop_id=stop_id, route_id=route_id, when_dt=when_dt, limit=3)
