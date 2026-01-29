@@ -296,6 +296,23 @@ def _last_user_with_context(history) -> str:
             return content
     return ""
 
+def _last_user_route(history) -> str | None:
+    if not history:
+        return None
+    for item in reversed(history):
+        if not isinstance(item, dict):
+            continue
+        role = (item.get("role") or "").lower()
+        if role and role != "user":
+            continue
+        content = (item.get("content") or "").strip()
+        if not content:
+            continue
+        rid = extract_route_id_regex(content)
+        if rid:
+            return rid
+    return None
+
 
 def _is_confirmation(text: str) -> bool:
     t = (text or "").strip().lower()
@@ -604,6 +621,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         last_assistant = _last_assistant_message(history)
         if _assistant_asked_time(last_assistant):
             prev = _last_user_with_context(history)
+            prev_route = _last_user_route(history)
             now = datetime.now(TZ)
             hour = now.hour % 12
             hour = 12 if hour == 0 else hour
@@ -615,9 +633,14 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                     msg_ctx = f"{prev} around {time_str}"
                 else:
                     msg_ctx = f"{prev} around {time_str}"
+                if prev_route and not extract_route_id_regex(msg_ctx):
+                    msg_ctx = f"route {prev_route} {msg_ctx}"
                 msg = msg_ctx
             else:
-                msg_ctx = f"schedule around {time_str}"
+                if prev_route:
+                    msg_ctx = f"route {prev_route} schedule around {time_str}"
+                else:
+                    msg_ctx = f"schedule around {time_str}"
                 msg = msg_ctx
 
     # Digits-only messages: clarify route vs stop OR auto-ETA for likely stop IDs
@@ -658,14 +681,13 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     stop_id = extracted.get("stop_id")
     destination_hint = (extracted.get("destination_hint") or "").strip()
 
-    # Regex fallback if LLM didn't extract
-    if intent == "general":
-        if not route_id:
-            route_id = extract_route_id_regex(msg_ctx)
-        if not stop_id:
-            stop_id = extract_stop_id_regex(msg_ctx)
-        if not destination_hint:
-            destination_hint = guess_destination_hint(msg_ctx) or ""
+    # Regex fallback for any missing fields
+    if not route_id:
+        route_id = extract_route_id_regex(msg_ctx)
+    if not stop_id:
+        stop_id = extract_stop_id_regex(msg_ctx)
+    if not destination_hint:
+        destination_hint = guess_destination_hint(msg_ctx) or ""
 
     has_time = has_explicit_timeframe(msg_ctx)
     prefer_schedule = has_time or (intent == "schedule") or (wants_schedule(msg_ctx) and not wants_realtime(msg_ctx))
