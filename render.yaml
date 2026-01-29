@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     # Build installs deps AND builds the GTFS SQLite schedule DB
-    buildCommand: pip install -r requirements.txt && GTFS_DB_PATH="Backend Basics/db/rts_gtfs.sqlite" python scripts/gtfs_ingest.py
+    buildCommand: pip install -r requirements.txt && python "Backend Basics/db/build_gtfs_db.py"
     startCommand: gunicorn server:app
     envVars:
       - key: BUS_API_KEY
@@ -12,6 +12,3 @@ services:
         value: REPLACE_ME
       - key: RTPIDATAFEED
         value: bustime
-      - key: GTFS_URL
-        # Paste the direct GTFS .zip link here (or set it in Render dashboard)
-        value: REPLACE_ME
