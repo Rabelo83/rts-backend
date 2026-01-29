@@ -295,6 +295,7 @@ def _assistant_asked_time(text: str) -> bool:
     return (
         "specify a time" in t
         or "around" in t
+        or "please include a time" in t
         or "first or last" in t
         or "first/last" in t
         or "first service" in t
@@ -321,6 +322,7 @@ def _is_next_request(text: str) -> bool:
         "next route",
         "next departure",
         "soonest",
+        "next?",
     )
 
 def _has_next_intent(text: str) -> bool:
