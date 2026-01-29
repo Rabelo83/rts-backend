@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import rts_api
+import sqlite3
 
 # Deterministic schedule lookup (GTFS DB)
 try:
@@ -21,6 +22,7 @@ except Exception:
     OpenAI = None
 
 TZ = ZoneInfo("America/New_York")
+GTFS_DB_PATH = Path(__file__).resolve().parents[1] / "Backend Basics" / "db" / "rts_gtfs.sqlite"
 
 # ------------------------------------------------------------
 # Optional Backend Basics schedule engine
@@ -665,6 +667,37 @@ def normalize_times_in_text(text: str) -> str:
         return format_time_12h(m.group(0))
     return re.sub(r"\b\d{1,2}:\d{2}:\d{2}\b", repl, text)
 
+
+def route_serves_stop(route_id: str, stop_id_padded: str) -> bool:
+    if not route_id or not stop_id_padded:
+        return False
+    if not GTFS_DB_PATH.exists():
+        return True  # avoid blocking if GTFS isn't available
+    try:
+        conn = sqlite3.connect(GTFS_DB_PATH)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            """
+            SELECT 1
+            FROM stops s
+            JOIN stop_times st ON st.stop_id = s.stop_id
+            JOIN trips t ON t.trip_id = st.trip_id
+            JOIN routes r ON r.route_id = t.route_id
+            WHERE TRIM(r.route_short_name) = ?
+              AND s.stop_id_padded = ?
+            LIMIT 1
+            """,
+            (str(route_id), str(stop_id_padded)),
+        ).fetchone()
+        return bool(row)
+    except Exception:
+        return True
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
 # ------------------------------------------------------------
 # Core agent logic
 # ------------------------------------------------------------
@@ -1092,6 +1125,15 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     # Real-time predictions (Bustime)
     predictions = []
     try:
+        if route_id and stop_id and not route_serves_stop(route_id, stop_id):
+            return {
+                "answer": tmsg(
+                    lang,
+                    f"Route {route_id} does not serve Stop {stop_id}. Please choose a different stop or route.",
+                    f"La ruta {route_id} no pasa por la parada {stop_id}. Elige otra parada o ruta."
+                ),
+                "sources": [{"type": "route_not_serving_stop"}],
+            }
         data = rts_api.get_predictions(stop_id)
         preds = data.get("prd", []) or []
 
