@@ -246,6 +246,29 @@ def _assistant_asked_route_number(text: str) -> bool:
     t = (text or "").lower()
     return ("route number" in t) or ("what route" in t) or ("which route" in t)
 
+def _assistant_asked_time(text: str) -> bool:
+    t = (text or "").lower()
+    return (
+        "specify a time" in t
+        or "around" in t
+        or "first or last" in t
+        or "first/last" in t
+        or "first service" in t
+        or "last service" in t
+    )
+
+def _is_next_request(text: str) -> bool:
+    t = (text or "").strip().lower()
+    return t in (
+        "next",
+        "next one",
+        "the next one",
+        "next bus",
+        "next route",
+        "next departure",
+        "soonest",
+    )
+
 
 def _last_user_with_context(history) -> str:
     if not history:
@@ -565,6 +588,23 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             prev = _last_user_with_context(history)
             msg = f"route {msg}"
             msg_ctx = f"{prev} {msg}".strip() if prev else msg
+
+    # If assistant asked for a time and user replies "next", inject a concrete time.
+    if _is_next_request(msg):
+        last_assistant = _last_assistant_message(history)
+        if _assistant_asked_time(last_assistant):
+            prev = _last_user_with_context(history)
+            now = datetime.now(TZ)
+            hour = now.hour % 12
+            hour = 12 if hour == 0 else hour
+            ampm = "am" if now.hour < 12 else "pm"
+            time_str = f"{hour}:{now.minute:02d} {ampm}"
+            if prev:
+                msg_ctx = f"{prev} around {time_str}"
+                msg = msg_ctx
+            else:
+                msg_ctx = f"schedule around {time_str}"
+                msg = msg_ctx
 
     # Digits-only messages: clarify route vs stop OR auto-ETA for likely stop IDs
     if re.fullmatch(r"\d{1,6}", msg):
