@@ -327,7 +327,7 @@ def first_or_last_departure(conn, route_short_name, stop_id_padded, date_iso, da
     return row["result"] if row else None
 
 
-def get_schedule(route, text, stop_id=None, stop_name=None, kind="next"):
+def get_schedule(route, text, stop_id=None, stop_name=None, kind="next", debug=False):
     conn = connect_db()
     if not conn:
         return {"error": "db_unavailable"}
@@ -345,22 +345,52 @@ def get_schedule(route, text, stop_id=None, stop_name=None, kind="next"):
 
         if kind == "first":
             first_time = first_or_last_departure(conn, route, stop["stop_id_padded"], date_iso, date_compact, first=True)
-            return {"route": route, "stop": stop["stop_name"], "date": date_iso, "first_departure": first_time}
+            out = {"route": route, "stop": stop["stop_name"], "date": date_iso, "first_departure": first_time}
+            if debug:
+                out["debug"] = {
+                    "route": route,
+                    "stop_id": stop["stop_id_padded"],
+                    "date_iso": date_iso,
+                    "date_compact": date_compact,
+                    "time": None,
+                    "kind": "first",
+                }
+            return out
         if kind == "last":
             last_time = first_or_last_departure(conn, route, stop["stop_id_padded"], date_iso, date_compact, first=False)
-            return {"route": route, "stop": stop["stop_name"], "date": date_iso, "last_departure": last_time}
+            out = {"route": route, "stop": stop["stop_name"], "date": date_iso, "last_departure": last_time}
+            if debug:
+                out["debug"] = {
+                    "route": route,
+                    "stop_id": stop["stop_id_padded"],
+                    "date_iso": date_iso,
+                    "date_compact": date_compact,
+                    "time": None,
+                    "kind": "last",
+                }
+            return out
 
         if not q_time:
             now = datetime.now(TZ)
             q_time = now.strftime("%H:%M:%S")
 
         rows = next_departures_per_headsign(conn, route, stop["stop_id_padded"], date_iso, date_compact, q_time)
-        return {
+        out = {
             "route": route,
             "stop": stop["stop_name"],
             "date": date_iso,
             "time": q_time,
             "next_by_direction": [(r["departure_time"], r["trip_headsign"]) for r in rows],
         }
+        if debug:
+            out["debug"] = {
+                "route": route,
+                "stop_id": stop["stop_id_padded"],
+                "date_iso": date_iso,
+                "date_compact": date_compact,
+                "time": q_time,
+                "kind": "next",
+            }
+        return out
     finally:
         conn.close()
