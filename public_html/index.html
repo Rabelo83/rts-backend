@@ -26,11 +26,12 @@
           Plan by Route
           <span class="tag">Browse</span>
         </h2>
+        <div class="card-subtitle">Pick a route, then direction and stop.</div>
       </div>
 
       <!-- Route -->
       <div class="control-block">
-        <label for="routeSelect">Route</label>
+        <label for="routeSelect"><span class="label-step">1</span> Route</label>
         <select id="routeSelect">
           <!-- JS injects:
           <option value="">Select a Route</option>
@@ -41,7 +42,7 @@
 
       <!-- Direction -->
       <div class="control-block">
-        <label for="directionSelect">Direction</label>
+        <label for="directionSelect"><span class="label-step">2</span> Direction</label>
         <select id="directionSelect" disabled>
           <!-- JS injects:
           <option value="">Select Direction</option>
@@ -52,7 +53,7 @@
 
       <!-- Stop -->
       <div class="control-block">
-        <label for="stopSelect">Stop</label>
+        <label for="stopSelect"><span class="label-step">3</span> Stop</label>
         <select id="stopSelect" disabled>
           <!-- JS injects:
           <option value="">Select Stop</option>
@@ -62,6 +63,8 @@
       </div>
     </section>
 
+    <div class="or-divider"><span>OR</span></div>
+
     <!-- CARD: Quick Stop Lookup -->
     <section class="card">
       <div class="card-header-row">
@@ -69,6 +72,7 @@
           Quick Stop Lookup
           <span class="tag">Fast</span>
         </h2>
+        <div class="card-subtitle">Jump straight to arrivals using a stop ID.</div>
       </div>
 
       <div class="stop-id-row">
@@ -119,7 +123,10 @@
   <!-- Assistant Chat UI -->
 <div id="chat-toggle" role="button" tabindex="0" aria-controls="chat-panel" aria-expanded="false">Ask RTS</div>
 <div id="chat-panel">
-  <div id="chat-header">RTS Assistant</div>
+<div id="chat-header">
+  <span>RTS Assistant</span>
+  <button id="chat-clear" type="button" aria-label="Clear chat">Clear</button>
+</div>
   <div id="chat-messages"></div>
   <div id="chat-input-row">
     <textarea id="chat-input" placeholder="Ask about RTS or ETAs (e.g., &quot;ETA 1493&quot;)"></textarea>

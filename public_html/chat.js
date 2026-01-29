@@ -30,6 +30,17 @@ function saveHistory(){
   }
 }
 
+function clearHistory(){
+  chatHistory.length = 0;
+  try {
+    localStorage.removeItem(HISTORY_KEY);
+  } catch (_) {
+    // ignore storage errors
+  }
+  const wrap = el('chat-messages');
+  if(wrap){ wrap.innerHTML = ''; }
+}
+
 // ====== DOM ======
 function el(id){ return document.getElementById(id); }
 
@@ -94,6 +105,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const panel  = el('chat-panel');
   const send   = el('chat-send');
   const input  = el('chat-input');
+  const clear  = el('chat-clear');
 
   if(!toggle || !panel || !send || !input){
     console.error('Chat elements missing in DOM.');
@@ -120,6 +132,13 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
   send.addEventListener('click', sendMessage);
+  if(clear){
+    clear.addEventListener('click', () => {
+      if(confirm('Clear chat history?')){
+        clearHistory();
+      }
+    });
+  }
   input.addEventListener('keydown', (e) => {
     if(e.key === 'Enter' && !e.shiftKey){
       e.preventDefault();
