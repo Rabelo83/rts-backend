@@ -61,6 +61,15 @@ def digits_only(s: str) -> str:
     return re.sub(r"[^0-9]", "", s or "")
 
 
+def extract_any_stop_candidate(text: str) -> str | None:
+    if not text:
+        return None
+    m = re.search(r"\b([0-9]{3,4})\b", text)
+    if m:
+        return normalize_stop_id(m.group(1))
+    return None
+
+
 def extract_route_id_regex(text: str) -> str | None:
     t = (text or "").lower()
 
@@ -91,6 +100,11 @@ def extract_stop_id_regex(text: str) -> str | None:
     m = re.search(r"#\s*([0-9]{1,6})\b", t)
     if m:
         return normalize_stop_id(m.group(1))
+
+    # Heuristic: "arrive at 1612" or "at 1612" in a transit query
+    m = re.search(r"\b(at|arrive at|arrival at)\s+([0-9]{3,6})\b", t)
+    if m:
+        return normalize_stop_id(m.group(2))
 
     return None
 
@@ -700,6 +714,12 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         stop_id = extract_stop_id_regex(msg_ctx)
     if not destination_hint:
         destination_hint = guess_destination_hint(msg_ctx) or ""
+
+    # If route is known and we still don't have a stop_id, use a loose 3-4 digit token.
+    if route_id and not stop_id:
+        cand = extract_any_stop_candidate(msg_ctx)
+        if cand:
+            stop_id = cand
 
     has_time = has_explicit_timeframe(msg_ctx)
     prefer_schedule = has_time or (intent == "schedule") or (wants_schedule(msg_ctx) and not wants_realtime(msg_ctx))
