@@ -845,6 +845,35 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             if isinstance(res, dict):
                 answer_text = res.get("response_text") or str(res)
                 raw = res.get("raw") or {}
+                # If schedule engine still asks for a time, retry once with injected time.
+                if "include a time" in (answer_text or "").lower():
+                    now = datetime.now(TZ)
+                    hour = now.hour % 12
+                    hour = 12 if hour == 0 else hour
+                    ampm = "am" if now.hour < 12 else "pm"
+                    time_str = f"{hour}:{now.minute:02d} {ampm}"
+                    res = BB_ANSWER_FN(f"{msg_ctx} around {time_str}")
+                    if isinstance(res, dict):
+                        answer_text = res.get("response_text") or str(res)
+                        raw = res.get("raw") or {}
+                    else:
+                        answer_text = str(res)
+                        raw = {}
+                # If multiple headsigns remain and user didn't pick direction, ask to clarify.
+                next_by_dir = raw.get("next_by_direction") or []
+                headsigns = [h for _, h in next_by_dir if h]
+                uniq = sorted(set(headsigns))
+                origin = extract_origin_place(msg_ctx)
+                if len(uniq) > 1 and (not destination_hint or (origin and destination_hint.lower() == origin.lower())):
+                    options = "; ".join(uniq)
+                    return {
+                        "answer": tmsg(
+                            lang,
+                            f"I can help-are you headed toward {options}? Reply with the destination or direction.",
+                            f"Puedo ayudar-estas yendo hacia {options}? Responde con el destino o la direccion."
+                        ),
+                        "sources": [{"type": "need_direction_schedule"}],
+                    }
                 # Direction disambiguation: if user said "leaving/from X", prefer headsigns
                 # that do NOT contain the origin place name.
                 origin = extract_origin_place(msg_ctx)
