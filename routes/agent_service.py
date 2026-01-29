@@ -841,15 +841,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             "sources": [{"type": "need_stop_schedule"}],
         }
 
-    if prefer_schedule and route_id and destination_hint and not stop_id and not re.search(r"\b(from|at|near)\b", msg_ctx.lower()):
-        return {
-            "answer": tmsg(
-                lang,
-                f"Do you want schedules for {destination_hint}? Reply yes or no.",
-                f"Quieres horarios para {destination_hint}? Responde si o no."
-            ),
-            "sources": [{"type": "confirm_landmark_schedule"}],
-        }
+    # Skip yes/no confirmation; let the schedule engine disambiguate stops if needed.
 
     # If asking first/last, ensure the query includes the keyword for the schedule engine.
     if (wants_first or wants_last) and route_id:
