@@ -809,6 +809,9 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     if not prefer_schedule and route_id and destination_hint and not stop_id and _has_next_intent(msg_ctx):
         prefer_schedule = True
 
+    wants_first = "first" in msg_ctx.lower()
+    wants_last = "last" in msg_ctx.lower()
+
 
     if prefer_schedule and not route_id:
         return {
@@ -839,6 +842,13 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             ),
             "sources": [{"type": "confirm_landmark_schedule"}],
         }
+
+    # If asking first/last, ensure the query includes the keyword for the schedule engine.
+    if (wants_first or wants_last) and route_id:
+        if wants_first and "first" not in msg_ctx.lower():
+            msg_ctx = f"first {msg_ctx}"
+        if wants_last and "last" not in msg_ctx.lower():
+            msg_ctx = f"last {msg_ctx}"
 
     # Schedule questions (Backend Basics preferred)
     if prefer_schedule and ensure_backend_basics() and BB_ANSWER_FN:
