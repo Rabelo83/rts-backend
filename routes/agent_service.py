@@ -325,6 +325,19 @@ def _has_next_intent(text: str) -> bool:
     t = (text or "").lower()
     return any(kw in t for kw in ("next", "soonest", "upcoming", "leaving", "depart"))
 
+def _has_strong_context(text: str) -> bool:
+    if not text:
+        return False
+    if extract_route_id_regex(text) or extract_stop_id_regex(text):
+        return True
+    if guess_destination_hint(text):
+        return True
+    if has_explicit_timeframe(text):
+        return True
+    if re.search(r"\b(from|at|near|leaving|stop)\b", text.lower()):
+        return True
+    return False
+
 
 def _last_user_with_context(history) -> str:
     if not history:
@@ -612,7 +625,10 @@ def format_realtime_answer(lang: str, usable_preds: list[dict]) -> str:
 def try_transit_answer(message: str, history=None) -> dict | None:
     msg = (message or "").strip()
     ctx = _history_text(history)
-    msg_ctx = (ctx + ' ' + msg).strip() if ctx else msg
+    if ctx and not _has_strong_context(msg):
+        msg_ctx = (ctx + " " + msg).strip()
+    else:
+        msg_ctx = msg
     if not msg:
         return None
 
@@ -847,7 +863,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                         ),
                         "sources": [{"type": "need_direction_schedule"}],
                     }
-            answer_text = humanize_answer(answer_text, lang)
+            # Avoid LLM paraphrasing for schedules to prevent hallucinations.
             return {
                 "answer": answer_text,
                 "sources": [{"type": "backend_basics_schedule"}],

@@ -93,6 +93,14 @@ def parse_time(text):
         hour = 0
     return f"{hour:02d}:{minute:02d}:00"
 
+def parse_stop_id(text):
+    m = re.search(r"\bstop\s*(id)?\s*[:#]?\s*([0-9]{1,6})\b", text, re.IGNORECASE)
+    if m:
+        digits = m.group(2)
+        if digits.isdigit():
+            return digits.zfill(4)
+    return None
+
 
 def extract_from_to(text):
     m = re.search(r"\bfrom\s+(.+?)\s+to\s+(.+?)(?:\s+on|\s+at|\s+around|\?|$)", text, re.IGNORECASE)
@@ -171,6 +179,17 @@ def find_stops_fuzzy(conn, name_text, route_short_name=None):
         """
     rows = conn.execute(sql, params).fetchall()
     return [StopCandidate(r["stop_id_padded"], r["stop_name"]) for r in rows]
+
+def find_stop_by_id(conn, stop_id_padded):
+    if not stop_id_padded:
+        return None
+    row = conn.execute(
+        "SELECT stop_id_padded, stop_name FROM stops WHERE stop_id_padded = ?",
+        (stop_id_padded,),
+    ).fetchone()
+    if not row:
+        return None
+    return StopCandidate(row["stop_id_padded"], row["stop_name"])
 
 
 def next_departures_per_headsign(conn, route_short_name, stop_id_padded, date_str, time_str):
@@ -286,6 +305,7 @@ def first_or_last_departure(conn, route_short_name, stop_id_padded, date_str, fi
 def answer_question(question):
     defaults = load_defaults()
     route = parse_route(question)
+    stop_id = parse_stop_id(question)
     q_date = parse_date(question)
     q_time = parse_time(question)
     date_str = q_date.strftime("%Y-%m-%d")
@@ -330,7 +350,13 @@ def answer_question(question):
         if not route:
             return "Please include a route number (e.g., 'route 5')."
 
-        stop = find_stop_by_alias(question, defaults)
+        stop = None
+        if stop_id:
+            stop = find_stop_by_id(conn, stop_id)
+            if not stop:
+                return f"I couldn't find stop {stop_id}."
+        if not stop:
+            stop = find_stop_by_alias(question, defaults)
         if not stop:
             # try to extract a stop name after 'from' or 'leaving'
             m = re.search(r"(from|leaving)\s+(.+?)(?:\s+on|\s+at|\s+around|\?|$)", question, re.IGNORECASE)
