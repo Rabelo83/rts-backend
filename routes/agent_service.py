@@ -125,10 +125,10 @@ def wants_realtime(text: str) -> bool:
 def has_explicit_timeframe(text: str) -> bool:
     t = (text or '').lower()
     # explicit times like 2pm, 2:30 pm
-    if re.search(r"\d{1,2}(:\d{2})?\s*(am|pm)", t):
+    if re.search(r"\b\d{1,2}(:\d{2})?\s*(am|pm)\b", t):
         return True
     # explicit dates like 2026-01-31 or 01/31/2026
-    if re.search(r"20\d{2}-\d{2}-\d{2}", t) or re.search(r"\d{1,2}/\d{1,2}/\d{2,4}", t):
+    if re.search(r"20\d{2}-\d{2}-\d{2}", t) or re.search(r"\d{1,2}/\d{1,2}/\d{2,4}", t):
         return True
     # time hints
     time_words = [
@@ -211,6 +211,26 @@ def detect_language_simple(text: str) -> str:
     if any(w in t for w in ["hola", "horario", "ruta", "parada", "llega", "cuántos", "ubicación", "mañana"]):
         return "es"
     return "en"
+
+
+def _history_text(history) -> str:
+    if not history:
+        return ""
+    parts = []
+    for item in history:
+        if isinstance(item, dict):
+            role = (item.get("role") or "").lower()
+            if role and role != "user":
+                continue
+            content = item.get("content") or ""
+        else:
+            content = str(item)
+        content = content.strip()
+        if content:
+            parts.append(content)
+    # keep last 3 user messages
+    return " ".join(parts[-3:])
+
 
 
 def parse_when_dt_from_message(msg: str) -> datetime:
@@ -437,8 +457,10 @@ def format_realtime_answer(lang: str, usable_preds: list[dict]) -> str:
 # ------------------------------------------------------------
 # Core agent logic
 # ------------------------------------------------------------
-def try_transit_answer(message: str) -> dict | None:
+def try_transit_answer(message: str, history=None) -> dict | None:
     msg = (message or "").strip()
+    ctx = _history_text(history)
+    msg_ctx = (ctx + ' ' + msg).strip() if ctx else msg
     if not msg:
         return None
 
@@ -470,10 +492,10 @@ def try_transit_answer(message: str) -> dict | None:
                 "sources": [{"type": "clarify_number"}],
             }
 
-    if not is_transit_keywords(msg):
+    if not is_transit_keywords(msg_ctx):
         return None
 
-    extracted = llm_extract_intent(msg)
+    extracted = llm_extract_intent(msg_ctx)
     lang = extracted.get("language", "en")
     intent = extracted.get("intent", "general")
     route_id = extracted.get("route_id")
@@ -483,24 +505,60 @@ def try_transit_answer(message: str) -> dict | None:
     # Regex fallback if LLM didn't extract
     if intent == "general":
         if not route_id:
-            route_id = extract_route_id_regex(msg)
+            route_id = extract_route_id_regex(msg_ctx)
         if not stop_id:
-            stop_id = extract_stop_id_regex(msg)
+            stop_id = extract_stop_id_regex(msg_ctx)
         if not destination_hint:
-            destination_hint = guess_destination_hint(msg) or ""
+            destination_hint = guess_destination_hint(msg_ctx) or ""
 
-    has_time = has_explicit_timeframe(msg)
-    prefer_schedule = has_time or (intent == "schedule") or (wants_schedule(msg) and not wants_realtime(msg))
-    prefer_realtime = (intent == "eta") or (wants_realtime(msg) and not has_time)
+    has_time = has_explicit_timeframe(msg_ctx)
+    prefer_schedule = has_time or (intent == "schedule") or (wants_schedule(msg_ctx) and not wants_realtime(msg_ctx))
+
+
+    if prefer_schedule and not route_id:
+        return {
+            "answer": tmsg(
+                lang,
+                "Got it. What route number should I use?",
+                "Entiendo. ?Que numero de ruta debo usar?"
+            ),
+            "sources": [{"type": "need_route_schedule"}],
+        }
+
+    if prefer_schedule and route_id and not stop_id and not destination_hint and not re.search(r"\b(from|at|near)\b", msg_ctx.lower()):
+        return {
+            "answer": tmsg(
+                lang,
+                "Which stop or landmark should I use? For example: 'from Rosa Parks'",
+                "?Que parada o lugar debo usar? Por ejemplo: 'desde Rosa Parks'"
+            ),
+            "sources": [{"type": "need_stop_schedule"}],
+        }
 
     # Schedule questions (Backend Basics preferred)
     if prefer_schedule and BACKEND_BASICS_AVAILABLE and BB_ANSWER_FN:
         try:
-            res = BB_ANSWER_FN(msg)
+            res = BB_ANSWER_FN(msg_ctx)
             if isinstance(res, dict):
                 answer_text = res.get("response_text") or str(res)
             else:
                 answer_text = str(res)
+            # If multiple headsigns are present, ask for direction/landmark
+            if isinstance(res, dict):
+                raw = res.get("raw") or {}
+                next_by_dir = raw.get("next_by_direction") or []
+                headsigns = [h for _, h in next_by_dir if h]
+                uniq = sorted(set(headsigns))
+                if len(uniq) > 1 and not destination_hint:
+                    options = "; ".join(uniq)
+                    return {
+                        "answer": tmsg(
+                            lang,
+                            f"I can help—are you headed toward {options}? Reply with the destination or direction.",
+                            f"Puedo ayudar—¿vas hacia {options}? Responde con el destino o la direccion."
+                        ),
+                        "sources": [{"type": "need_direction_schedule"}],
+                    }
             answer_text = humanize_answer(answer_text, lang)
             return {
                 "answer": answer_text,
@@ -539,11 +597,11 @@ def try_transit_answer(message: str) -> dict | None:
     # Schedule questions (Backend Basics required)
     if prefer_schedule:
         return {
-            "answer": tmsg(
+            "answer": humanize_answer(tmsg(
                 lang,
                 "Schedule database is unavailable right now. Please try again later.",
                 "La base de datos de horarios no esta disponible en este momento. Intenta mas tarde."
-            ),
+            ), lang),
             "sources": [{"type": "backend_basics_unavailable"}],
         }
 
@@ -600,8 +658,8 @@ def try_transit_answer(message: str) -> dict | None:
         "sources": [{"type": "realtime_none", "stop_id": stop_id, "route_id": route_id}],
     }
 
-def handle_agent_message(message: str) -> dict:
-    transit = try_transit_answer(message)
+def handle_agent_message(message: str, history=None) -> dict:
+    transit = try_transit_answer(message, history=history)
     if transit:
         return {
             "answer": transit.get("answer", ""),

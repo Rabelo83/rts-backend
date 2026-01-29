@@ -6,6 +6,16 @@
       "stop_name": "Rosa Parks Downtown Station"
     },
     {
+      "alias": "rosa park",
+      "stop_id_padded": "0001",
+      "stop_name": "Rosa Parks Downtown Station"
+    },
+    {
+      "alias": "rosa parks station",
+      "stop_id_padded": "0001",
+      "stop_name": "Rosa Parks Downtown Station"
+    },
+    {
       "alias": "the hub",
       "stop_id_padded": "0925",
       "stop_name": "The HUB"
