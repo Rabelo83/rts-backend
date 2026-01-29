@@ -639,7 +639,10 @@ def format_time_12h(hhmmss: str) -> str:
 def try_transit_answer(message: str, history=None) -> dict | None:
     msg = (message or "").strip()
     ctx = _history_text(history)
-    if ctx and not _has_strong_context(msg):
+    # If user provides a stop ID without a route, don't carry prior route context.
+    if extract_stop_id_regex(msg) and not extract_route_id_regex(msg):
+        msg_ctx = msg
+    elif ctx and not _has_strong_context(msg):
         msg_ctx = (ctx + " " + msg).strip()
     else:
         msg_ctx = msg
@@ -737,6 +740,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         # 3-4 digits: treat as Stop ID and run ETA
         if len(msg) <= 4:
             msg = f"ETA stop {msg.zfill(4)}"
+            msg_ctx = msg
         else:
             return {
                 "answer": tmsg(
