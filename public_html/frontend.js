@@ -18,6 +18,21 @@ const clearBtn = document.getElementById("clearBtn");
 
 // ----- helpers -----
 
+// Auto-refresh timer
+let autoRefreshTimer = null;
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  autoRefreshTimer = setInterval(handleRefresh, 30000); // 30 seconds
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+}
+
 async function fetchJSON(url) {
   const res = await fetch(url);
   if (!res.ok) {
@@ -26,11 +41,15 @@ async function fetchJSON(url) {
   return res.json();
 }
 
-function setPredictionsMessage(msg) {
+function setPredictionsMessage(msg, isLoading = false) {
   predictionsList.innerHTML = "";
   const li = document.createElement("li");
   li.className = "empty-state";
-  li.textContent = msg;
+  if (isLoading) {
+    li.innerHTML = `<span class="loading-spinner">🔄</span> ${msg}`;
+  } else {
+    li.textContent = msg;
+  }
   predictionsList.appendChild(li);
 }
 
@@ -39,8 +58,10 @@ function renderPredictions(predictions) {
 
   if (!predictions || !predictions.length) {
     const li = document.createElement("li");
-    li.textContent = "No buses scheduled soon for this stop.";
+    li.className = "empty-state";
+    li.textContent = "🚌 No buses scheduled soon for this stop.";
     predictionsList.appendChild(li);
+    stopAutoRefresh();
     return;
   }
 
@@ -60,6 +81,9 @@ function renderPredictions(predictions) {
     `;
     predictionsList.appendChild(li);
   });
+
+  // Start auto-refresh when predictions are showing
+  startAutoRefresh();
 }
 
 // disable / enable helpers for dropdown flow
@@ -205,8 +229,11 @@ async function handleStopChange() {
 
   if (!stop_id) {
     setPredictionsMessage("Choose a stop or enter a Stop ID to see arrivals.");
+    stopAutoRefresh();
     return;
   }
+
+  setPredictionsMessage("Loading arrivals...", true);
 
   try {
     const data = await fetchJSON(
@@ -214,7 +241,8 @@ async function handleStopChange() {
     );
     renderPredictions(data.predictions);
   } catch (e) {
-    setPredictionsMessage("Unable to load predictions right now. Please try again.");
+    setPredictionsMessage("⚠️ Unable to load predictions. Tap Refresh to try again.");
+    stopAutoRefresh();
   }
 }
 
@@ -225,8 +253,11 @@ async function handleStopIdLookup() {
 
   if (!normalized) {
     setPredictionsMessage("Please enter a valid Stop ID (up to 4 digits).");
+    stopAutoRefresh();
     return;
   }
+
+  setPredictionsMessage("Loading arrivals...", true);
 
   try {
     const data = await fetchJSON(
@@ -234,7 +265,8 @@ async function handleStopIdLookup() {
     );
     renderPredictions(data.predictions);
   } catch (e) {
-    setPredictionsMessage("Unable to load predictions right now. Please try again.");
+    setPredictionsMessage("⚠️ Unable to load predictions. Tap Refresh to try again.");
+    stopAutoRefresh();
   }
 }
 
@@ -288,6 +320,9 @@ async function handleClear() {
 
   // reset prediction box
   setPredictionsMessage("Choose a stop or enter a Stop ID to see arrivals.");
+
+  // Stop auto-refresh
+  stopAutoRefresh();
 }
 
 // ----- listeners -----
@@ -296,6 +331,14 @@ directionSelect.addEventListener("change", handleDirectionChange);
 stopSelect.addEventListener("change", handleStopChange);
 
 stopIdBtn.addEventListener("click", handleStopIdLookup);
+
+// Enter key support for Stop ID input
+stopIdInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    handleStopIdLookup();
+  }
+});
 
 refreshBtn.addEventListener("click", handleRefresh);
 clearBtn.addEventListener("click", handleClear);

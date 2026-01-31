@@ -370,6 +370,16 @@ input[type="text"]:focus {
   text-align: center;
 }
 
+.loading-spinner {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 .arrival-card {
   display: grid;
   grid-template-columns: 1fr auto;
