@@ -718,6 +718,125 @@ def llm_extract_intent(message: str, history_summary: str | None = None) -> dict
         return fallback
 
 
+def llm_extract_intent_hybrid(message: str, history: list = None) -> dict:
+    """
+    Enhanced LLM extraction that receives FULL conversation history
+    for context-aware extraction. This enables follow-up questions like
+    "what about after 3:30pm?" to preserve route/stop from previous turns.
+
+    Option 3 (Hybrid): Use LLM for extraction with full context,
+    then use deterministic database queries for execution.
+    """
+    fallback = {
+        "intent": "general",
+        "route_id": None,
+        "stop_id": None,
+        "destination_hint": None,
+        "language": detect_language_simple(message),
+        "direction": None,
+        "stop_name": None,
+        "origin_hint": None,
+        "timeframe": None,
+        "confidence": 0.0,
+        "needs": [],
+    }
+
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key or OpenAI is None:
+        return fallback
+
+    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+    history = history or []
+
+    system = (
+        "You extract transit intent for Gainesville RTS with full conversation context. "
+        "Return ONLY JSON with keys: intent, route_id, stop_id, stop_name, direction, "
+        "destination_hint, origin_hint, timeframe, language, confidence, needs. "
+        "Rules: "
+        "- intent is one of: eta, schedule, vehicle_location, general, clarification. "
+        "- route_id is route number like '9' (string). "
+        "- stop_id is 1-4 digit stop ID if provided; otherwise null. "
+        "- stop_name is a textual landmark/stop if given. "
+        "- direction is textual headsign/destination ('To Oaks Mall') if given. "
+        "- destination_hint/origin_hint capture place names. "
+        "- timeframe is a short text description of when (e.g., 'tomorrow around 3pm'). "
+        "- language is 'es' if Spanish, else 'en'. "
+        "- confidence is 0-1 float reflecting certainty. "
+        "- needs is an array containing any missing info the rider should provide "
+          "from: route, stop, direction, time. "
+        "- IMPORTANT: If the user references previous conversation (e.g., 'what about after 3:30pm?'), "
+          "carry forward the route, stop, and other context from history. "
+        "- If unsure, intent='general'."
+    )
+
+    # Build conversation messages with history
+    messages = [{"role": "system", "content": system}]
+
+    # Add conversation history (last 4 turns to keep context manageable)
+    for turn in history[-8:]:  # 8 messages = 4 back-and-forth turns
+        if isinstance(turn, dict) and turn.get("role") and turn.get("content"):
+            messages.append({
+                "role": turn["role"],
+                "content": turn["content"]
+            })
+
+    # Add current user message
+    messages.append({
+        "role": "user",
+        "content": f"Extract transit intent from: {message}"
+    })
+
+    try:
+        client = OpenAI(api_key=api_key)
+        resp = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            response_format={"type": "json_object"},
+            temperature=0,
+        )
+        raw = resp.choices[0].message.content or "{}"
+        obj = json.loads(raw)
+
+        intent = (obj.get("intent") or "general").strip()
+        route_id = digits_only(obj.get("route_id") or "") or None
+        stop_id = normalize_stop_id(obj.get("stop_id") or "") if obj.get("stop_id") else None
+        destination_hint = (obj.get("destination_hint") or "").strip() or None
+        direction = (obj.get("direction") or "").strip() or None
+        stop_name = (obj.get("stop_name") or "").strip() or None
+        origin_hint = (obj.get("origin_hint") or "").strip() or None
+        timeframe = (obj.get("timeframe") or "").strip() or None
+        language = (obj.get("language") or "en").strip().lower()
+        if language not in ("en", "es"):
+            language = "en"
+        confidence = 0.0
+        try:
+            confidence = float(obj.get("confidence") or 0)
+        except Exception:
+            confidence = 0.0
+        needs = obj.get("needs") or []
+        if not isinstance(needs, list):
+            needs = []
+
+        return {
+            "intent": intent,
+            "route_id": route_id,
+            "stop_id": stop_id,
+            "destination_hint": destination_hint,
+            "direction": direction,
+            "stop_name": stop_name,
+            "origin_hint": origin_hint,
+            "timeframe": timeframe,
+            "language": language,
+            "confidence": confidence,
+            "needs": needs,
+        }
+
+    except Exception as e:
+        print("llm_extract_intent_hybrid_error:", repr(e))
+        print(traceback.format_exc())
+        return fallback
+
+
 # ------------------------------------------------------------
 # Stop suggestions (Bustime-only by route)
 # ------------------------------------------------------------
@@ -1103,6 +1222,11 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     if not is_transit_keywords(msg_ctx):
         return None
 
+    # Option 3 (Hybrid): ALWAYS use LLM extraction with full conversation history
+    # This enables context-aware extraction for follow-up questions like "what about after 3:30pm?"
+    extracted = llm_extract_intent_hybrid(msg_ctx, history=history)
+
+    # Start with basic regex extraction
     lang = detect_language_simple(msg_ctx)
     route_id = extract_route_id_regex(msg_ctx)
     stop_id = extract_stop_id_regex(msg_ctx)
@@ -1114,34 +1238,23 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     intent = "schedule" if (wants_schedule(msg_ctx) and not wants_realtime(msg_ctx)) else ("eta" if wants_realtime(msg_ctx) else "general")
     llm_needs: list[str] = []
 
-    need_llm = False
-    if not route_id and not stop_id and not destination_hint:
-        need_llm = True
-    if not route_id and not stop_id and destination_hint:
-        need_llm = True
-
-    extracted = {}
-    if need_llm:
-        extracted = llm_extract_intent(msg_ctx, history_summary=history_summary)
-        lang = extracted.get("language", lang)
-        intent = extracted.get("intent", intent)
-        route_id = route_id or extracted.get("route_id")
-        stop_id = stop_id or extracted.get("stop_id")
-        direction_hint = (extracted.get("direction") or "").strip()
-        stop_name_hint = (extracted.get("stop_name") or "").strip()
-        llm_destination = (extracted.get("destination_hint") or "").strip()
-        llm_origin = (extracted.get("origin_hint") or "").strip()
-        llm_timeframe = (extracted.get("timeframe") or "").strip()
-        if llm_destination and not destination_hint:
-            destination_hint = llm_destination
-        if llm_origin and not origin_hint:
-            origin_hint = llm_origin
-        if llm_timeframe and not timeframe_hint:
-            timeframe_hint = llm_timeframe
-        llm_needs = extracted.get("needs") or []
-    else:
-        direction_hint = ""
-        stop_name_hint = ""
+    # Override with LLM extraction (which has conversation context)
+    lang = extracted.get("language", lang)
+    intent = extracted.get("intent", intent)
+    route_id = route_id or extracted.get("route_id")
+    stop_id = stop_id or extracted.get("stop_id")
+    direction_hint = (extracted.get("direction") or "").strip()
+    stop_name_hint = (extracted.get("stop_name") or "").strip()
+    llm_destination = (extracted.get("destination_hint") or "").strip()
+    llm_origin = (extracted.get("origin_hint") or "").strip()
+    llm_timeframe = (extracted.get("timeframe") or "").strip()
+    if llm_destination and not destination_hint:
+        destination_hint = llm_destination
+    if llm_origin and not origin_hint:
+        origin_hint = llm_origin
+    if llm_timeframe and not timeframe_hint:
+        timeframe_hint = llm_timeframe
+    llm_needs = extracted.get("needs") or []
 
     if direction_hint and not destination_hint:
         destination_hint = direction_hint
