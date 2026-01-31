@@ -285,6 +285,46 @@ def _history_text(history) -> str:
     # keep last 6 user messages to preserve context like place/time
     return " ".join(parts[-6:])
 
+def _history_summary_for_llm(history) -> str:
+    """
+    Produce a short summary of prior user turns for passing to the LLM.
+    Falls back to simple concatenation when LLM is unavailable or history is short.
+    """
+    fallback = _history_text(history)
+    if not history:
+        return ""
+    if len(fallback) <= 220:
+        return fallback
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key or OpenAI is None:
+        return fallback
+    try:
+        client = OpenAI(api_key=api_key)
+        summary_model = os.getenv("SUMMARY_MODEL", os.getenv("HUMANIZE_MODEL", "gpt-4o-mini"))
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "Summarize the rider's recent RTS requests in <=45 words. "
+                    "Keep stop IDs, route numbers, landmarks, and times. English only."
+                ),
+            },
+            {
+                "role": "user",
+                "content": fallback,
+            },
+        ]
+        resp = client.chat.completions.create(
+            model=summary_model,
+            messages=messages,
+            temperature=0.2,
+            max_tokens=120,
+        )
+        out = (resp.choices[0].message.content or "").strip()
+        return out or fallback
+    except Exception:
+        return fallback
+
 
 def _last_assistant_message(history) -> str:
     if not history:
@@ -473,13 +513,19 @@ def parse_when_dt_from_message(msg: str) -> datetime:
 # ------------------------------------------------------------
 # OpenAI intent extraction (optional)
 # ------------------------------------------------------------
-def llm_extract_intent(message: str) -> dict:
+def llm_extract_intent(message: str, history_summary: str | None = None) -> dict:
     fallback = {
         "intent": "general",
         "route_id": None,
         "stop_id": None,
         "destination_hint": None,
         "language": detect_language_simple(message),
+        "direction": None,
+        "stop_name": None,
+        "origin_hint": None,
+        "timeframe": None,
+        "confidence": 0.0,
+        "needs": [],
     }
 
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
@@ -490,15 +536,27 @@ def llm_extract_intent(message: str) -> dict:
 
     system = (
         "You extract transit intent for Gainesville RTS. "
-        "Return ONLY JSON with keys: intent, route_id, stop_id, destination_hint, language. "
+        "Return ONLY JSON with keys: intent, route_id, stop_id, stop_name, direction, "
+        "destination_hint, origin_hint, timeframe, language, confidence, needs. "
         "Rules: "
-        "- intent is one of: eta, schedule, vehicle_location, general. "
+        "- intent is one of: eta, schedule, vehicle_location, general, clarification. "
         "- route_id is route number like '9' (string). "
         "- stop_id is 1-4 digit stop ID if provided; otherwise null. "
-        "- destination_hint is a place name if mentioned. "
+        "- stop_name is a textual landmark/stop if given. "
+        "- direction is textual headsign/destination ('To Oaks Mall') if given. "
+        "- destination_hint/origin_hint capture place names. "
+        "- timeframe is a short text description of when (e.g., 'tomorrow around 3pm'). "
         "- language is 'es' if Spanish, else 'en'. "
+        "- confidence is 0-1 float reflecting certainty. "
+        "- needs is an array containing any missing info the rider should provide "
+          "from: route, stop, direction, time. "
         "- If unsure, intent='general'."
     )
+
+    user_payload = {
+        "message": message,
+        "history_summary": history_summary or "",
+    }
 
     try:
         client = OpenAI(api_key=api_key)
@@ -506,7 +564,10 @@ def llm_extract_intent(message: str) -> dict:
             model=model,
             messages=[
                 {"role": "system", "content": system},
-                {"role": "user", "content": message},
+                {
+                    "role": "user",
+                    "content": json.dumps(user_payload, ensure_ascii=False),
+                },
             ],
             response_format={"type": "json_object"},
             temperature=0,
@@ -518,16 +579,34 @@ def llm_extract_intent(message: str) -> dict:
         route_id = digits_only(obj.get("route_id") or "") or None
         stop_id = normalize_stop_id(obj.get("stop_id") or "") if obj.get("stop_id") else None
         destination_hint = (obj.get("destination_hint") or "").strip() or None
+        direction = (obj.get("direction") or "").strip() or None
+        stop_name = (obj.get("stop_name") or "").strip() or None
+        origin_hint = (obj.get("origin_hint") or "").strip() or None
+        timeframe = (obj.get("timeframe") or "").strip() or None
         language = (obj.get("language") or "en").strip().lower()
         if language not in ("en", "es"):
             language = "en"
+        confidence = 0.0
+        try:
+            confidence = float(obj.get("confidence") or 0)
+        except Exception:
+            confidence = 0.0
+        needs = obj.get("needs") or []
+        if not isinstance(needs, list):
+            needs = []
 
         return {
             "intent": intent,
             "route_id": route_id,
             "stop_id": stop_id,
             "destination_hint": destination_hint,
+            "direction": direction,
+            "stop_name": stop_name,
+            "origin_hint": origin_hint,
+            "timeframe": timeframe,
             "language": language,
+            "confidence": confidence,
+            "needs": needs,
         }
 
     except Exception as e:
@@ -657,6 +736,50 @@ def format_realtime_answer(lang: str, usable_preds: list[dict]) -> str:
 
     return tmsg(lang, "Real-time ETA:\n- ", "ETA en tiempo real:\n- ") + "\n- ".join(lines)
 
+def build_direction_prompt(options: str, lang: str, ctx_info: dict | None = None) -> str:
+    base = tmsg(
+        lang,
+        f"Which direction are you headed toward: {options}? Reply with the destination or direction.",
+        f"¿Hacia cual direccion vas: {options}? Responde con el destino o la direccion."
+    )
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key or OpenAI is None:
+        return base
+    try:
+        client = OpenAI(api_key=api_key)
+        clarify_model = os.getenv("CLARIFY_MODEL", os.getenv("HUMANIZE_MODEL", "gpt-4o-mini"))
+        ctx = ctx_info or {}
+        user_payload = {
+            "options": options,
+            "language": lang or "en",
+            "route": ctx.get("route"),
+            "stop": ctx.get("stop"),
+            "time": ctx.get("time"),
+        }
+        resp = client.chat.completions.create(
+            model=clarify_model,
+            temperature=0.3,
+            max_tokens=120,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You rewrite clarification questions for the RTS Gainesville assistant. "
+                        "Keep them concise (<=25 words) and match the rider's language (English or Spanish). "
+                        "Mention the route/stop if provided. Ask the rider to choose a direction."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(user_payload, ensure_ascii=False),
+                },
+            ],
+        )
+        text = (resp.choices[0].message.content or "").strip()
+        return text or base
+    except Exception:
+        return base
+
 
 def format_time_12h(hhmmss: str) -> str:
     if not hhmmss:
@@ -717,6 +840,7 @@ def route_serves_stop(route_id: str, stop_id_padded: str) -> bool:
 def try_transit_answer(message: str, history=None) -> dict | None:
     msg = _normalize_time_tokens((message or "").strip())
     ctx = _history_text(history)
+    history_summary = _history_summary_for_llm(history)
     msg_has_strong_context = _has_strong_context(msg)
     last_assistant = _last_assistant_message(history)
     direction_followup = _assistant_asked_direction(last_assistant) and not msg_has_strong_context
@@ -844,20 +968,31 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     if not is_transit_keywords(msg_ctx):
         return None
 
-    extracted = llm_extract_intent(msg_ctx)
+    extracted = llm_extract_intent(msg_ctx, history_summary=history_summary)
     lang = extracted.get("language", "en")
     intent = extracted.get("intent", "general")
     route_id = extracted.get("route_id")
     stop_id = extracted.get("stop_id")
     destination_hint = (extracted.get("destination_hint") or "").strip()
+    direction_hint = (extracted.get("direction") or "").strip()
+    stop_name_hint = (extracted.get("stop_name") or "").strip()
+    origin_hint = (extracted.get("origin_hint") or "").strip()
+    timeframe_hint = (extracted.get("timeframe") or "").strip()
+    llm_needs = extracted.get("needs") or []
 
     # Regex fallback for any missing fields
     if not route_id:
         route_id = extract_route_id_regex(msg_ctx)
     if not stop_id:
         stop_id = extract_stop_id_regex(msg_ctx)
+    if direction_hint and not destination_hint:
+        destination_hint = direction_hint
     if not destination_hint:
         destination_hint = guess_destination_hint(msg_ctx) or ""
+    if not origin_hint:
+        origin_hint = extract_origin_place(msg_ctx) or ""
+    if not timeframe_hint and has_explicit_timeframe(msg_ctx):
+        timeframe_hint = msg_ctx
 
     # If route is known and we still don't have a stop_id, use a loose 3-4 digit token.
     if route_id and not stop_id:
@@ -865,7 +1000,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         if cand:
             stop_id = cand
 
-    has_time = has_explicit_timeframe(msg_ctx)
+    has_time = bool(timeframe_hint) or has_explicit_timeframe(msg_ctx)
     prefer_schedule = has_time or (intent == "schedule") or (wants_schedule(msg_ctx) and not wants_realtime(msg_ctx))
 
     # If user asks for "next" with a route + landmark, prefer schedule (no stop_id yet)
@@ -908,7 +1043,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     # Schedule questions (deterministic, direct DB)
     if prefer_schedule and schedule_service and route_id:
         kind = "first" if wants_first else ("last" if wants_last else "next")
-        stop_name = None if direction_followup else (destination_hint or None)
+        stop_name = None if direction_followup else (stop_name_hint or destination_hint or None)
         data = schedule_service.get_schedule(route_id, msg_ctx, stop_id=stop_id, stop_name=stop_name, kind=kind)
         if data.get("error") == "multiple_stops":
             cands = data.get("candidates") or []
@@ -955,15 +1090,20 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         next_by_dir = data.get("next_by_direction") or []
         headsigns = [h for _, h in next_by_dir if h]
         uniq = sorted(set(headsigns))
-        origin = extract_origin_place(msg_ctx)
+        origin = origin_hint or extract_origin_place(msg_ctx)
         if len(uniq) > 1 and (not destination_hint or (origin and destination_hint.lower() == origin.lower())):
             options = "; ".join(uniq)
+            prompt = build_direction_prompt(
+                options,
+                lang,
+                {
+                    "route": route_id,
+                    "stop": data.get("stop"),
+                    "time": data.get("date"),
+                },
+            )
             return {
-                "answer": tmsg(
-                    lang,
-                    f"Which direction are you headed toward: {options}? Reply with the destination or direction.",
-                    f"¿Hacia cual direccion vas: {options}? Responde con el destino o la direccion."
-                ),
+                "answer": prompt,
                 "sources": [{"type": "need_direction_schedule"}],
             }
 
@@ -1020,20 +1160,25 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 next_by_dir = raw.get("next_by_direction") or []
                 headsigns = [h for _, h in next_by_dir if h]
                 uniq = sorted(set(headsigns))
-                origin = extract_origin_place(msg_ctx)
+                origin = origin_hint or extract_origin_place(msg_ctx)
                 if len(uniq) > 1 and (not destination_hint or (origin and destination_hint.lower() == origin.lower())):
                     options = "; ".join(uniq)
+                    prompt = build_direction_prompt(
+                        options,
+                        lang,
+                        {
+                            "route": raw.get("route"),
+                            "stop": raw.get("stop"),
+                            "time": raw.get("date"),
+                        },
+                    )
                     return {
-                        "answer": tmsg(
-                            lang,
-                            f"Which direction are you headed toward: {options}? Reply with the destination or direction.",
-                            f"¿Hacia cual direccion vas: {options}? Responde con el destino o la direccion."
-                        ),
+                        "answer": prompt,
                         "sources": [{"type": "need_direction_schedule"}],
                     }
                 # Direction disambiguation: if user said "leaving/from X", prefer headsigns
                 # that do NOT contain the origin place name.
-                origin = extract_origin_place(msg_ctx)
+                origin = origin_hint or extract_origin_place(msg_ctx)
                 if origin and isinstance(raw, dict):
                     next_by_dir = raw.get("next_by_direction") or []
                     if next_by_dir:
@@ -1056,15 +1201,20 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                     next_by_dir = raw.get("next_by_direction") or []
                     headsigns = [h for _, h in next_by_dir if h]
                     uniq = sorted(set(headsigns))
-                    origin = extract_origin_place(msg_ctx)
+                    origin = origin_hint or extract_origin_place(msg_ctx)
                     if len(uniq) > 1 and (not destination_hint or (origin and destination_hint.lower() == origin.lower())):
                         options = "; ".join(uniq)
+                        prompt = build_direction_prompt(
+                            options,
+                            lang,
+                            {
+                                "route": raw.get("route"),
+                                "stop": raw.get("stop"),
+                                "time": raw.get("date"),
+                            },
+                        )
                         return {
-                            "answer": tmsg(
-                                lang,
-                                f"Which direction are you headed toward: {options}? Reply with the destination or direction.",
-                                f"¿Hacia cual direccion vas: {options}? Responde con el destino o la direccion."
-                            ),
+                            "answer": prompt,
                             "sources": [{"type": "need_direction_schedule"}],
                         }
             else:
@@ -1090,12 +1240,17 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 uniq = sorted(set(headsigns))
                 if len(uniq) > 1 and not destination_hint:
                     options = "; ".join(uniq)
+                    prompt = build_direction_prompt(
+                        options,
+                        lang,
+                        {
+                            "route": raw.get("route"),
+                            "stop": raw.get("stop"),
+                            "time": raw.get("date"),
+                        },
+                    )
                     return {
-                        "answer": tmsg(
-                            lang,
-                            f"Which direction are you headed toward: {options}? Reply with the destination or direction.",
-                            f"¿Hacia cual direccion vas: {options}? Responde con el destino o la direccion."
-                        ),
+                        "answer": prompt,
                         "sources": [{"type": "need_direction_schedule"}],
                     }
             # Avoid LLM paraphrasing for schedules to prevent hallucinations.
