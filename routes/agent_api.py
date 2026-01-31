@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify
 import os
 import sqlite3
+import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from collections import deque
@@ -16,6 +18,7 @@ from routes.agent_service import handle_agent_message
 bp = Blueprint("agent_api", __name__)
 
 LOG_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "chat_logs.sqlite"
+ANALYTICS_LOG_PATH = Path(__file__).resolve().parents[1] / "data" / "analytics.log"
 
 def _log_chat(message: str, response: str) -> None:
     if os.environ.get("CHAT_LOG_ENABLED", "false").lower() not in ("1", "true", "yes", "on"):
@@ -43,6 +46,16 @@ def _log_chat(message: str, response: str) -> None:
             conn.close()
     except Exception:
         # never break chat flow
+        return
+
+def _log_analytics(entry: dict) -> None:
+    if os.environ.get("ANALYTICS_ENABLED", "true").lower() not in ("1", "true", "yes", "on"):
+        return
+    try:
+        ANALYTICS_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(ANALYTICS_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
         return
 
 def _session_prune(now: float) -> None:
@@ -104,12 +117,34 @@ def api_agent():
     if session_id:
         stored_history = _session_get_history(session_id)
         if stored_history:
-            history = stored_history + [{"role": "user", "content": msg}]
+            history = stored_history  # Don't add current message - it's passed separately
 
+    start = time.perf_counter()
     result = handle_agent_message(msg, history=history)
+    duration_ms = int((time.perf_counter() - start) * 1000)
     if session_id:
-        combined = history + [{"role": "assistant", "content": result.get("answer", "")}]
+        combined = history + [{"role": "user", "content": msg}, {"role": "assistant", "content": result.get("answer", "")}]
         _session_update(session_id, combined)
 
     _log_chat(msg, result.get("answer", ""))
+    meta = result.get("meta") or {}
+    sources = result.get("sources") or []
+    success = meta.get("intent") not in ("fallback", "error")
+    entry = {
+        "ts_utc": datetime.now(timezone.utc).isoformat(),
+        "session_id": session_id or None,
+        "message": msg,
+        "route": meta.get("route"),
+        "stop_id": meta.get("stop_id"),
+        "destination": meta.get("destination"),
+        "intent": meta.get("intent"),
+        "language": meta.get("language"),
+        "needs": meta.get("needs"),
+        "prefer_schedule": meta.get("prefer_schedule"),
+        "timeframe": meta.get("timeframe"),
+        "response_time_ms": duration_ms,
+        "success": success,
+        "source_types": [s.get("type") for s in sources if isinstance(s, dict)],
+    }
+    _log_analytics(entry)
     return jsonify(result)
