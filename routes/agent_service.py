@@ -312,6 +312,14 @@ def _assistant_asked_time(text: str) -> bool:
         or "last service" in t
     )
 
+def _assistant_asked_direction(text: str) -> bool:
+    t = (text or "").lower()
+    return (
+        "are you headed toward" in t
+        or "estas yendo hacia" in t
+        or "¿estas yendo hacia" in t
+    )
+
 def _explicit_date_or_weekday(text: str) -> bool:
     t = (text or "").lower()
     if re.search(r"20\d{2}-\d{2}-\d{2}", t) or re.search(r"\d{1,2}/\d{1,2}/\d{2,4}", t):
@@ -354,13 +362,18 @@ def _normalize_time_tokens(text: str) -> str:
 def _has_strong_context(text: str) -> bool:
     if not text:
         return False
-    if extract_route_id_regex(text) or extract_stop_id_regex(text):
+    has_route = bool(extract_route_id_regex(text))
+    has_stop = bool(extract_stop_id_regex(text))
+    has_time = has_explicit_timeframe(text)
+    has_place_keywords = bool(re.search(r"\b(from|at|near|leaving|stop)\b", text.lower()))
+
+    if has_route or has_stop:
         return True
-    if guess_destination_hint(text):
+    if guess_destination_hint(text) and (has_route or has_stop or has_time or has_place_keywords):
         return True
-    if has_explicit_timeframe(text):
+    if has_time:
         return True
-    if re.search(r"\b(from|at|near|leaving|stop)\b", text.lower()):
+    if has_place_keywords:
         return True
     return False
 
@@ -704,10 +717,21 @@ def route_serves_stop(route_id: str, stop_id_padded: str) -> bool:
 def try_transit_answer(message: str, history=None) -> dict | None:
     msg = _normalize_time_tokens((message or "").strip())
     ctx = _history_text(history)
+    msg_has_strong_context = _has_strong_context(msg)
+    last_assistant = _last_assistant_message(history)
+    direction_followup = _assistant_asked_direction(last_assistant) and not msg_has_strong_context
     # If user provides a stop ID without a route, don't carry prior route context.
     if extract_stop_id_regex(msg) and not extract_route_id_regex(msg):
         msg_ctx = msg
-    elif ctx and not _has_strong_context(msg):
+    elif direction_followup:
+        prev = _last_user_with_context(history)
+        if prev:
+            msg_ctx = f"{prev} {msg}".strip()
+        elif ctx:
+            msg_ctx = (ctx + " " + msg).strip()
+        else:
+            msg_ctx = msg
+    elif ctx and not msg_has_strong_context:
         msg_ctx = (ctx + " " + msg).strip()
     else:
         msg_ctx = msg
@@ -716,7 +740,6 @@ def try_transit_answer(message: str, history=None) -> dict | None:
 
     # Handle confirmation replies using last assistant prompt
     if _is_confirmation(msg):
-        last_assistant = _last_assistant_message(history)
         stop_id = _extract_confirm_stop_id(last_assistant)
         if stop_id:
             msg = f"ETA stop {stop_id}"
@@ -735,7 +758,6 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 else:
                     msg_ctx = f"schedule from {landmark}"
     elif _is_rejection(msg):
-        last_assistant = _last_assistant_message(history)
         if _extract_confirm_stop_id(last_assistant):
             return {
                 "answer": tmsg(
@@ -886,7 +908,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     # Schedule questions (deterministic, direct DB)
     if prefer_schedule and schedule_service and route_id:
         kind = "first" if wants_first else ("last" if wants_last else "next")
-        stop_name = destination_hint or None
+        stop_name = None if direction_followup else (destination_hint or None)
         data = schedule_service.get_schedule(route_id, msg_ctx, stop_id=stop_id, stop_name=stop_name, kind=kind)
         if data.get("error") == "multiple_stops":
             cands = data.get("candidates") or []
