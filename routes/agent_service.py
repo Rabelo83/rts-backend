@@ -961,8 +961,8 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             return {
                 "answer": tmsg(
                     lang,
-                    f"I can help-are you headed toward {options}? Reply with the destination or direction.",
-                    f"Puedo ayudar-estas yendo hacia {options}? Responde con el destino o la direccion."
+                    f"Which direction are you headed toward: {options}? Reply with the destination or direction.",
+                    f"¿Hacia cual direccion vas: {options}? Responde con el destino o la direccion."
                 ),
                 "sources": [{"type": "need_direction_schedule"}],
             }
@@ -1026,8 +1026,8 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                     return {
                         "answer": tmsg(
                             lang,
-                            f"I can help-are you headed toward {options}? Reply with the destination or direction.",
-                            f"Puedo ayudar-estas yendo hacia {options}? Responde con el destino o la direccion."
+                            f"Which direction are you headed toward: {options}? Reply with the destination or direction.",
+                            f"¿Hacia cual direccion vas: {options}? Responde con el destino o la direccion."
                         ),
                         "sources": [{"type": "need_direction_schedule"}],
                     }
@@ -1062,8 +1062,8 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                         return {
                             "answer": tmsg(
                                 lang,
-                                f"I can help-are you headed toward {options}? Reply with the destination or direction.",
-                                f"Puedo ayudar-estas yendo hacia {options}? Responde con el destino o la direccion."
+                                f"Which direction are you headed toward: {options}? Reply with the destination or direction.",
+                                f"¿Hacia cual direccion vas: {options}? Responde con el destino o la direccion."
                             ),
                             "sources": [{"type": "need_direction_schedule"}],
                         }
@@ -1093,8 +1093,8 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                     return {
                         "answer": tmsg(
                             lang,
-                            f"I can help—are you headed toward {options}? Reply with the destination or direction.",
-                            f"Puedo ayudar—¿vas hacia {options}? Responde con el destino o la direccion."
+                            f"Which direction are you headed toward: {options}? Reply with the destination or direction.",
+                            f"¿Hacia cual direccion vas: {options}? Responde con el destino o la direccion."
                         ),
                         "sources": [{"type": "need_direction_schedule"}],
                     }
@@ -1240,6 +1240,6 @@ def handle_agent_message(message: str, history=None) -> dict:
         }
 
     return {
-        "answer": "I can help with RTS ETAs and schedules. Try: 'ETA Route 1 at Reitz' or type a Stop ID like '0473'.",
+        "answer": "I'm here for RTS ETAs and schedules. Try: 'ETA Route 1 at Reitz' or type a Stop ID like '0473'.",
         "sources": [{"type": "fallback"}],
     }

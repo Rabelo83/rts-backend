@@ -62,6 +62,7 @@ async function sendMessage(){
   appendBubble(msg, 'user');
   chatHistory.push({ role: 'user', content: msg });
   saveHistory();
+  const payloadHistory = chatHistory.slice(-12);
 
   // disable UI while sending
   el('chat-send').disabled = true;
@@ -73,8 +74,8 @@ async function sendMessage(){
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         message: msg,
-        history: chatHistory,
-        messages: chatHistory
+        history: payloadHistory,
+        messages: payloadHistory
       })
     });
     if(!res.ok){
