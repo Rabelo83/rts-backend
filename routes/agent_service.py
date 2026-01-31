@@ -1608,13 +1608,29 @@ def handle_agent_message(message: str, history=None) -> dict:
         return {
             "answer": transit.get("answer", ""),
             "sources": transit.get("sources", []),
+            "buttons": transit.get("buttons"),
             "meta": transit.get("meta", {}),
+        }
+
+    # Check if asking for help
+    msg_lower = message.lower()
+    if any(word in msg_lower for word in ["help", "how", "ayuda", "como"]):
+        buttons = [
+            {"label": "Check Next Bus ETA", "action": "I need to check next bus ETA"},
+            {"label": "View Schedule", "action": "I need to view a schedule"},
+            {"label": "Find Stop by Route", "action": "Find stops for route"},
+        ]
+        return {
+            "answer": "I can help you with:\n• Real-time bus ETAs\n• Schedule lookups\n• Finding stops\n\nJust tell me a route and stop (e.g., 'Route 5 at Rosa Parks') or enter a 4-digit Stop ID.",
+            "buttons": buttons,
+            "sources": [{"type": "help"}],
+            "meta": {"intent": "help", "language": detect_language_simple(message)},
         }
 
     return {
         "answer": tmsg(
             detect_language_simple(message),
-            "I’m here to help with RTS ETAs and schedules. Tell me a route plus stop (e.g., 'Route 5 at Rosa Parks') or share a 4-digit Stop ID.",
+            "I'm here to help with RTS ETAs and schedules. Tell me a route plus stop (e.g., 'Route 5 at Rosa Parks') or share a 4-digit Stop ID.",
             "Estoy aqui para ayudarte con ETAs y horarios de RTS. Dime una ruta y parada (ej: 'Ruta 5 en Rosa Parks') o comparte un Stop ID de 4 digitos."
         ),
         "sources": [{"type": "fallback"}],
