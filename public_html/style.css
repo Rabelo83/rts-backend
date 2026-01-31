@@ -593,3 +593,36 @@ input[type="text"]:focus {
 @media (max-width: 420px){
   #chat-panel{ width: 95vw; right: 2.5vw; }
 }
+
+/* Quick action buttons in chat */
+.chat-buttons{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chat-btn{
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #1f2937;
+  font-size: .9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .2s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.chat-btn:hover{
+  background: #f9fafb;
+  border-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+}
+
+.chat-btn:active{
+  transform: translateY(0);
+}

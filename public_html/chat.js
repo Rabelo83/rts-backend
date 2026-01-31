@@ -60,9 +60,41 @@ function ensureSessionId(){
   return sessionId;
 }
 
+function handleQuickAction(action){
+  let message = '';
+  if(action === 'eta'){
+    message = 'I need to check next bus ETA';
+  } else if(action === 'schedule'){
+    message = 'I need to view a schedule';
+  } else if(action === 'help'){
+    message = 'How does this work?';
+  }
+
+  if(message){
+    el('chat-input').value = message;
+    sendMessage();
+  }
+}
+
 function startGreeting(){
-  const greeting = 'Hi! I’m the RTS virtual assistant. Type a bus stop ID (4 digits) or ask about a route and stop—e.g., “Route 5 at Rosa Parks.”';
-  appendBubble(greeting, 'bot');
+  const greeting = 'Hi! I'm the RTS virtual assistant. Choose an option or type your question:';
+  const bubble = appendBubble(greeting, 'bot');
+
+  // Add quick action buttons
+  const btnContainer = document.createElement('div');
+  btnContainer.className = 'chat-buttons';
+  btnContainer.innerHTML = `
+    <button class="chat-btn" data-action="eta">🚌 Next Bus ETA</button>
+    <button class="chat-btn" data-action="schedule">📅 View Schedule</button>
+    <button class="chat-btn" data-action="help">❓ Help</button>
+  `;
+  bubble.appendChild(btnContainer);
+
+  // Add click handlers
+  btnContainer.querySelectorAll('.chat-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleQuickAction(btn.dataset.action));
+  });
+
   chatHistory.push({ role: 'assistant', content: greeting });
   saveHistory();
 }
@@ -104,12 +136,12 @@ function el(id){ return document.getElementById(id); }
 
 function appendBubble(text, who='user'){
   const wrap = el('chat-messages');
-  const li = document.createElement('div');
-  li.className = who === 'user' ? 'bubble user' : 'bubble bot';
-  li.textContent = text;
-  wrap.appendChild(li);
+  const bubble = document.createElement('div');
+  bubble.className = who === 'user' ? 'bubble user' : 'bubble bot';
+  bubble.textContent = text;
+  wrap.appendChild(bubble);
   wrap.scrollTop = wrap.scrollHeight;
-  return li;
+  return bubble;
 }
 
 async function sendMessage(){
