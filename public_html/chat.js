@@ -3,7 +3,11 @@ const BASE = '';
 
 // ====== CHAT STATE ======
 const HISTORY_KEY = 'rts_chat_history_v1';
+const SESSION_KEY = 'rts_chat_session';
+const SESSION_TIMEOUT_MS = 5 * 60 * 1000;
 const chatHistory = [];
+let sessionId = null;
+let inactivityTimer = null;
 
 function loadHistory(){
   try {
@@ -17,6 +21,7 @@ function loadHistory(){
         }
       });
     }
+    sessionId = localStorage.getItem(SESSION_KEY) || null;
   } catch (_) {
     // ignore corrupted history
   }
@@ -25,6 +30,9 @@ function loadHistory(){
 function saveHistory(){
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(chatHistory.slice(-50)));
+    if(sessionId){
+      localStorage.setItem(SESSION_KEY, sessionId);
+    }
   } catch (_) {
     // ignore storage errors
   }
@@ -34,11 +42,61 @@ function clearHistory(){
   chatHistory.length = 0;
   try {
     localStorage.removeItem(HISTORY_KEY);
+    localStorage.removeItem(SESSION_KEY);
   } catch (_) {
     // ignore storage errors
   }
+  sessionId = null;
   const wrap = el('chat-messages');
   if(wrap){ wrap.innerHTML = ''; }
+}
+
+function ensureSessionId(){
+  if(sessionId){
+    return sessionId;
+  }
+  sessionId = `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,8)}`;
+  saveHistory();
+  return sessionId;
+}
+
+function startGreeting(){
+  const greeting = 'Hi! I’m the RTS virtual assistant. Tell me a route + stop or a 4-digit Stop ID to get started.';
+  appendBubble(greeting, 'bot');
+  chatHistory.push({ role: 'assistant', content: greeting });
+  saveHistory();
+}
+
+function scheduleInactivityTimeout(){
+  if(inactivityTimer){
+    clearTimeout(inactivityTimer);
+  }
+  inactivityTimer = setTimeout(() => {
+    endSession(false);
+  }, SESSION_TIMEOUT_MS);
+}
+
+function endSession(manual=true){
+  clearHistory();
+  if(inactivityTimer){
+    clearTimeout(inactivityTimer);
+    inactivityTimer = null;
+  }
+  const msg = manual
+    ? 'Session cleared. Ask a new question anytime.'
+    : 'Session ended after 5 minutes of inactivity. Start a new chat when you’re ready.';
+  startGreeting();
+  appendBubble(msg, 'bot');
+  chatHistory.push({ role: 'assistant', content: msg });
+  saveHistory();
+}
+function ensureSessionId(){
+  if(sessionId){
+    return sessionId;
+  }
+  sessionId = `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,8)}`;
+  saveHistory();
+  return sessionId;
 }
 
 // ====== DOM ======
@@ -58,6 +116,7 @@ async function sendMessage(){
   const input = el('chat-input');
   const msg = input.value.trim();
   if(!msg) return;
+  const sid = ensureSessionId();
   input.value = '';
   appendBubble(msg, 'user');
   chatHistory.push({ role: 'user', content: msg });
@@ -75,7 +134,8 @@ async function sendMessage(){
       body: JSON.stringify({
         message: msg,
         history: payloadHistory,
-        messages: payloadHistory
+        messages: payloadHistory,
+        session_id: sid
       })
     });
     if(!res.ok){
@@ -86,6 +146,7 @@ async function sendMessage(){
     if(thinking){ thinking.textContent = answer; }
     chatHistory.push({ role: 'assistant', content: answer });
     saveHistory();
+    scheduleInactivityTimeout();
   } catch (e) {
     const msg = 'Network error talking to the agent.';
     if(thinking){ thinking.textContent = msg; }
@@ -107,6 +168,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const send   = el('chat-send');
   const input  = el('chat-input');
   const clear  = el('chat-clear');
+  const endBtn = el('chat-end');
 
   if(!toggle || !panel || !send || !input){
     console.error('Chat elements missing in DOM.');
@@ -118,6 +180,8 @@ window.addEventListener('DOMContentLoaded', () => {
     chatHistory.forEach(m => {
       appendBubble(m.content, m.role === 'user' ? 'user' : 'bot');
     });
+  } else {
+    startGreeting();
   }
 
   function toggleChat(){
@@ -133,10 +197,14 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
   send.addEventListener('click', sendMessage);
+  if(endBtn){
+    endBtn.addEventListener('click', () => endSession(true));
+  }
   if(clear){
     clear.addEventListener('click', () => {
       if(confirm('Clear chat history?')){
         clearHistory();
+        startGreeting();
       }
     });
   }

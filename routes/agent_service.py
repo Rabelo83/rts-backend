@@ -1461,6 +1461,10 @@ def handle_agent_message(message: str, history=None) -> dict:
         }
 
     return {
-        "answer": "I'm here for RTS ETAs and schedules. Try: 'ETA Route 1 at Reitz' or type a Stop ID like '0473'.",
+        "answer": tmsg(
+            detect_language_simple(message),
+            "I’m here to help with RTS ETAs and schedules. Tell me a route plus stop (e.g., 'Route 5 at Rosa Parks') or share a 4-digit Stop ID.",
+            "Estoy aqui para ayudarte con ETAs y horarios de RTS. Dime una ruta y parada (ej: 'Ruta 5 en Rosa Parks') o comparte un Stop ID de 4 digitos."
+        ),
         "sources": [{"type": "fallback"}],
     }
