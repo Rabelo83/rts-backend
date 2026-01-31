@@ -266,6 +266,51 @@ def detect_language_simple(text: str) -> str:
         return "es"
     return "en"
 
+PLACE_TOKEN_RE = re.compile(r"[^a-z0-9]+")
+PLACE_SYNONYMS = {
+    "rosa parks downtown station": {
+        "rosa parks",
+        "rosa parks downtown station",
+        "downtown station",
+        "rosa parks station",
+        "rosa parks transfer",
+    },
+}
+
+def _normalize_place(text: str | None) -> str:
+    if not text:
+        return ""
+    norm = PLACE_TOKEN_RE.sub(" ", text.lower()).strip()
+    if not norm:
+        return ""
+    for canonical, variants in PLACE_SYNONYMS.items():
+        for variant in variants:
+            vnorm = PLACE_TOKEN_RE.sub(" ", variant.lower()).strip()
+            if not vnorm:
+                continue
+            if vnorm in norm or norm in vnorm:
+                return canonical
+    return norm
+
+def _filter_headsigns_by_origin(
+    headsigns: list[str],
+    origin_hint: str | None,
+    stop_name: str | None = None
+) -> tuple[list[str], bool]:
+    origin_norm = _normalize_place(origin_hint) or _normalize_place(stop_name)
+    if not origin_norm:
+        return headsigns, False
+    trimmed = []
+    for h in headsigns:
+        base = re.sub(r"^(to|toward|towards)\s+", "", h or "", flags=re.IGNORECASE)
+        norm = _normalize_place(base)
+        if norm and norm == origin_norm:
+            continue
+        trimmed.append(h)
+    if trimmed:
+        return trimmed, True
+    return headsigns, False
+
 
 def _history_text(history) -> str:
     if not history:
@@ -1091,6 +1136,11 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         headsigns = [h for _, h in next_by_dir if h]
         uniq = sorted(set(headsigns))
         origin = origin_hint or extract_origin_place(msg_ctx)
+        filtered_heads, removed = _filter_headsigns_by_origin(uniq, origin, data.get("stop"))
+        if removed:
+            uniq = filtered_heads
+            next_by_dir = [p for p in next_by_dir if p[1] in uniq]
+            data["next_by_direction"] = next_by_dir
         if len(uniq) > 1 and (not destination_hint or (origin and destination_hint.lower() == origin.lower())):
             options = "; ".join(uniq)
             prompt = build_direction_prompt(
@@ -1161,6 +1211,11 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 headsigns = [h for _, h in next_by_dir if h]
                 uniq = sorted(set(headsigns))
                 origin = origin_hint or extract_origin_place(msg_ctx)
+                filtered_heads, removed = _filter_headsigns_by_origin(uniq, origin, raw.get("stop"))
+                if removed:
+                    uniq = filtered_heads
+                    next_by_dir = [p for p in next_by_dir if p[1] in uniq]
+                    raw["next_by_direction"] = next_by_dir
                 if len(uniq) > 1 and (not destination_hint or (origin and destination_hint.lower() == origin.lower())):
                     options = "; ".join(uniq)
                     prompt = build_direction_prompt(
@@ -1202,6 +1257,11 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                     headsigns = [h for _, h in next_by_dir if h]
                     uniq = sorted(set(headsigns))
                     origin = origin_hint or extract_origin_place(msg_ctx)
+                    filtered_heads, removed = _filter_headsigns_by_origin(uniq, origin, raw.get("stop"))
+                    if removed:
+                        uniq = filtered_heads
+                        next_by_dir = [p for p in next_by_dir if p[1] in uniq]
+                        raw["next_by_direction"] = next_by_dir
                     if len(uniq) > 1 and (not destination_hint or (origin and destination_hint.lower() == origin.lower())):
                         options = "; ".join(uniq)
                         prompt = build_direction_prompt(
@@ -1238,6 +1298,12 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 next_by_dir = raw.get("next_by_direction") or []
                 headsigns = [h for _, h in next_by_dir if h]
                 uniq = sorted(set(headsigns))
+                origin = origin_hint or extract_origin_place(msg_ctx)
+                filtered_heads, removed = _filter_headsigns_by_origin(uniq, origin, raw.get("stop"))
+                if removed:
+                    uniq = filtered_heads
+                    next_by_dir = [p for p in next_by_dir if p[1] in uniq]
+                    raw["next_by_direction"] = next_by_dir
                 if len(uniq) > 1 and not destination_hint:
                     options = "; ".join(uniq)
                     prompt = build_direction_prompt(
