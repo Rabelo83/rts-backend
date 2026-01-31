@@ -5,6 +5,7 @@ import traceback
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta
+import time
 from zoneinfo import ZoneInfo
 
 import rts_api
@@ -40,6 +41,44 @@ try:
         BACKEND_BASICS_AVAILABLE = True
 except Exception as e:
     print("backend_basics_import_error:", repr(e))
+
+SCHEDULE_CACHE: dict = {}
+PREDICTION_CACHE: dict = {}
+SCHEDULE_CACHE_TTL = int(os.getenv("SCHEDULE_CACHE_TTL", "60"))
+PREDICTION_CACHE_TTL = int(os.getenv("PREDICTION_CACHE_TTL", "20"))
+
+def _cache_get(cache: dict, key, ttl: int):
+    entry = cache.get(key)
+    if not entry:
+        return None
+    ts, value = entry
+    if time.time() - ts <= ttl:
+        return value
+    cache.pop(key, None)
+    return None
+
+def _cache_set(cache: dict, key, value):
+    cache[key] = (time.time(), value)
+
+def get_schedule_cached(route, text, stop_id=None, stop_name=None, kind="next", debug=False):
+    if not schedule_service:
+        return {"error": "db_unavailable"}
+    key = (route or "", text or "", stop_id or "", stop_name or "", kind or "", bool(debug))
+    cached = _cache_get(SCHEDULE_CACHE, key, SCHEDULE_CACHE_TTL)
+    if cached is not None:
+        return cached
+    data = schedule_service.get_schedule(route, text, stop_id=stop_id, stop_name=stop_name, kind=kind, debug=debug)
+    _cache_set(SCHEDULE_CACHE, key, data)
+    return data
+
+def get_predictions_cached(stop_id: str):
+    key = stop_id or ""
+    cached = _cache_get(PREDICTION_CACHE, key, PREDICTION_CACHE_TTL)
+    if cached is not None:
+        return cached
+    data = rts_api.get_predictions(stop_id)
+    _cache_set(PREDICTION_CACHE, key, data)
+    return data
 
 
 def ensure_backend_basics() -> bool:
@@ -190,7 +229,7 @@ def has_explicit_timeframe(text: str) -> bool:
 def humanize_answer(text: str, lang: str) -> str:
     if not text:
         return text
-    if os.getenv('HUMANIZE_ENABLED', 'true').lower() == 'false':
+    if os.getenv('HUMANIZE_ENABLED', 'false').lower() == 'false':
         return text
     api_key = os.getenv('OPENAI_API_KEY', '').strip()
     if OpenAI is None or not api_key:
@@ -403,6 +442,15 @@ def _assistant_asked_direction(text: str) -> bool:
         "are you headed toward" in t
         or "estas yendo hacia" in t
         or "¿estas yendo hacia" in t
+    )
+
+def _assistant_asked_for_stop_or_landmark(text: str) -> bool:
+    """Check if assistant asked 'Which stop or landmark should I use for Route X?'"""
+    t = (text or "").lower()
+    return (
+        "which stop or landmark should i use" in t
+        or "que parada o lugar debo usar" in t
+        or "¿que parada o lugar debo usar" in t
     )
 
 def _explicit_date_or_weekday(text: str) -> bool:
@@ -974,6 +1022,23 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             msg = f"route {msg}"
             msg_ctx = f"{prev} {msg}".strip() if prev else msg
 
+    # If assistant asked for stop/landmark and user replies with a place name, extract route from assistant message
+    if not extract_route_id_regex(msg) and not extract_stop_id_regex(msg):
+        last_assistant = _last_assistant_message(history)
+        if _assistant_asked_for_stop_or_landmark(last_assistant):
+            # Extract route from assistant's message: "Which stop or landmark should I use for Route 43?"
+            route_match = re.search(r"route\s+(\d+)", last_assistant.lower())
+            if route_match:
+                route_num = route_match.group(1)
+                # Check if user message is a landmark/place name
+                if is_transit_keywords(msg) or len(msg.split()) <= 3:
+                    prev = _last_user_with_context(history)
+                    # Preserve timing/date context if present
+                    if prev and has_explicit_timeframe(prev):
+                        msg_ctx = f"route {route_num} {prev} from {msg}"
+                    else:
+                        msg_ctx = f"route {route_num} next bus from {msg}"
+
     # If assistant asked for a time and user replies "next", inject a concrete time.
     if _is_next_request(msg):
         last_assistant = _last_assistant_message(history)
@@ -1007,57 +1072,97 @@ def try_transit_answer(message: str, history=None) -> dict | None:
 
         # 1-2 digits: ambiguous (route vs stop)
         if len(msg) <= 2:
-            return {
+            return _with_meta({
                 "answer": tmsg(
                     lang,
                     f"Did you mean Route {msg} or Stop {msg.zfill(4)}?\nReply: 'route {msg}' or 'stop {msg.zfill(4)}'.",
                     f"¿Te refieres a la Ruta {msg} o la Parada {msg.zfill(4)}?\nResponde: 'ruta {msg}' o 'parada {msg.zfill(4)}'."
                 ),
                 "sources": [{"type": "clarify_route_vs_stop"}],
-            }
+            })
 
         # 3-4 digits: treat as Stop ID and run ETA
         if len(msg) <= 4:
             msg = f"ETA stop {msg.zfill(4)}"
             msg_ctx = msg
         else:
-            return {
+            return _with_meta({
                 "answer": tmsg(
                     lang,
                     "That number looks too long to be a Stop ID. Please type 'stop ####' or 'route ##'.",
                     "Ese número parece demasiado largo para ser un Stop ID. Escribe 'parada ####' o 'ruta ##'."
                 ),
                 "sources": [{"type": "clarify_number"}],
-            }
+            })
 
     if not is_transit_keywords(msg_ctx):
         return None
 
-    extracted = llm_extract_intent(msg_ctx, history_summary=history_summary)
-    lang = extracted.get("language", "en")
-    intent = extracted.get("intent", "general")
-    route_id = extracted.get("route_id")
-    stop_id = extracted.get("stop_id")
-    destination_hint = (extracted.get("destination_hint") or "").strip()
-    direction_hint = (extracted.get("direction") or "").strip()
-    stop_name_hint = (extracted.get("stop_name") or "").strip()
-    origin_hint = (extracted.get("origin_hint") or "").strip()
-    timeframe_hint = (extracted.get("timeframe") or "").strip()
-    llm_needs = extracted.get("needs") or []
+    lang = detect_language_simple(msg_ctx)
+    route_id = extract_route_id_regex(msg_ctx)
+    stop_id = extract_stop_id_regex(msg_ctx)
+    destination_hint = guess_destination_hint(msg_ctx) or ""
+    direction_hint = ""
+    stop_name_hint = ""
+    origin_hint = extract_origin_place(msg_ctx) or ""
+    timeframe_hint = msg_ctx if has_explicit_timeframe(msg_ctx) else ""
+    intent = "schedule" if (wants_schedule(msg_ctx) and not wants_realtime(msg_ctx)) else ("eta" if wants_realtime(msg_ctx) else "general")
+    llm_needs: list[str] = []
 
-    # Regex fallback for any missing fields
-    if not route_id:
-        route_id = extract_route_id_regex(msg_ctx)
-    if not stop_id:
-        stop_id = extract_stop_id_regex(msg_ctx)
+    need_llm = False
+    if not route_id and not stop_id and not destination_hint:
+        need_llm = True
+    if not route_id and not stop_id and destination_hint:
+        need_llm = True
+
+    extracted = {}
+    if need_llm:
+        extracted = llm_extract_intent(msg_ctx, history_summary=history_summary)
+        lang = extracted.get("language", lang)
+        intent = extracted.get("intent", intent)
+        route_id = route_id or extracted.get("route_id")
+        stop_id = stop_id or extracted.get("stop_id")
+        direction_hint = (extracted.get("direction") or "").strip()
+        stop_name_hint = (extracted.get("stop_name") or "").strip()
+        llm_destination = (extracted.get("destination_hint") or "").strip()
+        llm_origin = (extracted.get("origin_hint") or "").strip()
+        llm_timeframe = (extracted.get("timeframe") or "").strip()
+        if llm_destination and not destination_hint:
+            destination_hint = llm_destination
+        if llm_origin and not origin_hint:
+            origin_hint = llm_origin
+        if llm_timeframe and not timeframe_hint:
+            timeframe_hint = llm_timeframe
+        llm_needs = extracted.get("needs") or []
+    else:
+        direction_hint = ""
+        stop_name_hint = ""
+
     if direction_hint and not destination_hint:
         destination_hint = direction_hint
-    if not destination_hint:
-        destination_hint = guess_destination_hint(msg_ctx) or ""
     if not origin_hint:
         origin_hint = extract_origin_place(msg_ctx) or ""
     if not timeframe_hint and has_explicit_timeframe(msg_ctx):
         timeframe_hint = msg_ctx
+
+    prefer_schedule = False
+
+    def _with_meta(payload, meta_updates=None):
+        meta = {
+            "route": route_id,
+            "stop_id": stop_id,
+            "destination": destination_hint or stop_name_hint or "",
+            "intent": intent,
+            "language": lang,
+            "needs": llm_needs,
+            "prefer_schedule": prefer_schedule,
+            "timeframe": timeframe_hint,
+        }
+        if meta_updates:
+            meta.update(meta_updates)
+        payload = dict(payload)
+        payload["meta"] = meta
+        return payload
 
     # If route is known and we still don't have a stop_id, use a loose 3-4 digit token.
     if route_id and not stop_id:
@@ -1077,24 +1182,24 @@ def try_transit_answer(message: str, history=None) -> dict | None:
 
 
     if prefer_schedule and not route_id:
-        return {
+        return _with_meta({
             "answer": tmsg(
                 lang,
-                "Got it. What route number should I use?",
-                "Entiendo. ?Que numero de ruta debo usar?"
+                "I can pull the schedule once I know the route number. Which RTS route are you asking about?",
+                "Puedo revisar el horario cuando sepa el numero de ruta. ¿Que ruta de RTS necesitas?"
             ),
             "sources": [{"type": "need_route_schedule"}],
-        }
+        })
 
     if prefer_schedule and route_id and not stop_id and not destination_hint and not re.search(r"\b(from|at|near)\b", msg_ctx.lower()):
-        return {
+        return _with_meta({
             "answer": tmsg(
                 lang,
-                "Which stop or landmark should I use? For example: 'from Rosa Parks'",
-                "?Que parada o lugar debo usar? Por ejemplo: 'desde Rosa Parks'"
+                "Which stop or landmark should I use for Route {}? For example: 'from Rosa Parks' or a 4-digit Stop ID.".format(route_id),
+                "¿Que parada o lugar debo usar para la ruta {}? Ejemplo: 'desde Rosa Parks' o el Stop ID de 4 digitos.".format(route_id)
             ),
             "sources": [{"type": "need_stop_schedule"}],
-        }
+        })
 
     # Skip yes/no confirmation; let the schedule engine disambiguate stops if needed.
 
@@ -1109,48 +1214,48 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     if prefer_schedule and schedule_service and route_id:
         kind = "first" if wants_first else ("last" if wants_last else "next")
         stop_name = None if direction_followup else (stop_name_hint or destination_hint or None)
-        data = schedule_service.get_schedule(route_id, msg_ctx, stop_id=stop_id, stop_name=stop_name, kind=kind)
+        data = get_schedule_cached(route_id, msg_ctx, stop_id=stop_id, stop_name=stop_name, kind=kind)
         if data.get("error") == "multiple_stops":
             cands = data.get("candidates") or []
             lines = [f"- {c['stop_name']} (Stop {c['stop_id_padded']})" for c in cands]
-            return {
+            return _with_meta({
                 "answer": tmsg(
                     lang,
                     "Multiple stops match. Reply with a Stop ID:\n" + "\n".join(lines),
                     "Coinciden varias paradas. Responde con un Stop ID:\n" + "\n".join(lines),
                 ),
                 "sources": [{"type": "schedule_stop_disambiguate"}],
-            }
+            })
         if data.get("error") == "stop_not_found":
-            return {
-                "answer": tmsg(
-                    lang,
-                    "I couldn't find a matching stop for that route. Please provide a Stop ID.",
-                    "No pude encontrar una parada para esa ruta. Por favor indica un Stop ID.",
-                ),
+            return _with_meta({
+            "answer": tmsg(
+                lang,
+                f"I couldn't match that stop to Route {route_id}. Please provide the 4-digit Stop ID from the sign or name a nearby landmark.",
+                f"No pude encontrar esa parada para la ruta {route_id}. Dame el Stop ID de 4 digitos del letrero o un lugar cercano.",
+            ),
                 "sources": [{"type": "schedule_stop_not_found"}],
-            }
+            })
         if data.get("error") == "db_unavailable":
-            return {
+            return _with_meta({
                 "answer": tmsg(
                     lang,
                     "Schedule database is unavailable right now. Please try again later.",
                     "La base de datos de horarios no esta disponible en este momento. Intenta mas tarde.",
                 ),
                 "sources": [{"type": "backend_basics_unavailable"}],
-            }
+            })
 
         # Format deterministic schedule output
         if kind == "first" and data.get("first_departure"):
-            return {
+            return _with_meta({
                 "answer": f"First departure for route {data['route']} from {data['stop']} on {data['date']}: {format_time_12h(data['first_departure'])}",
                 "sources": [{"type": "schedule_first"}],
-            }
+            })
         if kind == "last" and data.get("last_departure"):
-            return {
+            return _with_meta({
                 "answer": f"Last departure for route {data['route']} from {data['stop']} on {data['date']}: {format_time_12h(data['last_departure'])}",
                 "sources": [{"type": "schedule_last"}],
-            }
+            })
 
         next_by_dir = data.get("next_by_direction") or []
         headsigns = [h for _, h in next_by_dir if h]
@@ -1172,10 +1277,10 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                     "time": data.get("date"),
                 },
             )
-            return {
+            return _with_meta({
                 "answer": prompt,
                 "sources": [{"type": "need_direction_schedule"}],
-            }
+            })
 
         if data.get("time"):
             lines = [
@@ -1183,19 +1288,19 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             ]
             for t, headsign in next_by_dir:
                 lines.append(f"- {format_time_12h(t)} ({headsign})")
-            return {
+            return _with_meta({
                 "answer": "\n".join(lines),
                 "sources": [{"type": "schedule_next"}],
-            }
+            })
 
-        return {
+        return _with_meta({
             "answer": tmsg(
                 lang,
-                "I couldn't find schedule times for that request. Please try a Stop ID or a different time.",
-                "No pude encontrar horarios para esa solicitud. Prueba con un Stop ID o una hora diferente.",
+                "I couldn't find departures after that time. Try a specific time (e.g., 'after 4:15pm') or provide the 4-digit Stop ID from the sign.",
+                "No encontre salidas despues de esa hora. Intenta con una hora exacta (ej: 'despues de 4:15pm') o comparte el Stop ID de 4 digitos.",
             ),
             "sources": [{"type": "schedule_no_time"}],
-        }
+        })
 
     # Schedule questions (Backend Basics preferred)
     if prefer_schedule and ensure_backend_basics() and BB_ANSWER_FN:
@@ -1247,10 +1352,10 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                             "time": raw.get("date"),
                         },
                     )
-                    return {
+                    return _with_meta({
                         "answer": prompt,
                         "sources": [{"type": "need_direction_schedule"}],
-                    }
+                    })
                 # Direction disambiguation: if user said "leaving/from X", prefer headsigns
                 # that do NOT contain the origin place name.
                 origin = origin_hint or extract_origin_place(msg_ctx)
@@ -1293,10 +1398,10 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                                 "time": raw.get("date"),
                             },
                         )
-                        return {
+                        return _with_meta({
                             "answer": prompt,
                             "sources": [{"type": "need_direction_schedule"}],
-                        }
+                        })
             else:
                 answer_text = str(res)
             # Normalize any 24h times in the default response
@@ -1335,15 +1440,15 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                             "time": raw.get("date"),
                         },
                     )
-                    return {
+                    return _with_meta({
                         "answer": prompt,
                         "sources": [{"type": "need_direction_schedule"}],
-                    }
+                    })
             # Avoid LLM paraphrasing for schedules to prevent hallucinations.
-            return {
+            return _with_meta({
                 "answer": answer_text,
                 "sources": [{"type": "backend_basics_schedule"}],
-            }
+            })
         except Exception as e:
             print("backend_basics_answer_error:", repr(e))
 
@@ -1355,49 +1460,49 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             if len(candidates) == 1:
                 stop_id = candidates[0]["id"]
             elif len(candidates) > 1:
-                return {
+                return _with_meta({
                     "answer": tmsg(
                         lang,
                         f"Did you mean Stop {candidates[0]['id']}: {candidates[0]['name']}? Reply yes or no.",
                         f"Te refieres a la parada {candidates[0]['id']}: {candidates[0]['name']}? Responde si o no."
                     ),
                     "sources": [{"type": "stop_suggestions_bustime", "route_id": route_id}],
-                }
+                })
 
         if not stop_id:
-            return {
+            return _with_meta({
                 "answer": tmsg(
                     lang,
-                    "To check ETA, I need either a 4-digit Stop ID or a route number + place (example: 'ETA Route 1 at Reitz').",
-                    "Para ver el ETA, necesito el Stop ID de 4 dígitos o una ruta + lugar (ej: 'ETA Ruta 1 en Reitz')."
+                    "To check ETA, give me the 4-digit Stop ID from the sign or say something like 'Route 5 at Rosa Parks'.",
+                    "Para ver el ETA, dime el Stop ID de 4 digitos del letrero o algo como 'Ruta 5 en Rosa Parks'."
                 ),
                 "sources": [{"type": "need_stop_or_route"}],
-            }
+            })
 
     # Schedule questions (Backend Basics required)
     if prefer_schedule:
-        return {
+        return _with_meta({
             "answer": humanize_answer(tmsg(
                 lang,
-                "Schedule database is unavailable right now. Please try again later.",
-                "La base de datos de horarios no esta disponible en este momento. Intenta mas tarde."
+                "Schedule data is unavailable right now. Please retry in a minute or ask for live ETA with a Stop ID.",
+                "La base de datos de horarios no esta disponible ahora. Intenta de nuevo en un minuto o pide el ETA en vivo con un Stop ID."
             ), lang),
             "sources": [{"type": "backend_basics_unavailable"}],
-        }
+        })
 
     # Real-time predictions (Bustime)
     predictions = []
     try:
         if route_id and stop_id and not route_serves_stop(route_id, stop_id):
-            return {
+            return _with_meta({
                 "answer": tmsg(
                     lang,
                     f"Route {route_id} does not serve Stop {stop_id}. Please choose a different stop or route.",
                     f"La ruta {route_id} no pasa por la parada {stop_id}. Elige otra parada o ruta."
                 ),
                 "sources": [{"type": "route_not_serving_stop"}],
-            }
-        data = rts_api.get_predictions(stop_id)
+            })
+        data = get_predictions_cached(stop_id)
         preds = data.get("prd", []) or []
 
         if route_id:
@@ -1433,10 +1538,10 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             pass
 
     if usable:
-        return {
+        return _with_meta({
             "answer": humanize_answer(format_realtime_answer(lang, usable), lang),
             "sources": [{"type": "realtime", "stop_id": stop_id, "route_id": route_id}],
-        }
+        })
 
     # If no real-time ETAs, fall back to schedule when possible
     if ensure_backend_basics() and BB_ANSWER_FN and route_id and (destination_hint or "from" in msg_ctx.lower() or "leaving" in msg_ctx.lower()):
@@ -1456,21 +1561,21 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             # Strip any unexpected Stop ID tokens from schedule text
             answer_text = re.sub(r"\s*\\(Stop ID:\\s*\\d+\\)", "", answer_text)
             answer_text = humanize_answer(answer_text, lang)
-            return {
+            return _with_meta({
                 "answer": answer_text,
                 "sources": [{"type": "backend_basics_schedule_fallback"}],
-            }
+            })
         except Exception:
             pass
 
-    return {
+    return _with_meta({
         "answer": humanize_answer(tmsg(
             lang,
             f"No real-time ETAs (<=45 min) found for Stop {stop_id}.",
             f"No hay ETAs en tiempo real (<=45 min) para la parada {stop_id}."
         ), lang),
         "sources": [{"type": "realtime_none", "stop_id": stop_id, "route_id": route_id}],
-    }
+    })
 
 def handle_agent_message(message: str, history=None) -> dict:
     transit = try_transit_answer(message, history=history)
@@ -1478,6 +1583,7 @@ def handle_agent_message(message: str, history=None) -> dict:
         return {
             "answer": transit.get("answer", ""),
             "sources": transit.get("sources", []),
+            "meta": transit.get("meta", {}),
         }
 
     return {
@@ -1487,4 +1593,8 @@ def handle_agent_message(message: str, history=None) -> dict:
             "Estoy aqui para ayudarte con ETAs y horarios de RTS. Dime una ruta y parada (ej: 'Ruta 5 en Rosa Parks') o comparte un Stop ID de 4 digitos."
         ),
         "sources": [{"type": "fallback"}],
+        "meta": {
+            "intent": "fallback",
+            "language": detect_language_simple(message),
+        },
     }
