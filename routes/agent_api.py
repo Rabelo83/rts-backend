@@ -68,7 +68,8 @@ def _session_get_history(session_id: str) -> list:
 def _session_update(session_id: str, new_turns: list) -> None:
     if not session_id:
         return
-    turns = deque(_session_get_history(session_id), maxlen=SESSION_MAX_TURNS)
+    # Replace history instead of appending (new_turns already contains full history)
+    turns = deque(maxlen=SESSION_MAX_TURNS)
     for t in new_turns:
         if isinstance(t, dict) and t.get("role") and t.get("content"):
             turns.append({"role": t["role"], "content": t["content"]})
