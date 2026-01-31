@@ -1072,12 +1072,17 @@ def try_transit_answer(message: str, history=None) -> dict | None:
 
         # 1-2 digits: ambiguous (route vs stop)
         if len(msg) <= 2:
+            buttons = [
+                {"label": f"Route {msg}", "action": f"route {msg}"},
+                {"label": f"Stop {msg.zfill(4)}", "action": f"stop {msg.zfill(4)}"}
+            ]
             return _with_meta({
                 "answer": tmsg(
                     lang,
-                    f"Did you mean Route {msg} or Stop {msg.zfill(4)}?\nReply: 'route {msg}' or 'stop {msg.zfill(4)}'.",
-                    f"¿Te refieres a la Ruta {msg} o la Parada {msg.zfill(4)}?\nResponde: 'ruta {msg}' o 'parada {msg.zfill(4)}'."
+                    f"Did you mean Route {msg} or Stop {msg.zfill(4)}?",
+                    f"¿Te refieres a la Ruta {msg} o la Parada {msg.zfill(4)}?"
                 ),
+                "buttons": buttons,
                 "sources": [{"type": "clarify_route_vs_stop"}],
             })
 
@@ -1218,12 +1223,23 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         if data.get("error") == "multiple_stops":
             cands = data.get("candidates") or []
             lines = [f"- {c['stop_name']} (Stop {c['stop_id_padded']})" for c in cands]
+
+            # Create button options for frontend
+            buttons = [
+                {
+                    "label": f"Stop {c['stop_id_padded']} - {c['stop_name']}",
+                    "action": f"stop {c['stop_id_padded']}"
+                }
+                for c in cands[:5]  # Limit to 5 buttons
+            ]
+
             return _with_meta({
                 "answer": tmsg(
                     lang,
-                    "Multiple stops match. Reply with a Stop ID:\n" + "\n".join(lines),
-                    "Coinciden varias paradas. Responde con un Stop ID:\n" + "\n".join(lines),
+                    "Multiple stops match. Choose one:",
+                    "Coinciden varias paradas. Elige una:",
                 ),
+                "buttons": buttons,
                 "sources": [{"type": "schedule_stop_disambiguate"}],
             })
         if data.get("error") == "stop_not_found":
@@ -1460,12 +1476,21 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             if len(candidates) == 1:
                 stop_id = candidates[0]["id"]
             elif len(candidates) > 1:
+                # Show top 3 stop options as buttons
+                buttons = [
+                    {
+                        "label": f"Stop {c['id']} - {c['name'][:40]}",
+                        "action": f"ETA stop {c['id']}"
+                    }
+                    for c in candidates[:3]
+                ]
                 return _with_meta({
                     "answer": tmsg(
                         lang,
-                        f"Did you mean Stop {candidates[0]['id']}: {candidates[0]['name']}? Reply yes or no.",
-                        f"Te refieres a la parada {candidates[0]['id']}: {candidates[0]['name']}? Responde si o no."
+                        f"I found {len(candidates)} stops for Route {route_id}. Which one?",
+                        f"Encontré {len(candidates)} paradas para la Ruta {route_id}. ¿Cuál?"
                     ),
+                    "buttons": buttons,
                     "sources": [{"type": "stop_suggestions_bustime", "route_id": route_id}],
                 })
 

@@ -127,6 +127,15 @@ def api_agent():
         _session_update(session_id, combined)
 
     _log_chat(msg, result.get("answer", ""))
+
+    # Include buttons in response if present
+    response_data = {
+        "answer": result.get("answer", ""),
+        "meta": result.get("meta", {}),
+        "sources": result.get("sources", []),
+    }
+    if "buttons" in result:
+        response_data["buttons"] = result.get("buttons")
     meta = result.get("meta") or {}
     sources = result.get("sources") or []
     success = meta.get("intent") not in ("fallback", "error")
@@ -147,4 +156,4 @@ def api_agent():
         "source_types": [s.get("type") for s in sources if isinstance(s, dict)],
     }
     _log_analytics(entry)
-    return jsonify(result)
+    return jsonify(response_data)

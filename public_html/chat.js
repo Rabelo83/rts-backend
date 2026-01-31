@@ -176,6 +176,24 @@ async function sendMessage(){
     const data = await res.json();
     const answer = data.answer || data.error || 'No response.';
     if(thinking){ thinking.textContent = answer; }
+
+    // Add buttons if present
+    if(data.buttons && Array.isArray(data.buttons) && data.buttons.length > 0){
+      const btnContainer = document.createElement('div');
+      btnContainer.className = 'chat-buttons';
+      data.buttons.forEach(btn => {
+        const button = document.createElement('button');
+        button.className = 'chat-btn';
+        button.textContent = btn.label;
+        button.addEventListener('click', () => {
+          el('chat-input').value = btn.action;
+          sendMessage();
+        });
+        btnContainer.appendChild(button);
+      });
+      thinking.appendChild(btnContainer);
+    }
+
     chatHistory.push({ role: 'assistant', content: answer });
     saveHistory();
     scheduleInactivityTimeout();
