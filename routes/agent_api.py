@@ -108,7 +108,7 @@ def api_agent():
     result = handle_agent_message(msg, history=history)
     if session_id:
         combined = history + [{"role": "assistant", "content": result.get("answer", "")}]
-        _session_update(session_id, combined[-2:])
+        _session_update(session_id, combined)
 
     _log_chat(msg, result.get("answer", ""))
     return jsonify(result)
