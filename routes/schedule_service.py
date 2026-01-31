@@ -73,11 +73,14 @@ def parse_time(text):
         return "12:00:00"
     if "midnight" in text:
         return "00:00:00"
-    m = re.search(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b", text)
+    m = re.search(r"\b(\d{1,2})(?::(\d{1,2}))?\s*(am|pm)\b", text)
     if not m:
         return None
     hour = int(m.group(1))
-    minute = int(m.group(2) or 0)
+    minute_raw = m.group(2) or "0"
+    if len(minute_raw) == 1:
+        minute_raw = minute_raw.zfill(2)
+    minute = int(minute_raw)
     ampm = m.group(3)
     if ampm == "pm" and hour != 12:
         hour += 12

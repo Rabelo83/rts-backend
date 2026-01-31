@@ -440,8 +440,15 @@ def _normalize_time_tokens(text: str) -> str:
     t = text.lower()
     t = re.sub(r"\bnoon time\b", "noon", t)
     t = re.sub(r"\bmidnight time\b", "midnight", t)
-    # normalize odd separators like "12..00pm" -> "12:00pm"
-    t = re.sub(r"\b(\d{1,2})\D{1,3}(\d{2})\s*(am|pm)\b", r"\1:\2 \3", t)
+    # normalize odd separators like "12..00pm" -> "12:00pm" (allow 1-digit minutes)
+    def _pad_minutes(match):
+        hh = match.group(1)
+        mm = match.group(2) or "0"
+        ap = match.group(3)
+        if len(mm) == 1:
+            mm = mm.zfill(2)
+        return f"{hh}:{mm} {ap}"
+    t = re.sub(r"\b(\d{1,2})\D{1,3}(\d{1,2})\s*(am|pm)\b", _pad_minutes, t)
     return t
 
 def _has_strong_context(text: str) -> bool:
@@ -536,10 +543,13 @@ def parse_when_dt_from_message(msg: str) -> datetime:
     if "tomorrow" in t or "mañana" in t:
         base = (now + timedelta(days=1)).replace(hour=now.hour, minute=now.minute, second=0, microsecond=0)
 
-    m = re.search(r"\b([0-9]{1,2})(?::([0-9]{2}))?\s*(am|pm)?\b", t)
+    m = re.search(r"\b([0-9]{1,2})(?::([0-9]{1,2}))?\s*(am|pm)?\b", t)
     if m:
         hh = int(m.group(1))
-        mm = int(m.group(2) or 0)
+        mm_raw = m.group(2) or "0"
+        if len(mm_raw) == 1:
+            mm_raw = mm_raw.zfill(2)
+        mm = int(mm_raw)
         ap = (m.group(3) or "").lower()
 
         if ap == "pm" and hh != 12:
