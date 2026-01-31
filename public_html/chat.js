@@ -60,41 +60,9 @@ function ensureSessionId(){
   return sessionId;
 }
 
-function handleQuickAction(action){
-  let message = '';
-  if(action === 'eta'){
-    message = 'I need to check next bus ETA';
-  } else if(action === 'schedule'){
-    message = 'I need to view a schedule';
-  } else if(action === 'help'){
-    message = 'How does this work?';
-  }
-
-  if(message){
-    el('chat-input').value = message;
-    sendMessage();
-  }
-}
-
 function startGreeting(){
-  const greeting = 'Hi! I'm the RTS virtual assistant. Choose an option or type your question:';
-  const bubble = appendBubble(greeting, 'bot');
-
-  // Add quick action buttons
-  const btnContainer = document.createElement('div');
-  btnContainer.className = 'chat-buttons';
-  btnContainer.innerHTML = `
-    <button class="chat-btn" data-action="eta">🚌 Next Bus ETA</button>
-    <button class="chat-btn" data-action="schedule">📅 View Schedule</button>
-    <button class="chat-btn" data-action="help">❓ Help</button>
-  `;
-  bubble.appendChild(btnContainer);
-
-  // Add click handlers
-  btnContainer.querySelectorAll('.chat-btn').forEach(btn => {
-    btn.addEventListener('click', () => handleQuickAction(btn.dataset.action));
-  });
-
+  const greeting = 'Hi! I’m the RTS virtual assistant. Type a bus stop ID (4 digits) or ask about a route and stop—for example, "Route 5 at Rosa Parks".';
+  appendBubble(greeting, 'bot');
   chatHistory.push({ role: 'assistant', content: greeting });
   saveHistory();
 }
@@ -117,18 +85,10 @@ function endSession(manual=true){
   const msg = manual
     ? 'Session cleared. Ask a new question anytime.'
     : 'Session ended after 5 minutes of inactivity. Start a new chat when you’re ready.';
-  startGreeting();
   appendBubble(msg, 'bot');
   chatHistory.push({ role: 'assistant', content: msg });
+  startGreeting();
   saveHistory();
-}
-function ensureSessionId(){
-  if(sessionId){
-    return sessionId;
-  }
-  sessionId = `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,8)}`;
-  saveHistory();
-  return sessionId;
 }
 
 // ====== DOM ======
