@@ -61,7 +61,7 @@ function ensureSessionId(){
 }
 
 function startGreeting(){
-  const greeting = 'Hi! I’m the RTS virtual assistant. Tell me a route + stop or a 4-digit Stop ID to get started.';
+  const greeting = 'Hi! I’m the RTS virtual assistant. Type a bus stop ID (4 digits) or ask about a route and stop—e.g., “Route 5 at Rosa Parks.”';
   appendBubble(greeting, 'bot');
   chatHistory.push({ role: 'assistant', content: greeting });
   saveHistory();
@@ -167,7 +167,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const panel  = el('chat-panel');
   const send   = el('chat-send');
   const input  = el('chat-input');
-  const clear  = el('chat-clear');
   const endBtn = el('chat-end');
 
   if(!toggle || !panel || !send || !input){
@@ -199,14 +198,6 @@ window.addEventListener('DOMContentLoaded', () => {
   send.addEventListener('click', sendMessage);
   if(endBtn){
     endBtn.addEventListener('click', () => endSession(true));
-  }
-  if(clear){
-    clear.addEventListener('click', () => {
-      if(confirm('Clear chat history?')){
-        clearHistory();
-        startGreeting();
-      }
-    });
   }
   input.addEventListener('keydown', (e) => {
     if(e.key === 'Enter' && !e.shiftKey){
