@@ -94,9 +94,15 @@ def _ensure_index() -> None:
     _INDEX_BUILT = True
 
 
+STOPWORDS = {
+    "the", "is", "at", "which", "on", "a", "an", "and", "or", "for", "to", "of", "in",  # English
+    "el", "la", "los", "las", "un", "una", "y", "o", "de", "en", "que", "es"           # Spanish
+}
+
 def _tokenize(s: str) -> List[str]:
     s = s.lower()
-    return re.findall(r"[a-z0-9]+", s)
+    tokens = re.findall(r"[a-z0-9]+", s)
+    return [t for t in tokens if t not in STOPWORDS]
 
 
 def _score(query_tokens: List[str], doc_tokens: List[str]) -> int:

@@ -7,6 +7,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 import time
 from zoneinfo import ZoneInfo
+import logging
 
 import rts_api
 import sqlite3
@@ -21,6 +22,9 @@ try:
     from openai import OpenAI
 except Exception:
     OpenAI = None
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 TZ = ZoneInfo("America/New_York")
 GTFS_DB_PATH = Path(__file__).resolve().parents[1] / "Backend Basics" / "db" / "rts_gtfs.sqlite"
@@ -40,7 +44,7 @@ try:
         BB_ANSWER_FN = _bb_answering_layer.answer_question
         BACKEND_BASICS_AVAILABLE = True
 except Exception as e:
-    print("backend_basics_import_error:", repr(e))
+    logger.error("backend_basics_import_error: %s", repr(e))
 
 SCHEDULE_CACHE: dict = {}
 PREDICTION_CACHE: dict = {}
@@ -97,7 +101,7 @@ def ensure_backend_basics() -> bool:
         BACKEND_BASICS_AVAILABLE = True
         return True
     except Exception as e:
-        print("backend_basics_import_error_runtime:", repr(e))
+        logger.error("backend_basics_import_error_runtime: %s", repr(e))
         return False
 
 
@@ -713,8 +717,7 @@ def llm_extract_intent(message: str, history_summary: str | None = None) -> dict
         }
 
     except Exception as e:
-        print("llm_extract_intent_error:", repr(e))
-        print(traceback.format_exc())
+        logger.error("llm_extract_intent_error: %s\n%s", repr(e), traceback.format_exc())
         return fallback
 
 
@@ -832,8 +835,7 @@ def llm_extract_intent_hybrid(message: str, history: list = None) -> dict:
         }
 
     except Exception as e:
-        print("llm_extract_intent_hybrid_error:", repr(e))
-        print(traceback.format_exc())
+        logger.error("llm_extract_intent_hybrid_error: %s\n%s", repr(e), traceback.format_exc())
         return fallback
 
 
@@ -1060,7 +1062,8 @@ def route_serves_stop(route_id: str, stop_id_padded: str) -> bool:
 # Core agent logic
 # ------------------------------------------------------------
 def try_transit_answer(message: str, history=None) -> dict | None:
-    msg = _normalize_time_tokens((message or "").strip())
+    msg_raw = (message or "").strip()
+    msg = _normalize_time_tokens(msg_raw)
     ctx = _history_text(history)
     history_summary = _history_summary_for_llm(history)
     msg_has_strong_context = _has_strong_context(msg)
@@ -1095,7 +1098,9 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         return None
 
     # Handle confirmation replies using last assistant prompt
-    if _is_confirmation(msg):
+    normalized_msg = msg.lower()
+
+    if _is_confirmation(normalized_msg):
         stop_id = _extract_confirm_stop_id(last_assistant)
         if stop_id:
             msg = f"ETA stop {stop_id}"
@@ -1113,7 +1118,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                     msg_ctx = f"route {route} schedule from {landmark}"
                 else:
                     msg_ctx = f"schedule from {landmark}"
-    elif _is_rejection(msg):
+    elif _is_rejection(normalized_msg):
         if _extract_confirm_stop_id(last_assistant):
             return {
                 "answer": tmsg(
@@ -1149,17 +1154,15 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             route_match = re.search(r"route\s+(\d+)", last_assistant.lower())
             if route_match:
                 route_num = route_match.group(1)
-                # Check if user message is a landmark/place name
-                if is_transit_keywords(msg) or len(msg.split()) <= 3:
-                    prev = _last_user_with_context(history)
-                    # Preserve timing/date context if present
-                    if prev and has_explicit_timeframe(prev):
-                        msg_ctx = f"route {route_num} {prev} from {msg}"
-                    else:
-                        msg_ctx = f"route {route_num} next bus from {msg}"
+                prev = _last_user_with_context(history) or ""
+                msg_ctx = f"route {route_num} {prev} from {msg}".strip()
+        elif has_explicit_timeframe(msg) and history:
+            prev = _last_user_with_context(history)
+            if prev:
+                msg_ctx = f"{prev} {msg}".strip()
 
     # If assistant asked for a time and user replies "next", inject a concrete time.
-    if _is_next_request(msg):
+    if _is_next_request(normalized_msg):
         last_assistant = _last_assistant_message(history)
         if _assistant_asked_time(last_assistant):
             prev = _last_user_with_context(history)
@@ -1579,7 +1582,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 "sources": [{"type": "backend_basics_schedule"}],
             })
         except Exception as e:
-            print("backend_basics_answer_error:", repr(e))
+            logger.error("backend_basics_answer_error: %s", repr(e))
 
     # If stop_id missing (ETA flow only):
     if not prefer_schedule and not stop_id:
@@ -1656,8 +1659,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 "delayed": p.get("dly"),
             })
     except Exception as e:
-        print("predictions_error:", repr(e))
-        print(traceback.format_exc())
+        logger.error("predictions_error: %s\n%s", repr(e), traceback.format_exc())
 
     # Keep <=45 min or DUE  (Option B uses schedule if none in this window)
     usable = []
