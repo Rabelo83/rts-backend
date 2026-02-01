@@ -8,6 +8,15 @@ const SESSION_TIMEOUT_MS = 5 * 60 * 1000;
 const chatHistory = [];
 let sessionId = null;
 let inactivityTimer = null;
+const chatState = {
+  intent: null,
+  route: null,
+  direction: null,
+  stopId: null,
+  stopName: null,
+  timeframe: null,
+  wizardActive: false,
+};
 
 function loadHistory(){
   try {
@@ -65,6 +74,7 @@ function startGreeting(){
   appendBubble(greeting, 'bot');
   chatHistory.push({ role: 'assistant', content: greeting });
   saveHistory();
+  startWizard();
 }
 
 function scheduleInactivityTimeout(){
@@ -99,6 +109,19 @@ function appendBubble(text, who='user'){
   const bubble = document.createElement('div');
   bubble.className = who === 'user' ? 'bubble user' : 'bubble bot';
   bubble.textContent = text;
+  wrap.appendChild(bubble);
+  wrap.scrollTop = wrap.scrollHeight;
+  return bubble;
+}
+
+function appendActionBubble(contentBuilder){
+  const wrap = el('chat-messages');
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble bot bubble-actions';
+  const container = document.createElement('div');
+  container.className = 'chat-buttons';
+  contentBuilder(container);
+  bubble.appendChild(container);
   wrap.appendChild(bubble);
   wrap.scrollTop = wrap.scrollHeight;
   return bubble;
@@ -166,6 +189,234 @@ async function sendMessage(){
     el('chat-send').disabled = false;
     el('chat-input').focus();
   }
+}
+
+function resetWizard(){
+  chatState.intent = null;
+  chatState.route = null;
+  chatState.direction = null;
+  chatState.stopId = null;
+  chatState.stopName = null;
+  chatState.timeframe = null;
+  chatState.wizardActive = false;
+}
+
+function startWizard(){
+  resetWizard();
+  chatState.wizardActive = true;
+  appendBubble('Let’s get you the right info. What do you need?', 'bot');
+  appendActionBubble(container => {
+    [
+      { label: '🚌 Next Bus ETA', intent: 'eta' },
+      { label: '📅 Scheduled Departures', intent: 'schedule' },
+      { label: '🧭 Route overview', intent: 'route_info' },
+      { label: '💬 Just ask a question', intent: 'freeform' },
+    ].forEach(option => {
+      const btn = document.createElement('button');
+      btn.className = 'chat-btn';
+      btn.textContent = option.label;
+      btn.addEventListener('click', () => handleIntentSelection(option.intent));
+      container.appendChild(btn);
+    });
+  });
+}
+async function handleIntentSelection(intent){
+  if(intent === 'freeform'){
+    chatState.wizardActive = false;
+    appendBubble('Go ahead and type your question below.', 'bot');
+    return;
+  }
+  chatState.intent = intent;
+  chatState.wizardActive = true;
+  appendBubble('Great! Select a route to continue.', 'bot');
+  await showRouteOptions();
+}
+
+async function showRouteOptions(){
+  try{
+    const res = await fetch(`${BASE}/api/routes`);
+    const data = await res.json();
+    const routes = (data.routes || []).slice(0, 12);
+    appendActionBubble(container => {
+      routes.forEach(route => {
+        const btn = document.createElement('button');
+        btn.className = 'chat-btn';
+        btn.textContent = `Route ${route.id || route.name || ''}`.trim();
+        btn.addEventListener('click', () => handleRouteSelection(route));
+        container.appendChild(btn);
+      });
+    });
+  } catch (e){
+    appendBubble('Sorry, I could not load the route list. You can type your question instead.', 'bot');
+    chatState.wizardActive = false;
+  }
+}
+
+function handleRouteSelection(route){
+  chatState.route = route.id || route.name || '';
+  appendBubble(`Route selected: ${chatState.route}`, 'bot');
+  if(chatState.intent === 'route_info'){
+    showRouteInfoSummary();
+  } else {
+    showDirectionOrStopStep();
+  }
+}
+
+async function showDirectionOrStopStep(){
+  appendBubble('Which direction are you headed?', 'bot');
+  try{
+    const res = await fetch(`${BASE}/api/directions?route_id=${encodeURIComponent(chatState.route)}`);
+    const data = await res.json();
+    const directions = data.directions || [];
+    if(directions.length === 0){
+      await showStopOptions(null);
+      return;
+    }
+    appendActionBubble(container => {
+      directions.forEach(d => {
+        const btn = document.createElement('button');
+        btn.className = 'chat-btn';
+        const id = d.id || d.dir || d.name || d;
+        btn.textContent = d.name || d.dir || d;
+        btn.addEventListener('click', () => {
+          chatState.direction = id;
+          handleDirectionSelection();
+        });
+        container.appendChild(btn);
+      });
+    });
+  } catch (e){
+    appendBubble('Direction list unavailable. Please type your question manually.', 'bot');
+    chatState.wizardActive = false;
+  }
+}
+
+function handleDirectionSelection(){
+  appendBubble(`Direction selected: ${chatState.direction}`, 'bot');
+  showStopOptions(chatState.direction);
+}
+
+async function showStopOptions(directionId){
+  appendBubble('Pick the stop or landmark.', 'bot');
+  try{
+    const params = new URLSearchParams({ route_id: chatState.route });
+    if(directionId){
+      params.set('direction_id', directionId);
+    }
+    const res = await fetch(`${BASE}/api/stops?${params.toString()}`);
+    const data = await res.json();
+    const stops = data.stops || [];
+    appendActionBubble(container => {
+      stops.slice(0, 12).forEach(stop => {
+        const btn = document.createElement('button');
+        btn.className = 'chat-btn';
+        btn.textContent = `${stop.name || 'Stop'} (${stop.id})`;
+        btn.addEventListener('click', () => {
+          chatState.stopId = stop.id;
+          chatState.stopName = stop.name;
+          appendBubble(`Stop selected: ${stop.name || stop.id}`, 'bot');
+          showTimeStep();
+        });
+        container.appendChild(btn);
+      });
+    });
+  } catch (e){
+    appendBubble('Stop list unavailable. Please type your question manually.', 'bot');
+    chatState.wizardActive = false;
+  }
+}
+
+function showTimeStep(){
+  if(chatState.intent === 'eta'){
+    appendBubble('When do you want the next bus?', 'bot');
+    appendActionBubble(container => {
+      [
+        { label: 'Right now', timeframe: 'now' },
+        { label: 'After 15 minutes', timeframe: 'after 15 minutes' },
+        { label: 'Custom time', timeframe: 'custom' },
+      ].forEach(option => {
+        const btn = document.createElement('button');
+        btn.className = 'chat-btn';
+        btn.textContent = option.label;
+        btn.addEventListener('click', () => handleTimeSelection(option.timeframe));
+        container.appendChild(btn);
+      });
+    });
+  } else {
+    appendBubble('When should I check the schedule?', 'bot');
+    appendActionBubble(container => {
+      [
+        { label: 'This morning', timeframe: 'this morning' },
+        { label: 'This afternoon', timeframe: 'this afternoon' },
+        { label: 'Tomorrow morning', timeframe: 'tomorrow morning' },
+        { label: 'Specific time', timeframe: 'custom' },
+      ].forEach(option => {
+        const btn = document.createElement('button');
+        btn.className = 'chat-btn';
+        btn.textContent = option.label;
+        btn.addEventListener('click', () => handleTimeSelection(option.timeframe));
+        container.appendChild(btn);
+      });
+    });
+  }
+}
+
+function handleTimeSelection(timeframe){
+  if(timeframe === 'custom'){
+    const example = chatState.intent === 'eta'
+      ? 'Type when you need the next bus (e.g., "after 3:45pm" or "in 20 minutes").'
+      : 'Type the day/time you want (e.g., "tomorrow at 8am" or "next Monday 5pm").';
+    appendBubble(example, 'bot');
+    chatState.wizardActive = false;
+    return;
+  }
+  chatState.timeframe = timeframe;
+  showSummaryAndSubmit();
+}
+
+function showSummaryAndSubmit(){
+  const summary = `Requesting ${chatState.intent === 'eta' ? 'ETA' : 'schedule'} for Route ${chatState.route}${chatState.direction ? ` (${chatState.direction})` : ''} at ${chatState.stopName || chatState.stopId}${chatState.timeframe ? ` (${chatState.timeframe})` : ''}.`;
+  appendBubble(summary, 'bot');
+  const prompt = buildFinalPrompt();
+  appendBubble('Sending your request...', 'bot');
+  el('chat-input').value = prompt;
+  chatState.wizardActive = false;
+  sendMessage();
+}
+
+function buildFinalPrompt(){
+  const parts = [];
+  if(chatState.intent === 'route_info'){
+    return `Route ${chatState.route} overview`;
+  }
+  if(chatState.intent === 'eta'){
+    parts.push('ETA');
+  } else {
+    parts.push('Schedule');
+  }
+  if(chatState.route){
+    parts.push(`Route ${chatState.route}`);
+  }
+  if(chatState.direction){
+    parts.push(chatState.direction);
+  }
+  if(chatState.stopName){
+    parts.push(`at ${chatState.stopName}`);
+  } else if(chatState.stopId){
+    parts.push(`stop ${chatState.stopId}`);
+  }
+  if(chatState.timeframe && chatState.timeframe !== 'now'){
+    parts.push(chatState.timeframe);
+  }
+  return parts.join(' ');
+}
+
+function showRouteInfoSummary(){
+  appendBubble(`Looking up the overview for Route ${chatState.route}.`, 'bot');
+  const prompt = buildFinalPrompt();
+  el('chat-input').value = prompt;
+  chatState.wizardActive = false;
+  sendMessage();
 }
 
 // Make it easy to verify the script loaded

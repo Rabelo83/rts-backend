@@ -601,6 +601,11 @@ input[type="text"]:focus {
   gap: 8px;
   margin-top: 10px;
 }
+.bubble-actions{
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
 
 .chat-btn{
   padding: 10px 14px;
