@@ -430,7 +430,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const input  = el('chat-input');
   const endBtn = el('chat-end');
 
-  if(!toggle || !panel || !send || !input){
+  if(!panel || !send || !input){
     console.error('Chat elements missing in DOM.');
     return;
   }
@@ -445,17 +445,22 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   function toggleChat(){
+    if(!toggle){ return; }
     const isOpen = panel.classList.toggle('open');
     toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
   }
 
-  toggle.addEventListener('click', toggleChat);
-  toggle.addEventListener('keydown', (e) => {
-    if(e.key === 'Enter' || e.key === ' '){
-      e.preventDefault();
-      toggleChat();
-    }
-  });
+  if(toggle){
+    toggle.addEventListener('click', toggleChat);
+    toggle.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        toggleChat();
+      }
+    });
+  } else {
+    panel.classList.add('open');
+  }
   send.addEventListener('click', sendMessage);
   if(endBtn){
     endBtn.addEventListener('click', () => endSession(true));

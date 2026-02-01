@@ -632,6 +632,19 @@ input[type="text"]:focus {
   transform: translateY(0);
 }
 
+.assistant-card{
+  margin: 2rem auto 3rem;
+  max-width: 460px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.assistant-card .btn-primary{
+  align-self: center;
+}
+
 /* Standalone chat page */
 body.chat-standalone{
   background: #0f172a;
@@ -695,4 +708,23 @@ body.chat-standalone{
   position: relative;
   width: 100%;
   box-shadow: 0 25px 70px rgba(15,23,42,0.6);
+}
+
+.btn-primary{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 22px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  border: none;
+  transition: background .2s ease, transform .2s ease;
+}
+
+.btn-primary:hover{
+  background: var(--accent-strong);
+  transform: translateY(-1px);
 }
