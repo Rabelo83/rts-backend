@@ -608,7 +608,7 @@ input[type="text"]:focus {
 /* Quick action buttons in chat */
 .chat-buttons{
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 8px;
   margin-top: 10px;
 }
@@ -628,6 +628,7 @@ input[type="text"]:focus {
   background: transparent;
   box-shadow: none;
   padding: 0;
+  max-width: 100%;
 }
 
 .chat-btn{

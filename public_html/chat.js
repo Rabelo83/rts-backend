@@ -78,6 +78,13 @@ function startGreeting(){
   startWizard();
 }
 
+function hasWizardGreeting(){
+  return chatHistory.slice(-6).some(m =>
+    m && m.role === 'assistant' && typeof m.content === 'string' &&
+    m.content.includes("Let's get you the right info")
+  );
+}
+
 function scheduleInactivityTimeout(){
   if(inactivityTimer){
     clearTimeout(inactivityTimer);
@@ -672,7 +679,8 @@ window.addEventListener('DOMContentLoaded', () => {
     chatHistory.forEach(m => {
       appendBubble(m.content, m.role === 'user' ? 'user' : 'bot');
     });
-  } else {
+  }
+  if(!hasWizardGreeting()){
     startGreeting();
   }
 
