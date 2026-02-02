@@ -84,6 +84,31 @@ def get_predictions_cached(stop_id: str):
     _cache_set(PREDICTION_CACHE, key, data)
     return data
 
+def infer_routes_from_predictions(stop_id: str) -> dict[str, dict]:
+    """
+    Returns {route: {"directions": set(), "destinations": set()}} from Bustime predictions.
+    """
+    if not stop_id:
+        return {}
+    try:
+        data = get_predictions_cached(stop_id) or {}
+        preds = data.get("prd", []) or []
+    except Exception:
+        return {}
+    routes: dict[str, dict] = {}
+    for p in preds:
+        rt = str(p.get("rt") or "").strip()
+        if not rt:
+            continue
+        entry = routes.setdefault(rt, {"directions": set(), "destinations": set()})
+        rtdir = (p.get("rtdir") or "").strip()
+        des = (p.get("des") or "").strip()
+        if rtdir:
+            entry["directions"].add(rtdir)
+        if des:
+            entry["destinations"].add(des)
+    return routes
+
 
 def ensure_backend_basics() -> bool:
     global BACKEND_BASICS_AVAILABLE, BB_ANSWER_FN
@@ -317,6 +342,8 @@ PLACE_SYNONYMS = {
         "downtown station",
         "rosa parks station",
         "rosa parks transfer",
+        "rosa parks transfer station",
+        "downtown transfer station",
     },
 }
 
@@ -1300,6 +1327,34 @@ def try_transit_answer(message: str, history=None) -> dict | None:
 
     wants_first = "first" in msg_ctx.lower()
     wants_last = "last" in msg_ctx.lower()
+
+    if stop_id and not route_id:
+        route_map = infer_routes_from_predictions(stop_id)
+        if route_map:
+            if len(route_map) == 1:
+                route_id = next(iter(route_map.keys()))
+                dirs = list(route_map[route_id]["directions"])
+                if len(dirs) == 1 and not direction_hint:
+                    direction_hint = dirs[0]
+                if not destination_hint and route_map[route_id]["destinations"]:
+                    destination_hint = next(iter(route_map[route_id]["destinations"]))
+            elif prefer_schedule:
+                buttons = []
+                for rt, info in list(route_map.items())[:5]:
+                    dests = sorted(info["destinations"])
+                    label = f"Route {rt}"
+                    if dests:
+                        label = f"{label} ({', '.join(dests[:2])})"
+                    buttons.append({"label": label, "action": f"route {rt}"})
+                return _with_meta({
+                    "answer": tmsg(
+                        lang,
+                        f"Which route should I use for Stop {stop_id}?",
+                        f"¿Qué ruta debo usar para la parada {stop_id}?"
+                    ),
+                    "buttons": buttons,
+                    "sources": [{"type": "need_route_from_stop"}],
+                })
 
 
     if prefer_schedule and not route_id:

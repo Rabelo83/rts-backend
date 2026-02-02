@@ -16,6 +16,7 @@ const chatState = {
   stopName: null,
   timeframe: null,
   wizardActive: false,
+  expected: null,
 };
 
 function loadHistory(){
@@ -127,10 +128,33 @@ function appendActionBubble(contentBuilder){
   return bubble;
 }
 
+function normalizeStopId(text){
+  const digits = (text || '').replace(/[^0-9]/g, '');
+  if(!digits || digits.length > 4){
+    return null;
+  }
+  return digits.padStart(4, '0');
+}
+
 async function sendMessage(){
   const input = el('chat-input');
   const msg = input.value.trim();
   if(!msg) return;
+  if(chatState.expected === 'stop_id'){
+    const stopId = normalizeStopId(msg);
+    appendBubble(msg, 'user');
+    chatHistory.push({ role: 'user', content: msg });
+    saveHistory();
+    input.value = '';
+    if(!stopId){
+      appendBubble('Please enter a valid 3-4 digit Stop ID (e.g., 0773).', 'bot');
+      return;
+    }
+    chatState.expected = null;
+    handleStopIdSelection(stopId);
+    scheduleInactivityTimeout();
+    return;
+  }
   const sid = ensureSessionId();
   input.value = '';
   appendBubble(msg, 'user');
@@ -199,6 +223,7 @@ function resetWizard(){
   chatState.stopName = null;
   chatState.timeframe = null;
   chatState.wizardActive = false;
+  chatState.expected = null;
 }
 
 function startWizard(){
@@ -228,15 +253,43 @@ async function handleIntentSelection(intent){
   }
   chatState.intent = intent;
   chatState.wizardActive = true;
-  appendBubble('Great! Select a route to continue.', 'bot');
-  await showRouteOptions();
+  if(intent === 'route_info'){
+    appendBubble('Great! Select a route to continue.', 'bot');
+    showRouteOptions();
+    return;
+  }
+  askStopIdKnown();
+}
+
+function askStopIdKnown(){
+  appendBubble('Do you know your 4-digit Stop ID?', 'bot');
+  appendActionBubble(container => {
+    [
+      { label: 'Yes', value: 'yes' },
+      { label: 'No', value: 'no' },
+    ].forEach(option => {
+      const btn = document.createElement('button');
+      btn.className = 'chat-btn';
+      btn.textContent = option.label;
+      btn.addEventListener('click', () => {
+        if(option.value === 'yes'){
+          chatState.expected = 'stop_id';
+          appendBubble('Please enter the Stop ID.', 'bot');
+        } else {
+          appendBubble('Great! Select a route to continue.', 'bot');
+          showRouteOptions();
+        }
+      });
+      container.appendChild(btn);
+    });
+  });
 }
 
 async function showRouteOptions(){
   try{
     const res = await fetch(`${BASE}/api/routes`);
     const data = await res.json();
-    const routes = (data.routes || []).slice(0, 12);
+    const routes = (data.routes || []);
     appendActionBubble(container => {
       routes.forEach(route => {
         const btn = document.createElement('button');
@@ -252,13 +305,133 @@ async function showRouteOptions(){
   }
 }
 
+async function handleStopIdSelection(stopId){
+  chatState.stopId = stopId;
+  appendBubble(`Stop selected: ${stopId}`, 'bot');
+  await resolveRoutesFromStop(stopId);
+}
+
+async function resolveRoutesFromStop(stopId){
+  try{
+    const res = await fetch(`${BASE}/api/predictions?stop_id=${encodeURIComponent(stopId)}`);
+    if(!res.ok){
+      throw new Error(`HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    const preds = data.predictions || [];
+    const routeMap = {};
+    preds.forEach(p => {
+      const rt = (p.route || '').toString().trim();
+      if(!rt) return;
+      if(!routeMap[rt]){
+        routeMap[rt] = { directions: new Set(), destinations: new Set() };
+      }
+      if(p.direction){
+        routeMap[rt].directions.add(p.direction);
+      }
+      if(p.destination){
+        routeMap[rt].destinations.add(p.destination);
+      }
+    });
+    const routes = Object.keys(routeMap);
+    if(routes.length === 0){
+      appendBubble('No live predictions at that stop. Please pick a route instead.', 'bot');
+      showRouteOptions();
+      return;
+    }
+    if(routes.length === 1){
+      const rt = routes[0];
+      chatState.route = rt;
+      appendBubble(`Route detected: ${rt}`, 'bot');
+      if(chatState.intent === 'route_info'){
+        showRouteInfoSummary();
+        return;
+      }
+      const dirs = Array.from(routeMap[rt].directions);
+      if(dirs.length === 1){
+        chatState.direction = dirs[0];
+        appendBubble(`Direction detected: ${chatState.direction}`, 'bot');
+        showTimeStep();
+        return;
+      }
+      showDirectionForKnownStop();
+      return;
+    }
+
+    appendBubble('Multiple routes serve that stop. Choose one:', 'bot');
+    appendActionBubble(container => {
+      routes.forEach(rt => {
+        const dests = Array.from(routeMap[rt].destinations);
+        const label = dests.length
+          ? `Route ${rt} (${dests.slice(0, 2).join(', ')})`
+          : `Route ${rt}`;
+        const btn = document.createElement('button');
+        btn.className = 'chat-btn';
+        btn.textContent = label;
+        btn.addEventListener('click', () => {
+          chatState.route = rt;
+          const dirs = Array.from(routeMap[rt].directions);
+          if(dirs.length === 1){
+            chatState.direction = dirs[0];
+            appendBubble(`Direction detected: ${chatState.direction}`, 'bot');
+            showTimeStep();
+            return;
+          }
+          showDirectionForKnownStop();
+        });
+        container.appendChild(btn);
+      });
+    });
+  } catch (e){
+    appendBubble('Sorry, I could not look up live predictions. Please pick a route instead.', 'bot');
+    showRouteOptions();
+  }
+}
+
 function handleRouteSelection(route){
   chatState.route = route.id || route.name || '';
   appendBubble(`Route selected: ${chatState.route}`, 'bot');
   if(chatState.intent === 'route_info'){
     showRouteInfoSummary();
   } else {
-    showDirectionOrStopStep();
+    if(chatState.stopId){
+      showDirectionForKnownStop();
+    } else {
+      showDirectionOrStopStep();
+    }
+  }
+}
+
+async function showDirectionForKnownStop(){
+  if(!chatState.route){
+    showTimeStep();
+    return;
+  }
+  appendBubble('Which direction are you headed?', 'bot');
+  try{
+    const res = await fetch(`${BASE}/api/directions?route_id=${encodeURIComponent(chatState.route)}`);
+    const data = await res.json();
+    const directions = data.directions || [];
+    if(directions.length === 0){
+      showTimeStep();
+      return;
+    }
+    appendActionBubble(container => {
+      directions.forEach(d => {
+        const btn = document.createElement('button');
+        btn.className = 'chat-btn';
+        const id = d.id || d.dir || d.name || d;
+        btn.textContent = d.name || d.dir || d;
+        btn.addEventListener('click', () => {
+          chatState.direction = id;
+          appendBubble(`Direction selected: ${chatState.direction}`, 'bot');
+          showTimeStep();
+        });
+        container.appendChild(btn);
+      });
+    });
+  } catch (e){
+    showTimeStep();
   }
 }
 
