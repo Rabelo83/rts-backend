@@ -60,6 +60,20 @@ def parse_date(text):
                 return today
             return today + timedelta(days=days_ahead)
 
+    if "weekday" in text or "weekdays" in text or "dias de semana" in text:
+        # If today is weekday (Mon-Fri), use today; else next Monday
+        if today.weekday() < 5:
+            return today
+        days_ahead = (0 - today.weekday()) % 7
+        return today + timedelta(days=days_ahead)
+
+    if "weekend" in text or "weekends" in text or "fin de semana" in text:
+        # If today is weekend (Sat/Sun), use today; else next Saturday
+        if today.weekday() >= 5:
+            return today
+        days_ahead = (5 - today.weekday()) % 7
+        return today + timedelta(days=days_ahead)
+
     if "today" in text:
         return today
     if "tomorrow" in text:
@@ -105,6 +119,18 @@ def connect_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def get_service_exceptions(conn, date_compact: str) -> dict:
+    rows = conn.execute(
+        "SELECT service_id, exception_type FROM calendar_dates WHERE date = ?",
+        (date_compact,),
+    ).fetchall()
+    added = [r["service_id"] for r in rows if r["exception_type"] == 1]
+    removed = [r["service_id"] for r in rows if r["exception_type"] == 2]
+    if not added and not removed:
+        return {}
+    return {"added": added, "removed": removed}
 
 
 def find_stop_by_alias(text, defaults):
@@ -433,9 +459,13 @@ def get_schedule(route, text, stop_id=None, stop_name=None, kind="next", debug=F
         date_iso = q_date.strftime("%Y-%m-%d")
         date_compact = q_date.strftime("%Y%m%d")
 
+        exception_info = get_service_exceptions(conn, date_compact)
+
         if kind == "first":
             first_time = first_or_last_departure(conn, route, stop["stop_id_padded"], date_iso, date_compact, first=True)
             out = {"route": route, "stop": stop["stop_name"], "date": date_iso, "first_departure": first_time}
+            if exception_info:
+                out["exception"] = exception_info
             if debug:
                 out["debug"] = {
                     "route": route,
@@ -449,6 +479,8 @@ def get_schedule(route, text, stop_id=None, stop_name=None, kind="next", debug=F
         if kind == "last":
             last_time = first_or_last_departure(conn, route, stop["stop_id_padded"], date_iso, date_compact, first=False)
             out = {"route": route, "stop": stop["stop_name"], "date": date_iso, "last_departure": last_time}
+            if exception_info:
+                out["exception"] = exception_info
             if debug:
                 out["debug"] = {
                     "route": route,
@@ -472,6 +504,8 @@ def get_schedule(route, text, stop_id=None, stop_name=None, kind="next", debug=F
             "time": q_time,
             "next_by_direction": [(r["departure_time"], r["trip_headsign"]) for r in rows],
         }
+        if exception_info:
+            out["exception"] = exception_info
         if debug:
             out["debug"] = {
                 "route": route,
@@ -507,6 +541,7 @@ def get_schedule_all_routes(text, stop_id=None, debug=False):
             now = datetime.now(TZ)
             q_time = now.strftime("%H:%M:%S")
 
+        exception_info = get_service_exceptions(conn, date_compact)
         rows = next_departures_all_routes(conn, row["stop_id_padded"], date_iso, date_compact, q_time)
         out = {
             "stop": row["stop_name"],
@@ -514,6 +549,8 @@ def get_schedule_all_routes(text, stop_id=None, debug=False):
             "time": q_time,
             "next_by_route": [(r["route_short_name"], r["departure_time"], r["trip_headsign"]) for r in rows],
         }
+        if exception_info:
+            out["exception"] = exception_info
         if debug:
             out["debug"] = {
                 "stop_id": row["stop_id_padded"],

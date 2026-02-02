@@ -33,6 +33,9 @@ const TRANSLATIONS = {
     scheduled_departures: 'Scheduled Departures',
     route_overview: 'Route Overview',
     ask_question: 'Ask a Question',
+    weekday_or_weekend: 'Is this for weekdays or weekends?',
+    weekdays: 'Weekdays',
+    weekends: 'Weekends',
     know_stop_id: 'Do you know your 4-digit Stop ID?',
     yes: 'Yes',
     no: 'No',
@@ -80,6 +83,9 @@ const TRANSLATIONS = {
     scheduled_departures: '📅 Ver horario de buses',
     route_overview: 'Vista General de Ruta',
     ask_question: 'Hacer una Pregunta',
+    weekday_or_weekend: '?Es para d?as de semana o fines de semana?',
+    weekdays: 'D?as de semana',
+    weekends: 'Fines de semana',
     know_stop_id: '¿Conoces tu ID de parada de 4 dígitos?',
     yes: 'Sí',
     no: 'No',
@@ -133,6 +139,7 @@ const AppState = {
   wizardStep: null, // 'intent', 'stop_id', 'route', 'direction', 'stop', 'time'
   wizardStack: [], // For back button functionality
   intent: null, // 'eta', 'schedule', 'route_info'
+  serviceDay: null, // 'weekdays' | 'weekends'
   route: null,
   direction: null,
   stopId: null,
@@ -181,6 +188,7 @@ function loadState() {
         wizardActive: parsed.wizardActive || false,
         wizardStep: parsed.wizardStep || null,
         intent: parsed.intent || null,
+        serviceDay: parsed.serviceDay || null,
         route: parsed.route || null,
         direction: parsed.direction || null,
         stopId: parsed.stopId || null,
@@ -222,6 +230,7 @@ function saveState() {
         wizardActive: AppState.wizardActive,
         wizardStep: AppState.wizardStep,
         intent: AppState.intent,
+        serviceDay: AppState.serviceDay,
         route: AppState.route,
         direction: AppState.direction,
         stopId: AppState.stopId,
@@ -250,6 +259,7 @@ function clearState() {
   AppState.wizardStep = null;
   AppState.wizardStack = [];
   AppState.intent = null;
+  AppState.serviceDay = null;
   AppState.route = null;
   AppState.direction = null;
   stopId = null;
@@ -341,7 +351,7 @@ function appendActionBubble(contentBuilder) {
 }
 
 function appendProgressIndicator() {
-  const steps = ['intent', 'stop_id', 'route', 'direction', 'stop', 'time'];
+  const steps = ['intent', 'service_day', 'stop_id', 'route', 'direction', 'stop', 'time'];
   const currentIndex = steps.indexOf(AppState.wizardStep);
   if (currentIndex === -1) return;
 
@@ -529,10 +539,41 @@ function handleIntentSelection(intent) {
 
   trackEvent('wizard_intent_selected', { intent });
 
-  // For both ETA and Schedule, ask if they know stop ID
-  // This matches the flowchart: both paths need stop information
+  if (intent === 'schedule') {
+    AppState.wizardStep = 'service_day';
+    askServiceDay();
+    return;
+  }
+
   AppState.wizardStep = 'stop_id';
   askStopIdKnown();
+}
+
+function askServiceDay() {
+  appendBubble(t('weekday_or_weekend'), 'bot');
+  appendActionBubble((container) => {
+    const backBtn = document.createElement('button');
+    backBtn.className = 'chat-btn back';
+    backBtn.textContent = t('back');
+    backBtn.addEventListener('click', goBack);
+    container.appendChild(backBtn);
+
+    [
+      { label: t('weekdays'), value: 'weekdays' },
+      { label: t('weekends'), value: 'weekends' },
+    ].forEach((option) => {
+      const btn = document.createElement('button');
+      btn.className = 'chat-btn';
+      btn.textContent = option.label;
+      btn.addEventListener('click', () => {
+        AppState.serviceDay = option.value;
+        AppState.wizardStack.push('service_day');
+        AppState.wizardStep = 'stop_id';
+        askStopIdKnown();
+      });
+      container.appendChild(btn);
+    });
+  });
 }
 
 function askStopIdKnown() {
@@ -542,7 +583,7 @@ function askStopIdKnown() {
 
     if (addBackButton) {
       const backBtn = document.createElement('button');
-      backBtn.className = 'chat-btn secondary';
+      backBtn.className = 'chat-btn back';
       backBtn.textContent = t('back');
       backBtn.addEventListener('click', goBack);
       container.appendChild(backBtn);
@@ -580,6 +621,9 @@ function goBack() {
   // Reset to previous step
   if (previousStep === 'intent') {
     showIntentSelection();
+  } else if (previousStep === 'service_day') {
+    AppState.wizardStep = 'service_day';
+    askServiceDay();
   } else if (previousStep === 'stop_id_known' || previousStep === 'stop_id_unknown') {
     askStopIdKnown();
   } else if (previousStep === 'route') {
@@ -652,7 +696,7 @@ async function checkBustimeForStop(stopId) {
           });
 
           const tryAgainBtn = document.createElement('button');
-          tryAgainBtn.className = 'chat-btn secondary';
+          tryAgainBtn.className = 'chat-btn back';
           tryAgainBtn.textContent = t('try_different_stop');
           tryAgainBtn.addEventListener('click', () => {
             AppState.stopId = null;
@@ -694,7 +738,7 @@ async function checkBustimeForStop(stopId) {
           });
 
           const showAnywayBtn = document.createElement('button');
-          showAnywayBtn.className = 'chat-btn secondary';
+          showAnywayBtn.className = 'chat-btn back';
           showAnywayBtn.textContent = 'Show All ETAs';
           showAnywayBtn.addEventListener('click', () => {
             displayPredictions(predictions);
@@ -752,6 +796,11 @@ function displayPredictions(predictions) {
 }
 
 function proceedToSchedule() {
+  if (!AppState.serviceDay) {
+    AppState.wizardStep = 'service_day';
+    askServiceDay();
+    return;
+  }
   // Ask for route if not known
   if (!AppState.route) {
     AppState.wizardStep = 'route';
@@ -783,10 +832,11 @@ async function showRouteOptions() {
     }
 
     appendActionBubble((container) => {
+      container.classList.add('route-grid');
       // Add back button if applicable
       if (AppState.wizardStack.length > 0) {
         const backBtn = document.createElement('button');
-        backBtn.className = 'chat-btn secondary';
+        backBtn.className = 'chat-btn back';
         backBtn.textContent = t('back');
         backBtn.addEventListener('click', goBack);
         container.appendChild(backBtn);
@@ -860,7 +910,7 @@ async function showDirectionOptions() {
     appendActionBubble((container) => {
       // Add back button
       const backBtn = document.createElement('button');
-      backBtn.className = 'chat-btn secondary';
+      backBtn.className = 'chat-btn back';
       backBtn.textContent = t('back');
       backBtn.addEventListener('click', goBack);
       container.appendChild(backBtn);
@@ -920,7 +970,7 @@ async function showStopOptions() {
     appendActionBubble((container) => {
       // Add back button
       const backBtn = document.createElement('button');
-      backBtn.className = 'chat-btn secondary';
+      backBtn.className = 'chat-btn back';
       backBtn.textContent = t('back');
       backBtn.addEventListener('click', goBack);
       container.appendChild(backBtn);
@@ -964,7 +1014,7 @@ function askScheduleTime() {
   appendActionBubble((container) => {
     // Add back button
     const backBtn = document.createElement('button');
-    backBtn.className = 'chat-btn secondary';
+    backBtn.className = 'chat-btn back';
     backBtn.textContent = t('back');
     backBtn.addEventListener('click', goBack);
     container.appendChild(backBtn);
@@ -1001,6 +1051,7 @@ function handleTimeSelection(timeframe) {
 function submitScheduleQuery() {
   // Build final query and send to agent
   const parts = ['Schedule'];
+  if (AppState.serviceDay) parts.push(AppState.serviceDay);
   if (AppState.route) parts.push(`Route ${AppState.route}`);
   if (AppState.direction) parts.push(AppState.direction);
   if (AppState.stopName) parts.push(`at ${AppState.stopName}`);
@@ -1010,6 +1061,29 @@ function submitScheduleQuery() {
   const query = parts.join(' ');
   sendAgentMessage(query);
 }
+
+function isSessionMessage(text) {
+  if (!text) return false;
+  const en = TRANSLATIONS.en;
+  const es = TRANSLATIONS.es;
+  return text === en.session_cleared || text === en.session_expired ||
+         text === es.session_cleared || text === es.session_expired;
+}
+
+function formatDirectionLabel(raw) {
+  if (!raw) return '';
+  const text = String(raw).replace(/\s+/g, ' ').trim();
+  const parts = text.split(' - ');
+  if (parts.length >= 2) {
+    const dir = parts[0].trim().toLowerCase();
+    let dest = parts.slice(1).join(' - ').trim();
+    dest = dest.replace(/^to\s+/i, '').replace(/^to\s+to\s+/i, 'to ');
+    const dirLabel = dir.toUpperCase();
+    return `${dirLabel} ? ${dest}`;
+  }
+  return text;
+}
+
 
 // ====== AGENT API CALL ======
 async function sendAgentMessage(message) {
@@ -1163,7 +1237,9 @@ window.addEventListener('DOMContentLoaded', () => {
   // Restore history
   if (AppState.chatHistory.length > 0) {
     AppState.chatHistory.forEach((m) => {
-      appendBubble(m.content, m.role === 'user' ? 'user' : 'bot');
+      if (!isSessionMessage(m.content)) {
+        appendBubble(m.content, m.role === 'user' ? 'user' : 'bot');
+      }
     });
 
     // Resume wizard if it was active

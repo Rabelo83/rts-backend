@@ -1054,6 +1054,20 @@ def format_time_12h(hhmmss: str) -> str:
     return f"{h12}:{mm:02d} {ap}"
 
 
+def build_exception_note(lang: str, date_str: str, exception_info: dict | None) -> str:
+    if not exception_info:
+        return ""
+    added = exception_info.get("added") or []
+    removed = exception_info.get("removed") or []
+    if not added and not removed:
+        return ""
+    return tmsg(
+        lang,
+        f"Note: Service exceptions apply on {date_str}.",
+        f"Nota: Hay excepciones de servicio en {date_str}.",
+    )
+
+
 def normalize_times_in_text(text: str) -> str:
     if not text:
         return text
@@ -1394,6 +1408,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 ),
                 "sources": [{"type": "schedule_no_time"}],
             })
+        exception_note = build_exception_note(lang, data.get("date"), data.get("exception"))
         lines = [
             f"Next scheduled departures from {data.get('stop')} on {data.get('date')} after {format_time_12h(data.get('time'))}:"
         ]
@@ -1402,6 +1417,8 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 lines.append(f"- Route {rt} to {headsign}: {format_time_12h(t)}")
             else:
                 lines.append(f"- Route {rt}: {format_time_12h(t)}")
+        if exception_note:
+            lines.append(exception_note)
         return _with_meta({
             "answer": "\n".join(lines),
             "sources": [{"type": "schedule_all_routes"}],
@@ -1482,15 +1499,23 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 "sources": [{"type": "backend_basics_unavailable"}],
             })
 
+        exception_note = build_exception_note(lang, data.get("date"), data.get("exception"))
+
         # Format deterministic schedule output
         if kind == "first" and data.get("first_departure"):
+            answer = f"First departure for route {data['route']} from {data['stop']} on {data['date']}: {format_time_12h(data['first_departure'])}"
+            if exception_note:
+                answer = f"{answer}\n{exception_note}"
             return _with_meta({
-                "answer": f"First departure for route {data['route']} from {data['stop']} on {data['date']}: {format_time_12h(data['first_departure'])}",
+                "answer": answer,
                 "sources": [{"type": "schedule_first"}],
             })
         if kind == "last" and data.get("last_departure"):
+            answer = f"Last departure for route {data['route']} from {data['stop']} on {data['date']}: {format_time_12h(data['last_departure'])}"
+            if exception_note:
+                answer = f"{answer}\n{exception_note}"
             return _with_meta({
-                "answer": f"Last departure for route {data['route']} from {data['stop']} on {data['date']}: {format_time_12h(data['last_departure'])}",
+                "answer": answer,
                 "sources": [{"type": "schedule_last"}],
             })
 
@@ -1525,6 +1550,8 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             ]
             for t, headsign in next_by_dir:
                 lines.append(f"- {format_time_12h(t)} ({headsign})")
+            if exception_note:
+                lines.append(exception_note)
             return _with_meta({
                 "answer": "\n".join(lines),
                 "sources": [{"type": "schedule_next"}],

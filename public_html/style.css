@@ -349,11 +349,16 @@ input[type="text"]:focus {
 }
 
 .btn-clear {
-  background-color: #fff;
-  border: 1px solid var(--border-card);
-  color: var(--text-main);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.03);
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  box-shadow: 0 8px 20px rgba(239,68,68,0.15);
 }
+
+.btn-clear:hover {
+  background-color: #fee2e2;
+}
+
 
 .btn-clear:active {
   transform: scale(0.98);
@@ -967,6 +972,21 @@ body.chat-standalone{
     font-size: 1rem;
   }
 
+.chat-btn.back{
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #1e3a8a;
+  font-weight: 600;
+}
+
+.chat-btn.back:hover{
+  background: #e0e7ff;
+  border-color: #a5b4fc;
+  transform: none;
+  box-shadow: none;
+}
+
+
   .btn-small {
     min-height: 40px;
     padding: 8px 16px;
@@ -1105,3 +1125,8 @@ input:focus-visible {
 /* ===================================
    END V2 IMPROVEMENTS
    =================================== */
+
+
+.chat-buttons.route-grid{
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
