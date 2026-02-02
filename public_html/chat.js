@@ -155,6 +155,17 @@ async function sendMessage(){
     scheduleInactivityTimeout();
     return;
   }
+  if(chatState.expected === 'timeframe'){
+    appendBubble(msg, 'user');
+    chatHistory.push({ role: 'user', content: msg });
+    saveHistory();
+    input.value = '';
+    chatState.timeframe = msg;
+    chatState.expected = null;
+    showSummaryAndSubmit();
+    scheduleInactivityTimeout();
+    return;
+  }
   const sid = ensureSessionId();
   input.value = '';
   appendBubble(msg, 'user');
@@ -308,7 +319,31 @@ async function showRouteOptions(){
 async function handleStopIdSelection(stopId){
   chatState.stopId = stopId;
   appendBubble(`Stop selected: ${stopId}`, 'bot');
-  await resolveRoutesFromStop(stopId);
+  askRoutePreference();
+}
+
+function askRoutePreference(){
+  appendBubble('Do you want a specific route, or all routes at this stop?', 'bot');
+  appendActionBubble(container => {
+    [
+      { label: 'Specific route', value: 'specific' },
+      { label: 'All routes', value: 'all' },
+    ].forEach(option => {
+      const btn = document.createElement('button');
+      btn.className = 'chat-btn';
+      btn.textContent = option.label;
+      btn.addEventListener('click', () => {
+        if(option.value === 'specific'){
+          resolveRoutesFromStop(chatState.stopId);
+        } else {
+          chatState.route = null;
+          chatState.direction = null;
+          showTimeStep();
+        }
+      });
+      container.appendChild(btn);
+    });
+  });
 }
 
 async function resolveRoutesFromStop(stopId){
@@ -540,7 +575,7 @@ function handleTimeSelection(timeframe){
       ? 'Type when you need the next bus (e.g., "after 3:45pm" or "in 20 minutes").'
       : 'Type the day/time you want (e.g., "tomorrow at 8am" or "next Monday 5pm").';
     appendBubble(example, 'bot');
-    chatState.wizardActive = false;
+    chatState.expected = 'timeframe';
     return;
   }
   chatState.timeframe = timeframe;
@@ -548,7 +583,11 @@ function handleTimeSelection(timeframe){
 }
 
 function showSummaryAndSubmit(){
-  const summary = `Requesting ${chatState.intent === 'eta' ? 'ETA' : 'schedule'} for Route ${chatState.route}${chatState.direction ? ` (${chatState.direction})` : ''} at ${chatState.stopName || chatState.stopId}${chatState.timeframe ? ` (${chatState.timeframe})` : ''}.`;
+  const routePart = chatState.route ? ` for Route ${chatState.route}` : '';
+  const dirPart = chatState.direction ? ` (${chatState.direction})` : '';
+  const stopPart = chatState.stopName || chatState.stopId ? ` at ${chatState.stopName || chatState.stopId}` : '';
+  const timePart = chatState.timeframe ? ` (${chatState.timeframe})` : '';
+  const summary = `Requesting ${chatState.intent === 'eta' ? 'ETA' : 'schedule'}${routePart}${dirPart}${stopPart}${timePart}.`;
   appendBubble(summary, 'bot');
   const prompt = buildFinalPrompt();
   appendBubble('Sending your request...', 'bot');

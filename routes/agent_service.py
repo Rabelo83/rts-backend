@@ -1357,6 +1357,49 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 })
 
 
+    if prefer_schedule and not route_id and stop_id and not wants_first and not wants_last and schedule_service:
+        data = schedule_service.get_schedule_all_routes(timeframe_hint or msg_ctx, stop_id=stop_id)
+        if data.get("error") == "db_unavailable":
+            return _with_meta({
+                "answer": tmsg(
+                    lang,
+                    "Schedule database is unavailable right now. Please try again later.",
+                    "La base de datos de horarios no esta disponible en este momento. Intenta mas tarde.",
+                ),
+                "sources": [{"type": "backend_basics_unavailable"}],
+            })
+        if data.get("error") == "stop_not_found":
+            return _with_meta({
+                "answer": tmsg(
+                    lang,
+                    "I couldn't find that stop in the schedule database. Please check the 4-digit Stop ID.",
+                    "No pude encontrar esa parada en la base de datos. Verifica el Stop ID de 4 digitos.",
+                ),
+                "sources": [{"type": "schedule_stop_not_found"}],
+            })
+        next_by_route = data.get("next_by_route") or []
+        if not next_by_route:
+            return _with_meta({
+                "answer": tmsg(
+                    lang,
+                    "No scheduled trips found after that time for this stop. Try another time.",
+                    "No encontre viajes programados despues de esa hora para esta parada. Intenta otra hora.",
+                ),
+                "sources": [{"type": "schedule_no_time"}],
+            })
+        lines = [
+            f"Next scheduled departures from {data.get('stop')} on {data.get('date')} after {format_time_12h(data.get('time'))}:"
+        ]
+        for rt, t, headsign in next_by_route[:10]:
+            if headsign:
+                lines.append(f"- Route {rt} to {headsign}: {format_time_12h(t)}")
+            else:
+                lines.append(f"- Route {rt}: {format_time_12h(t)}")
+        return _with_meta({
+            "answer": "\n".join(lines),
+            "sources": [{"type": "schedule_all_routes"}],
+        })
+
     if prefer_schedule and not route_id:
         return _with_meta({
             "answer": tmsg(

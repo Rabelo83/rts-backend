@@ -290,6 +290,64 @@ def next_departures_per_headsign(conn, route_short_name, stop_id_padded, date_is
         },
     ).fetchall()
 
+def next_departures_all_routes(conn, stop_id_padded, date_iso, date_compact, time_str):
+    sql = """
+    WITH base_services AS (
+      SELECT c.service_id
+      FROM calendar c
+      WHERE :date_compact BETWEEN c.start_date AND c.end_date
+        AND (
+          (c.monday = 1 AND strftime('%w', :date_iso) = '1') OR
+          (c.tuesday = 1 AND strftime('%w', :date_iso) = '2') OR
+          (c.wednesday = 1 AND strftime('%w', :date_iso) = '3') OR
+          (c.thursday = 1 AND strftime('%w', :date_iso) = '4') OR
+          (c.friday = 1 AND strftime('%w', :date_iso) = '5') OR
+          (c.saturday = 1 AND strftime('%w', :date_iso) = '6') OR
+          (c.sunday = 1 AND strftime('%w', :date_iso) = '0')
+        )
+    ),
+    exception_add AS (
+      SELECT service_id
+      FROM calendar_dates
+      WHERE date = :date_compact AND exception_type = 1
+    ),
+    exception_remove AS (
+      SELECT service_id
+      FROM calendar_dates
+      WHERE date = :date_compact AND exception_type = 2
+    ),
+    active_services AS (
+      SELECT service_id FROM base_services
+      UNION
+      SELECT service_id FROM exception_add
+      EXCEPT
+      SELECT service_id FROM exception_remove
+    ),
+    ranked AS (
+      SELECT r.route_short_name, st.departure_time, t.trip_headsign,
+             ROW_NUMBER() OVER (PARTITION BY r.route_short_name, t.trip_headsign ORDER BY st.departure_time) AS rn
+      FROM stops s
+      JOIN stop_times st ON st.stop_id = s.stop_id
+      JOIN trips t ON t.trip_id = st.trip_id
+      JOIN routes r ON r.route_id = t.route_id
+      JOIN active_services a ON a.service_id = t.service_id
+      WHERE s.stop_id_padded = :stop_id
+        AND st.departure_time >= :time
+    )
+    SELECT route_short_name, departure_time, trip_headsign
+    FROM ranked
+    WHERE rn = 1
+    ORDER BY route_short_name, departure_time;
+    """
+    return conn.execute(
+        sql,
+        {
+            "date_iso": date_iso,
+            "date_compact": date_compact,
+            "stop_id": stop_id_padded,
+            "time": time_str,
+        },
+    ).fetchall()
 
 def first_or_last_departure(conn, route_short_name, stop_id_padded, date_iso, date_compact, first=True):
     sql = """
@@ -418,6 +476,47 @@ def get_schedule(route, text, stop_id=None, stop_name=None, kind="next", debug=F
             out["debug"] = {
                 "route": route,
                 "stop_id": stop["stop_id_padded"],
+                "date_iso": date_iso,
+                "date_compact": date_compact,
+                "time": q_time,
+                "kind": "next",
+            }
+        return out
+    finally:
+        conn.close()
+
+def get_schedule_all_routes(text, stop_id=None, debug=False):
+    conn = connect_db()
+    if not conn:
+        return {"error": "db_unavailable"}
+    try:
+        if not stop_id:
+            return {"error": "stop_not_found"}
+        row = conn.execute(
+            "SELECT stop_id_padded, stop_name FROM stops WHERE stop_id_padded = ?",
+            (stop_id,),
+        ).fetchone()
+        if not row:
+            return {"error": "stop_not_found"}
+
+        q_date = parse_date(text)
+        q_time = parse_time(text)
+        date_iso = q_date.strftime("%Y-%m-%d")
+        date_compact = q_date.strftime("%Y%m%d")
+        if not q_time:
+            now = datetime.now(TZ)
+            q_time = now.strftime("%H:%M:%S")
+
+        rows = next_departures_all_routes(conn, row["stop_id_padded"], date_iso, date_compact, q_time)
+        out = {
+            "stop": row["stop_name"],
+            "date": date_iso,
+            "time": q_time,
+            "next_by_route": [(r["route_short_name"], r["departure_time"], r["trip_headsign"]) for r in rows],
+        }
+        if debug:
+            out["debug"] = {
+                "stop_id": row["stop_id_padded"],
                 "date_iso": date_iso,
                 "date_compact": date_compact,
                 "time": q_time,
