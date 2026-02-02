@@ -220,6 +220,19 @@ select {
   background-size: 6px 6px, 6px 6px, 100% 100%;
   background-repeat: no-repeat;
   padding-right: 2rem;
+  font-weight: 500;
+}
+
+/* Fix dropdown option contrast */
+select option {
+  background-color: #ffffff;
+  color: #0b1324;
+  padding: 8px;
+  font-weight: 500;
+}
+
+select option:disabled {
+  color: #9aa3b2;
 }
 
 select:disabled,
