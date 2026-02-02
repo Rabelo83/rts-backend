@@ -1170,6 +1170,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (AppState.wizardActive) {
       // Could restore wizard state, but for now just show greeting
       startGreeting();
+    } else {
+      showIntentSelection();
     }
   } else {
     // Fresh start
