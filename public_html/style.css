@@ -769,3 +769,300 @@ body.chat-standalone{
   background: var(--accent-strong);
   transform: translateY(-1px);
 }
+/* ===================================
+   V2 IMPROVEMENTS - NEW STYLES
+   =================================== */
+
+/* Delay Badge for Predictions */
+.delay-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: #fef3c7;
+  color: #92400e;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+.arrival-card.delayed {
+  border-left: 3px solid #f59e0b;
+}
+
+/* Helper Text Error State */
+.helper-text.error {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Chat Bubble Loading State */
+.bubble.loading {
+  opacity: 0.7;
+  font-style: italic;
+}
+
+/* Chat Button Secondary Style */
+.chat-btn.secondary {
+  background-color: transparent;
+  color: var(--accent);
+  border: 2px solid var(--accent);
+}
+
+.chat-btn.secondary:hover {
+  background-color: var(--accent-bg);
+}
+
+/* Chat Button Disabled State */
+.chat-btn-disabled,
+.chat-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #e5e7eb;
+  color: #9ca3af;
+}
+
+.chat-btn:disabled:hover {
+  background-color: #e5e7eb;
+  transform: none;
+}
+
+/* Wizard Progress Indicator */
+.wizard-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 20px;
+  margin: 12px 0;
+}
+
+.progress-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #d1d5db;
+  transition: all 0.3s ease;
+}
+
+.progress-dot.active {
+  width: 14px;
+  height: 14px;
+  background-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-bg);
+}
+
+.progress-dot.completed {
+  background-color: #10b981;
+}
+
+/* Language Toggle Button (if added to UI) */
+.language-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  z-index: 9999;
+}
+
+.language-toggle:hover {
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* Offline Indicator */
+.offline-indicator {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  background-color: #fbbf24;
+  color: #78350f;
+  font-weight: 600;
+  font-size: 0.875rem;
+  box-shadow: 0 10px 25px rgba(251, 191, 36, 0.4);
+  z-index: 9998;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* Mobile Improvements - Larger Touch Targets */
+@media (max-width: 640px) {
+  .chat-btn {
+    min-height: 44px; /* iOS recommended touch target */
+    padding: 12px 18px;
+    font-size: 1rem;
+  }
+
+  .btn-small {
+    min-height: 40px;
+    padding: 8px 16px;
+  }
+
+  select,
+  input[type="text"],
+  button {
+    min-height: 44px;
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+
+  /* Larger tap areas for dropdowns */
+  .control-block select {
+    padding: 14px 16px;
+  }
+
+  /* Sticky prediction header on mobile */
+  .results-header-row {
+    position: sticky;
+    top: 0;
+    background-color: var(--bg-card);
+    z-index: 10;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-card);
+  }
+}
+
+/* Pull-to-refresh hint (visual indicator) */
+.pull-to-refresh-hint {
+  text-align: center;
+  padding: 12px;
+  color: var(--text-dim);
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+/* Enhanced Accessibility - Focus States */
+.chat-btn:focus-visible,
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  :root {
+    --text-main: #000000;
+    --text-dim: #333333;
+    --border-card: #000000;
+  }
+
+  .delay-badge {
+    border: 2px solid #92400e;
+  }
+
+  .chat-btn {
+    border: 2px solid var(--accent);
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .loading-spinner {
+    animation: none;
+  }
+}
+
+/* Dark Mode Support (for future implementation) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-page: #0f172a;
+    --bg-card: #1e293b;
+    --bg-soft: #334155;
+    --border-card: #475569;
+
+    --text-main: #f1f5f9;
+    --text-dim: #cbd5e1;
+    --text-invert: #0f172a;
+
+    --accent: #3b82f6;
+    --accent-strong: #2563eb;
+    --accent-bg: rgba(59, 130, 246, 0.15);
+
+    --shadow-soft: 0 18px 45px rgba(0, 0, 0, 0.4);
+    --shadow-hover: 0 22px 50px rgba(0, 0, 0, 0.5);
+  }
+
+  .delay-badge {
+    background-color: #451a03;
+    color: #fef3c7;
+  }
+
+  .offline-indicator {
+    background-color: #92400e;
+    color: #fef3c7;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .app-header,
+  .control-block,
+  .results-actions,
+  .assistant-card,
+  #chat-panel,
+  #chat-toggle,
+  .language-toggle {
+    display: none !important;
+  }
+
+  .arrival-card {
+    page-break-inside: avoid;
+  }
+
+  body {
+    background: white;
+  }
+
+  .card {
+    box-shadow: none;
+    border: 1px solid #000;
+  }
+}
+
+/* ===================================
+   END V2 IMPROVEMENTS
+   =================================== */

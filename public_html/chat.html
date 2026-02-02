@@ -4,9 +4,14 @@
   <meta charset="UTF-8" />
   <title>RTS Live Assistant</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="/static/style.css?v=9" />
+  <link rel="stylesheet" href="/static/style.css?v=10" />
 </head>
 <body class="chat-standalone">
+  <!-- Language Toggle Button -->
+  <button class="language-toggle" onclick="toggleLanguage()" aria-label="Toggle language">
+    <span id="lang-label">EN / ES</span>
+  </button>
+
   <header class="chat-alone-header">
     <div class="chat-alone-inner">
       <div>
@@ -30,12 +35,13 @@
       </div>
       <div id="chat-messages"></div>
       <div id="chat-input-row">
-        <textarea id="chat-input"></textarea>
+        <textarea id="chat-input" placeholder="Type your message..."></textarea>
         <button id="chat-send">Send</button>
       </div>
     </div>
   </main>
 
-  <script src="/static/chat.js?v=4"></script>
+  <!-- Use V2 chat with all improvements -->
+  <script src="/static/chat_v2.js?v=1"></script>
 </body>
 </html>

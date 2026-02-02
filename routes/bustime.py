@@ -1,26 +1,18 @@
 from flask import Blueprint, jsonify, request
-import re
 import sqlite3
 from pathlib import Path
+import sys
+
+# Add utils to path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "utils"))
 
 import rts_api
+from validation import normalize_stop_id, normalize_route_id, validate_stop_id
+from api_schemas import ErrorCode
 
 bustime_bp = Blueprint("bustime", __name__)
 
 GTFS_DB_PATH = Path(__file__).resolve().parents[1] / "Backend Basics" / "db" / "rts_gtfs.sqlite"
-
-def normalize_stop_id(s: str):
-    if not s:
-        return None
-    digits = re.sub(r"[^0-9]", "", s)
-    if not digits:
-        return None
-    if len(digits) > 4:
-        digits = digits[-4:]
-    return digits.zfill(4)
-
-def digits_only(s: str) -> str:
-    return re.sub(r"[^0-9]", "", s or "")
 
 def _gtfs_direction_id(direction_id: str) -> int | None:
     d = (direction_id or "").strip().lower()
@@ -160,12 +152,33 @@ def api_stops():
 
 @bustime_bp.route("/api/predictions")
 def api_predictions():
-    stop4 = normalize_stop_id(request.args.get("stop_id", ""))
-    if not stop4:
-        return jsonify({"error": "invalid stop_id"}), 400
+    raw_stop_id = request.args.get("stop_id", "")
 
-    data = rts_api.get_predictions(stop4)
+    # Validate stop ID using shared utility
+    validation = validate_stop_id(raw_stop_id)
+    if not validation["valid"]:
+        return jsonify({
+            "error": True,
+            "error_code": ErrorCode.INVALID_STOP_ID,
+            "error_message": validation["error_message"],
+            "details": {"provided": raw_stop_id}
+        }), 400
+
+    stop4 = validation["normalized"]
+
+    try:
+        data = rts_api.get_predictions(stop4)
+    except Exception as e:
+        return jsonify({
+            "error": True,
+            "error_code": ErrorCode.API_UNAVAILABLE,
+            "error_message": "Unable to fetch predictions from BusTime API",
+            "details": {"stop_id": stop4}
+        }), 503
+
     preds = data.get("prd", [])
+
+    # Enhanced prediction data with delay indicator
     cleaned = [{
         "route": p.get("rt"),
         "direction": p.get("rtdir"),
@@ -173,18 +186,40 @@ def api_predictions():
         "minutes": p.get("prdctdn"),
         "vehicle_id": p.get("vid"),
         "arrival_time": p.get("prdtm"),
-        "delayed": p.get("dly"),
+        "delayed": p.get("dly", False),  # Include delay status
+        "is_scheduled": False  # Real-time data
     } for p in preds]
-    return jsonify({"predictions": cleaned, "stop_id": stop4})
+
+    return jsonify({
+        "predictions": cleaned,
+        "stop_id": stop4,
+        "timestamp": data.get("tmstmp", ""),
+        "source": "bustime",
+        "cached": False
+    })
 
 @bustime_bp.route("/api/vehicles")
 def api_vehicles():
     raw = request.args.get("route_id", "")
-    route_id = digits_only(raw)  # ✅ auto-clean
+    route_id = normalize_route_id(raw)
     if not route_id:
-        return jsonify({"error": "route_id is required"}), 400
+        return jsonify({
+            "error": True,
+            "error_code": ErrorCode.INVALID_ROUTE_ID,
+            "error_message": "route_id is required and must contain digits",
+            "details": {"provided": raw}
+        }), 400
 
-    data = rts_api.get_vehicles(route_id)
+    try:
+        data = rts_api.get_vehicles(route_id)
+    except Exception as e:
+        return jsonify({
+            "error": True,
+            "error_code": ErrorCode.API_UNAVAILABLE,
+            "error_message": "Unable to fetch vehicle data from BusTime API",
+            "details": {"route_id": route_id}
+        }), 503
+
     vehicles_raw = data.get("vehicle", []) or data.get("vehicles", []) or []
 
     cleaned = []
@@ -197,7 +232,7 @@ def api_vehicles():
             "speed": v.get("spd"),
             "route": v.get("rt"),
             "destination": v.get("des"),
-            "delayed": v.get("dly"),
+            "delayed": v.get("dly", False),
             "timestamp": v.get("tmstmp"),
         })
 
@@ -206,8 +241,13 @@ def api_vehicles():
 @bustime_bp.route("/api/validate_stop")
 def api_validate_stop():
     s = request.args.get("stop_id", "")
-    stop4 = normalize_stop_id(s)
-    return jsonify({"ok": bool(stop4), "stop_id4": stop4})
+    validation = validate_stop_id(s)
+    return jsonify({
+        "valid": validation["valid"],
+        "normalized": validation["normalized"],
+        "error_code": validation["error_code"],
+        "error_message": validation["error_message"]
+    })
 
 @bustime_bp.route("/api/stops_anydir")
 def api_stops_anydir():

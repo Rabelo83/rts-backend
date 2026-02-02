@@ -12,6 +12,15 @@ import logging
 import rts_api
 import sqlite3
 
+# Add utils to path
+utils_path = str(Path(__file__).resolve().parents[1] / "utils")
+if utils_path not in sys.path:
+    sys.path.insert(0, utils_path)
+
+# Import shared utilities
+from cache import prediction_cache, schedule_cache
+from validation import normalize_stop_id as norm_stop_id, normalize_route_id
+
 # Deterministic schedule lookup (GTFS DB)
 try:
     from routes import schedule_service
@@ -46,42 +55,40 @@ try:
 except Exception as e:
     logger.error("backend_basics_import_error: %s", repr(e))
 
-SCHEDULE_CACHE: dict = {}
-PREDICTION_CACHE: dict = {}
+# Cache configuration (using LRU cache from utils)
 SCHEDULE_CACHE_TTL = int(os.getenv("SCHEDULE_CACHE_TTL", "60"))
 PREDICTION_CACHE_TTL = int(os.getenv("PREDICTION_CACHE_TTL", "20"))
 
-def _cache_get(cache: dict, key, ttl: int):
-    entry = cache.get(key)
-    if not entry:
-        return None
-    ts, value = entry
-    if time.time() - ts <= ttl:
-        return value
-    cache.pop(key, None)
-    return None
-
-def _cache_set(cache: dict, key, value):
-    cache[key] = (time.time(), value)
-
 def get_schedule_cached(route, text, stop_id=None, stop_name=None, kind="next", debug=False):
+    """Get schedule data with LRU caching"""
     if not schedule_service:
         return {"error": "db_unavailable"}
-    key = (route or "", text or "", stop_id or "", stop_name or "", kind or "", bool(debug))
-    cached = _cache_get(SCHEDULE_CACHE, key, SCHEDULE_CACHE_TTL)
+
+    # Create cache key from parameters
+    key = f"schedule:{route}:{text}:{stop_id}:{stop_name}:{kind}:{debug}"
+
+    # Try to get from cache
+    cached = schedule_cache.get(key)
     if cached is not None:
         return cached
+
+    # Cache miss - fetch from service
     data = schedule_service.get_schedule(route, text, stop_id=stop_id, stop_name=stop_name, kind=kind, debug=debug)
-    _cache_set(SCHEDULE_CACHE, key, data)
+    schedule_cache.set(key, data, ttl=SCHEDULE_CACHE_TTL)
     return data
 
 def get_predictions_cached(stop_id: str):
-    key = stop_id or ""
-    cached = _cache_get(PREDICTION_CACHE, key, PREDICTION_CACHE_TTL)
+    """Get predictions with LRU caching"""
+    key = f"predictions:{stop_id}"
+
+    # Try to get from cache
+    cached = prediction_cache.get(key)
     if cached is not None:
         return cached
+
+    # Cache miss - fetch from API
     data = rts_api.get_predictions(stop_id)
-    _cache_set(PREDICTION_CACHE, key, data)
+    prediction_cache.set(key, data, ttl=PREDICTION_CACHE_TTL)
     return data
 
 def infer_routes_from_predictions(stop_id: str) -> dict[str, dict]:

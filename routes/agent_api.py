@@ -5,12 +5,13 @@ import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from collections import deque
+import sys
 
-SESSION_MAX_AGE_SECONDS = 5 * 60  # 5 minutes
-SESSION_MAX_TURNS = 12
+# Add utils to path for imports
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "utils"))
 
-_session_cache: dict[str, dict] = {}
+from session_manager import session_manager
+from api_schemas import ErrorCode
 
 # This MUST exist in routes/agent_service.py
 from routes.agent_service import handle_agent_message
@@ -58,39 +59,8 @@ def _log_analytics(entry: dict) -> None:
     except Exception:
         return
 
-def _session_prune(now: float) -> None:
-    stale = []
-    for sid, data in _session_cache.items():
-        if now - data.get("ts", 0) > SESSION_MAX_AGE_SECONDS:
-            stale.append(sid)
-    for sid in stale:
-        _session_cache.pop(sid, None)
-
-def _session_get_history(session_id: str) -> list:
-    if not session_id:
-        return []
-    entry = _session_cache.get(session_id)
-    if not entry:
-        return []
-    # discard stale sessions on read
-    if datetime.now(timezone.utc).timestamp() - entry.get("ts", 0) > SESSION_MAX_AGE_SECONDS:
-        _session_cache.pop(session_id, None)
-        return []
-    return list(entry.get("turns", []))
-
-def _session_update(session_id: str, new_turns: list) -> None:
-    if not session_id:
-        return
-    # Replace history instead of appending (new_turns already contains full history)
-    turns = deque(maxlen=SESSION_MAX_TURNS)
-    for t in new_turns:
-        if isinstance(t, dict) and t.get("role") and t.get("content"):
-            turns.append({"role": t["role"], "content": t["content"]})
-    _session_cache[session_id] = {
-        "ts": datetime.now(timezone.utc).timestamp(),
-        "turns": list(turns),
-    }
-    _session_prune(_session_cache[session_id]["ts"])
+# Session management functions now use session_manager utility
+# No need for manual pruning, session_manager handles it automatically
 
 @bp.route("/api/agent", methods=["GET", "POST"])
 def api_agent():
@@ -112,36 +82,64 @@ def api_agent():
     session_id = (payload.get("session_id") or payload.get("session") or "").strip()
 
     if not msg:
-        return jsonify({"error": "message is required"}), 400
+        return jsonify({
+            "error": True,
+            "error_code": ErrorCode.MISSING_PARAMETER,
+            "error_message": "message parameter is required"
+        }), 400
 
+    # Handle session management
     if session_id:
-        stored_history = _session_get_history(session_id)
-        if stored_history:
-            history = stored_history  # Don't add current message - it's passed separately
+        # Try to get existing session
+        session_data = session_manager.get_session(session_id)
+        if session_data:
+            history = session_data.get("history", [])
+        else:
+            # Session expired or invalid, create new one
+            session_id = session_manager.create_session()
+    else:
+        # No session_id provided, create new session
+        session_id = session_manager.create_session()
 
     start = time.perf_counter()
-    result = handle_agent_message(msg, history=history)
+    try:
+        result = handle_agent_message(msg, history=history)
+    except Exception as e:
+        # Catch and return structured error
+        return jsonify({
+            "error": True,
+            "error_code": ErrorCode.API_UNAVAILABLE,
+            "error_message": "Agent service temporarily unavailable",
+            "details": {"exception": str(e)} if os.getenv("DEBUG") else {}
+        }), 500
+
     duration_ms = int((time.perf_counter() - start) * 1000)
-    if session_id:
-        combined = history + [{"role": "user", "content": msg}, {"role": "assistant", "content": result.get("answer", "")}]
-        _session_update(session_id, combined)
+
+    # Update session with new message
+    session_manager.add_message(session_id, "user", msg)
+    session_manager.add_message(session_id, "assistant", result.get("answer", ""))
 
     _log_chat(msg, result.get("answer", ""))
 
-    # Include buttons in response if present
+    # Build response with all required fields (per API schema)
     response_data = {
         "answer": result.get("answer", ""),
         "meta": result.get("meta", {}),
         "sources": result.get("sources", []),
+        "session_id": session_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "response_time_ms": duration_ms
     }
     if "buttons" in result:
         response_data["buttons"] = result.get("buttons")
+
+    # Log analytics
     meta = result.get("meta") or {}
     sources = result.get("sources") or []
     success = meta.get("intent") not in ("fallback", "error")
     entry = {
         "ts_utc": datetime.now(timezone.utc).isoformat(),
-        "session_id": session_id or None,
+        "session_id": session_id,
         "message": msg,
         "route": meta.get("route"),
         "stop_id": meta.get("stop_id"),

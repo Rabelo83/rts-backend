@@ -69,15 +69,23 @@ function renderPredictions(predictions) {
     const li = document.createElement("li");
     const mins = (p.minutes || "").toString().toUpperCase();
     const minsLabel = mins === "DUE" ? "Due" : `${mins} min`;
+
+    // Add delay indicator
+    const delayBadge = p.delayed
+      ? '<span class="delay-badge">Delayed</span>'
+      : '';
+
     li.innerHTML = `
-      <div class="arrival-card">
+      <div class="arrival-card ${p.delayed ? 'delayed' : ''}">
         <div class="arrival-main">
           <div class="arrival-route">Route ${p.route}</div>
           <div class="arrival-dest">to ${p.destination}</div>
         </div>
         <div class="arrival-min">${minsLabel}</div>
       </div>
-      <div class="arrival-meta">Bus #${p.vehicle_id || "—"} · ${p.arrival_time || "—"}</div>
+      <div class="arrival-meta">
+        Bus #${p.vehicle_id || "—"} · ${p.arrival_time || "—"}${delayBadge}
+      </div>
     `;
     predictionsList.appendChild(li);
   });
@@ -337,6 +345,24 @@ stopIdInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
     handleStopIdLookup();
+  }
+});
+
+// Character count feedback
+stopIdInput.addEventListener("input", (e) => {
+  const digits = e.target.value.replace(/\D/g, "");
+  const helperText = document.querySelector(".helper-text");
+  if (helperText) {
+    if (digits.length === 0) {
+      helperText.textContent = "Tip: You can enter 773 and we'll search 0773.";
+      helperText.classList.remove("error");
+    } else if (digits.length > 4) {
+      helperText.textContent = "⚠️ Stop ID must be 4 digits or less.";
+      helperText.classList.add("error");
+    } else {
+      helperText.textContent = `${digits.length}/4 digits entered`;
+      helperText.classList.remove("error");
+    }
   }
 });
 
