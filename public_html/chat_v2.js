@@ -49,11 +49,16 @@ const TRANSLATIONS = {
     right_now: 'Right now',
     after_15_min: 'After 15 minutes',
     custom_time: 'Custom time',
-    when_schedule: 'When should I check the schedule?',
-    this_morning: 'This morning',
-    this_afternoon: 'This afternoon',
-    tomorrow_morning: 'Tomorrow morning',
-    specific_time: 'Specific time',
+    when_schedule: 'How should I set the schedule time?',
+    specific_datetime: 'Specific date & time',
+    time_window: 'Time window',
+    pick_date_time: 'Pick a date and time',
+    use_date_time: 'Use this date/time',
+    start_time: 'Start time',
+    end_time: 'End time',
+    use_time_window: 'Use this time window',
+    date_optional: 'Date (optional)',
+    invalid_time: 'Please enter a valid time.',
     loading: 'Loading',
     checking_bustime: 'Checking real-time bus data',
     no_buses_soon: 'No buses arriving within {minutes} minutes. Would you like to check the schedule instead?',
@@ -1012,25 +1017,23 @@ function askScheduleTime() {
   appendBubble(t('when_schedule'), 'bot');
 
   appendActionBubble((container) => {
-    // Add back button
     const backBtn = document.createElement('button');
     backBtn.className = 'chat-btn back';
     backBtn.textContent = t('back');
     backBtn.addEventListener('click', goBack);
     container.appendChild(backBtn);
 
-    [
-      { label: t('this_morning'), timeframe: 'this morning' },
-      { label: t('this_afternoon'), timeframe: 'this afternoon' },
-      { label: t('tomorrow_morning'), timeframe: 'tomorrow morning' },
-      { label: t('specific_time'), timeframe: 'custom' },
-    ].forEach((option) => {
-      const btn = document.createElement('button');
-      btn.className = 'chat-btn';
-      btn.textContent = option.label;
-      btn.addEventListener('click', () => handleTimeSelection(option.timeframe));
-      container.appendChild(btn);
-    });
+    const specificBtn = document.createElement('button');
+    specificBtn.className = 'chat-btn';
+    specificBtn.textContent = t('specific_datetime');
+    specificBtn.addEventListener('click', showSpecificDateTimeInput);
+    container.appendChild(specificBtn);
+
+    const windowBtn = document.createElement('button');
+    windowBtn.className = 'chat-btn';
+    windowBtn.textContent = t('time_window');
+    windowBtn.addEventListener('click', showTimeWindowInput);
+    container.appendChild(windowBtn);
   });
 }
 
@@ -1047,6 +1050,91 @@ function handleTimeSelection(timeframe) {
   AppState.timeframe = timeframe;
   submitScheduleQuery();
 }
+
+function showSpecificDateTimeInput() {
+  appendBubble(t('pick_date_time'), 'bot');
+  appendActionBubble((container) => {
+    const dt = document.createElement('input');
+    dt.type = 'datetime-local';
+    dt.className = 'chat-input-inline';
+    dt.setAttribute('aria-label', t('pick_date_time'));
+
+    const btn = document.createElement('button');
+    btn.className = 'chat-btn';
+    btn.textContent = t('use_date_time');
+    btn.addEventListener('click', () => {
+      if (!dt.value) {
+        appendBubble(t('invalid_time'), 'bot');
+        return;
+      }
+      const formatted = formatDateTime(dt.value);
+      AppState.timeframe = formatted;
+      submitScheduleQuery();
+    });
+
+    container.appendChild(dt);
+    container.appendChild(btn);
+  });
+}
+
+function showTimeWindowInput() {
+  appendBubble(t('time_window'), 'bot');
+  appendActionBubble((container) => {
+    const date = document.createElement('input');
+    date.type = 'date';
+    date.className = 'chat-input-inline';
+    date.setAttribute('aria-label', t('date_optional'));
+
+    const start = document.createElement('input');
+    start.type = 'time';
+    start.className = 'chat-input-inline';
+    start.setAttribute('aria-label', t('start_time'));
+
+    const end = document.createElement('input');
+    end.type = 'time';
+    end.className = 'chat-input-inline';
+    end.setAttribute('aria-label', t('end_time'));
+
+    const btn = document.createElement('button');
+    btn.className = 'chat-btn';
+    btn.textContent = t('use_time_window');
+    btn.addEventListener('click', () => {
+      if (!start.value || !end.value) {
+        appendBubble(t('invalid_time'), 'bot');
+        return;
+      }
+      const startText = formatTime(start.value);
+      const endText = formatTime(end.value);
+      const dateText = date.value ? ` on ${date.value}` : '';
+      AppState.timeframe = `between ${startText} and ${endText}${dateText}`;
+      submitScheduleQuery();
+    });
+
+    container.appendChild(date);
+    container.appendChild(start);
+    container.appendChild(end);
+    container.appendChild(btn);
+  });
+}
+
+function formatDateTime(value) {
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return value;
+  const dateStr = dt.toISOString().slice(0, 10);
+  return `${dateStr} at ${formatTime(value.split('T')[1])}`;
+}
+
+function formatTime(value) {
+  if (!value) return '';
+  const parts = value.split(':');
+  let hh = parseInt(parts[0], 10);
+  const mm = parts[1] || '00';
+  const ap = hh >= 12 ? 'pm' : 'am';
+  hh = hh % 12;
+  if (hh === 0) hh = 12;
+  return `${hh}:${mm} ${ap}`;
+}
+
 
 function submitScheduleQuery() {
   // Build final query and send to agent

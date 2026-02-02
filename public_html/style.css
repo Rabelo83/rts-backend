@@ -665,6 +665,15 @@ input[type="text"]:focus {
   width: 100%;
 }
 
+.chat-input-inline{
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+
 .chat-btn-disabled{
   cursor: not-allowed;
   opacity: 0.6;
