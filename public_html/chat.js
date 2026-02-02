@@ -71,7 +71,7 @@ function ensureSessionId(){
 }
 
 function startGreeting(){
-  const greeting = 'Hi! I’m the RTS virtual assistant. Type a bus stop ID (4 digits) or ask about a route and stop—for example, "Route 5 at Rosa Parks".';
+  const greeting = buildTimeGreeting();
   appendBubble(greeting, 'bot');
   chatHistory.push({ role: 'assistant', content: greeting });
   saveHistory();
@@ -240,22 +240,42 @@ function resetWizard(){
 function startWizard(){
   resetWizard();
   chatState.wizardActive = true;
-  appendBubble('Let’s get you the right info. What do you need?', 'bot');
   appendActionBubble(container => {
     [
-      { label: '🚌 Next Bus ETA', intent: 'eta' },
-      { label: '📅 Scheduled Departures', intent: 'schedule' },
-      { label: '🧭 Route overview', intent: 'route_info' },
-      { label: '💬 Just ask a question', intent: 'freeform' },
+      { label: 'Next Bus ETA', intent: 'eta' },
+      { label: 'Scheduled Departures', intent: 'schedule' },
+      { label: 'Route overview', intent: 'route_info' },
+      { label: 'Just ask a question (in development)', intent: 'freeform', disabled: true },
     ].forEach(option => {
       const btn = document.createElement('button');
       btn.className = 'chat-btn';
       btn.textContent = option.label;
-      btn.addEventListener('click', () => handleIntentSelection(option.intent));
+      if(option.disabled){
+        btn.disabled = true;
+        btn.classList.add('chat-btn-disabled');
+      } else {
+        btn.addEventListener('click', () => handleIntentSelection(option.intent));
+      }
       container.appendChild(btn);
     });
   });
 }
+
+function buildTimeGreeting(){
+  const hour = new Date().getHours();
+  let label = 'Good evening';
+  if(hour >= 5 && hour < 12){
+    label = 'Good morning';
+  } else if(hour >= 12 && hour < 17){
+    label = 'Good afternoon';
+  } else if(hour >= 17 && hour < 21){
+    label = 'Good evening';
+  } else {
+    label = 'Good night';
+  }
+  return `${label}. Let's get you the right info. What can I help you with?`;
+}
+
 async function handleIntentSelection(intent){
   if(intent === 'freeform'){
     chatState.wizardActive = false;
