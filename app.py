@@ -36,6 +36,10 @@ def create_app() -> Flask:
     def standalone_chat():
         return send_from_directory(app.static_folder, "chat.html")
 
+    @app.route("/wizard")
+    def wizard():
+        return send_from_directory(app.static_folder, "wizard.html")
+
     return app
 
 

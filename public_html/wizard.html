@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>RTS Trip Wizard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/static/style.css?v=31" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-header-inner">
+      <h1 class="app-title">RTS Trip Wizard</h1>
+      <p class="app-subtitle">Guided help for ETAs and schedules</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="wizard-shell" aria-labelledby="wizard-title">
+      <header class="wizard-header">
+        <div>
+          <h2 id="wizard-title">Plan your trip in a few steps</h2>
+          <p>Choose ETA or Schedule and we’ll guide you to the right stop.</p>
+        </div>
+        <a class="btn-link" href="/" aria-label="Back to main tracker">Back to main tracker</a>
+      </header>
+      <div id="wizard-steps" class="wizard-steps"></div>
+      <div class="wizard-actions">
+        <button id="wizard-back" type="button" class="btn-secondary">Back</button>
+        <button id="wizard-reset" type="button" class="btn-clear">Start Over</button>
+      </div>
+      <div id="wizard-output" class="wizard-output" aria-live="polite"></div>
+    </section>
+
+    <section class="chat-panel-disabled" aria-labelledby="chat-disabled-title">
+      <div class="chat-disabled-header">
+        <div>
+          <h3 id="chat-disabled-title">RTS Chat (Deployment Phase)</h3>
+          <p>Chat is in deployment phase. Use the wizard above for now.</p>
+        </div>
+      </div>
+      <div class="chat-disabled-body">
+        <textarea disabled placeholder="Chat is in development phase. Use the wizard above."></textarea>
+        <button disabled type="button">Send</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/wizard.js?v=1"></script>
+</body>
+</html>
