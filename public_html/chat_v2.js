@@ -792,8 +792,8 @@ async function showRouteOptions() {
         container.appendChild(backBtn);
       }
 
-      // Show first 10 routes
-      routes.slice(0, 10).forEach((route) => {
+      // Show all routes
+      routes.forEach((route) => {
         const btn = document.createElement('button');
         btn.className = 'chat-btn';
         btn.textContent = `Route ${route.id}`;
