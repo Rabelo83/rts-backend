@@ -76,8 +76,8 @@ const TRANSLATIONS = {
     greeting_evening: 'Buenas tardes',
     greeting_night: 'Buenas noches',
     greeting_suffix: '¿En qué puedo ayudarte?',
-    next_bus_eta: 'Próximo Bus (ETA)',
-    scheduled_departures: 'Horarios Programados',
+    next_bus_eta: '🚌 ¿Cuándo llega mi próximo bus?',
+    scheduled_departures: '📅 Ver horario de buses',
     route_overview: 'Vista General de Ruta',
     ask_question: 'Hacer una Pregunta',
     know_stop_id: '¿Conoces tu ID de parada de 4 dígitos?',
@@ -505,17 +505,16 @@ function showIntentSelection() {
   AppState.wizardStack = [];
 
   appendActionBubble((container) => {
+    // Simplified to match flowchart: ETA or Schedule
     const options = [
-      { label: t('next_bus_eta'), intent: 'eta' },
-      { label: t('scheduled_departures'), intent: 'schedule' },
-      { label: t('route_overview'), intent: 'route_info' },
-      { label: t('ask_question'), intent: 'freeform' },
+      { label: '🚌 When is my next bus?', intent: 'eta', subtitle: 'Real-time arrivals' },
+      { label: '📅 View bus schedule', intent: 'schedule', subtitle: 'Planned times' },
     ];
 
     options.forEach((option) => {
       const btn = document.createElement('button');
       btn.className = 'chat-btn';
-      btn.textContent = option.label;
+      btn.innerHTML = `<span class="btn-label">${option.label}</span><small class="btn-subtitle">${option.subtitle}</small>`;
       btn.addEventListener('click', () => handleIntentSelection(option.intent));
       container.appendChild(btn);
     });
@@ -530,20 +529,8 @@ function handleIntentSelection(intent) {
 
   trackEvent('wizard_intent_selected', { intent });
 
-  if (intent === 'freeform') {
-    AppState.wizardActive = false;
-    appendBubble(t('ask_question'), 'bot');
-    return;
-  }
-
-  if (intent === 'route_info') {
-    AppState.wizardStep = 'route';
-    appendBubble(t('select_route'), 'bot');
-    showRouteOptions();
-    return;
-  }
-
-  // For ETA and Schedule, ask if they know stop ID
+  // For both ETA and Schedule, ask if they know stop ID
+  // This matches the flowchart: both paths need stop information
   AppState.wizardStep = 'stop_id';
   askStopIdKnown();
 }

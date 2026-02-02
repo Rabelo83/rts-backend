@@ -205,10 +205,11 @@ button {
   border: 1px solid var(--border-card);
   padding: .7rem .8rem;
   background-color: #fff;
-  color: var(--text-main);
+  color: #0b1324;
   line-height: 1.2;
   outline: none;
   width: 100%;
+  font-weight: 600;
 }
 
 select {
@@ -220,7 +221,8 @@ select {
   background-size: 6px 6px, 6px 6px, 100% 100%;
   background-repeat: no-repeat;
   padding-right: 2rem;
-  font-weight: 500;
+  color: #0b1324;
+  font-weight: 600;
 }
 
 /* Fix dropdown option contrast */
@@ -686,6 +688,22 @@ input[type="text"]:focus {
   transform: translateY(0);
 }
 
+/* Chat button with subtitle styling */
+.chat-btn .btn-label {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.chat-btn .btn-subtitle {
+  display: block;
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
 .assistant-card{
   margin: 2rem auto 3rem;
   max-width: 460px;
@@ -883,26 +901,34 @@ body.chat-standalone{
   background-color: #10b981;
 }
 
-/* Language Toggle Button (if added to UI) */
+/* Language Toggle Button */
 .language-toggle {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  padding: 8px 16px;
+  top: 16px;
+  right: 16px;
+  padding: 6px 14px;
   border-radius: 999px;
-  background-color: var(--bg-card);
+  background-color: rgba(255, 255, 255, 0.95);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-soft);
   cursor: pointer;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   transition: all 0.2s ease;
-  z-index: 9999;
+  z-index: 10000;
+  backdrop-filter: blur(8px);
+}
+
+.chat-standalone .language-toggle {
+  top: 80px;
+  right: 16px;
+  background-color: rgba(255, 255, 255, 0.98);
 }
 
 .language-toggle:hover {
   box-shadow: var(--shadow-hover);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
+  background-color: #ffffff;
 }
 
 /* Offline Indicator */
