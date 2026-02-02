@@ -669,7 +669,39 @@ async function checkBustimeForStop(stopId) {
     );
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      let errMsg = t('network_error');
+      let errCode = null;
+      try {
+        const err = await response.json();
+        if (err) {
+          errMsg = err.error_message || errMsg;
+          errCode = err.error_code || null;
+        }
+      } catch (_) {
+        // ignore parse errors
+      }
+      loadingBubble.remove();
+      appendBubble(errMsg, 'bot');
+      if (errCode === 'STOP_NOT_FOUND') {
+        appendActionBubble((container) => {
+          const routeBtn = document.createElement('button');
+          routeBtn.className = 'chat-btn';
+          routeBtn.textContent = t('select_route');
+          routeBtn.addEventListener('click', () => {
+            AppState.stopId = null;
+            AppState.wizardStep = 'route';
+            showRouteOptions();
+          });
+          const backBtn = document.createElement('button');
+          backBtn.className = 'chat-btn back';
+          backBtn.textContent = t('back');
+          backBtn.addEventListener('click', goBack);
+          container.appendChild(routeBtn);
+          container.appendChild(backBtn);
+        });
+      }
+      trackEvent('api_error', { endpoint: 'predictions', error: `HTTP ${response.status}` });
+      return;
     }
 
     const data = await response.json();
@@ -689,31 +721,10 @@ async function checkBustimeForStop(stopId) {
         'bot'
       );
 
-      if (AppState.intent === 'eta') {
-        // Offer to check schedule instead
-        appendActionBubble((container) => {
-          const scheduleBtn = document.createElement('button');
-          scheduleBtn.className = 'chat-btn';
-          scheduleBtn.textContent = t('check_schedule');
-          scheduleBtn.addEventListener('click', () => {
-            AppState.intent = 'schedule';
-            proceedToSchedule();
-          });
-
-          const tryAgainBtn = document.createElement('button');
-          tryAgainBtn.className = 'chat-btn back';
-          tryAgainBtn.textContent = t('try_different_stop');
-          tryAgainBtn.addEventListener('click', () => {
-            AppState.stopId = null;
-            askStopIdKnown();
-          });
-
-          container.appendChild(scheduleBtn);
-          container.appendChild(tryAgainBtn);
-        });
-      } else {
-        proceedToSchedule();
-      }
+      // Auto-suggest next scheduled bus for this stop
+      AppState.intent = 'schedule';
+      AppState.timeframe = 'now';
+      submitScheduleQuery();
       return;
     }
 

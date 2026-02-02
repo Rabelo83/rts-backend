@@ -14,6 +14,23 @@ bustime_bp = Blueprint("bustime", __name__)
 
 GTFS_DB_PATH = Path(__file__).resolve().parents[1] / "Backend Basics" / "db" / "rts_gtfs.sqlite"
 
+def _stop_exists_in_gtfs(stop_id_padded: str) -> bool:
+    if not stop_id_padded or not GTFS_DB_PATH.exists():
+        return True
+    try:
+        conn = sqlite3.connect(GTFS_DB_PATH)
+        conn.row_factory = sqlite3.Row
+        try:
+            row = conn.execute(
+                "SELECT 1 FROM stops WHERE stop_id_padded = ? LIMIT 1",
+                (stop_id_padded,),
+            ).fetchone()
+            return bool(row)
+        finally:
+            conn.close()
+    except Exception:
+        return True
+
 def _gtfs_direction_id(direction_id: str) -> int | None:
     d = (direction_id or "").strip().lower()
     if d in ("inbound", "ib", "in"):
@@ -165,6 +182,14 @@ def api_predictions():
         }), 400
 
     stop4 = validation["normalized"]
+
+    if not _stop_exists_in_gtfs(stop4):
+        return jsonify({
+            "error": True,
+            "error_code": ErrorCode.STOP_NOT_FOUND,
+            "error_message": f"Stop ID {stop4} not found",
+            "details": {"stop_id": stop4}
+        }), 404
 
     try:
         data = rts_api.get_predictions(stop4)
