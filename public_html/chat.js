@@ -204,6 +204,7 @@ async function sendMessage(){
 
     // Add buttons if present
     if(data.buttons && Array.isArray(data.buttons) && data.buttons.length > 0){
+      thinking.classList.add('bubble-actions');
       const btnContainer = document.createElement('div');
       btnContainer.className = 'chat-buttons';
       data.buttons.forEach(btn => {
@@ -249,10 +250,10 @@ function startWizard(){
   chatState.wizardActive = true;
   appendActionBubble(container => {
     [
-      { label: 'Next Bus ETA', intent: 'eta' },
-      { label: 'Scheduled Departures', intent: 'schedule' },
-      { label: 'Route overview', intent: 'route_info' },
-      { label: 'Just ask a question (in development)', intent: 'freeform', disabled: true },
+      { label: '?? Next Bus ETA', intent: 'eta' },
+      { label: '?? Scheduled Departures', intent: 'schedule' },
+      { label: '?? Route overview', intent: 'route_info' },
+      { label: '?? Just ask a question (in development)', intent: 'freeform', disabled: true },
     ].forEach(option => {
       const btn = document.createElement('button');
       btn.className = 'chat-btn';
@@ -679,8 +680,8 @@ window.addEventListener('DOMContentLoaded', () => {
     chatHistory.forEach(m => {
       appendBubble(m.content, m.role === 'user' ? 'user' : 'bot');
     });
-  }
-  if(!hasWizardGreeting()){
+    startWizard();
+  } else {
     startGreeting();
   }
 
