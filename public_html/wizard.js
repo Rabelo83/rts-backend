@@ -225,7 +225,7 @@ async function renderStepStop(){
     (data.stops || []).forEach(s => {
       const b = document.createElement('button');
       b.className = 'wizard-btn';
-      b.textContent = `${s.name} (${s.id})`;
+      b.innerHTML = `<span class="stop-name">${s.name}</span> <span class="stop-id">${s.id}</span>`;
       b.addEventListener('click', () => {
         WIZ.state.stopId = s.id;
         WIZ.state.stop = s.name;
@@ -313,7 +313,7 @@ async function fetchEta(stopId){
     const res = await fetch(`${WIZ.base}/api/predictions?stop_id=${encodeURIComponent(stopId)}`);
     const data = await res.json();
     if(!res.ok){
-      setOutput(`<div class="wizard-error">${data.error_message || 'Stop not found.'}</div>`);
+      setOutput(`<div class="wizard-error">${data.error_message || 'Stop not found.'}</div><div class="wizard-hint">These are the available routes. Pick one to see all stops and locate your stop ID.</div>`);
       renderStepRoute();
       return;
     }
@@ -372,7 +372,8 @@ function renderPredictions(preds){
     const mins = String(p.minutes).toUpperCase() === 'DUE' ? 'DUE' : `${p.minutes} min`;
     return `<li><strong>Route ${p.route}</strong> to ${p.destination} — ${mins}</li>`;
   }).join('');
-  return `<div class="wizard-note">Next buses:</div><ul class="wizard-list">${rows}</ul>`;
+  const label = WIZ.state.stopId ? `Next buses: Stop ID ${WIZ.state.stopId}` : 'Next buses:';
+  return `<div class="wizard-note">${label}</div><ul class="wizard-list">${rows}</ul>`;
 }
 
 function normalizeStopId(raw){
