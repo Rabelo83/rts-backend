@@ -112,10 +112,10 @@ function renderStepIntent(){
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>What do you need-</h4>
+      <h4>What do you need?</h4>
       <div class="wizard-grid">
-        <button class="wizard-btn" data-intent="eta">When is my next bus-</button>
-        <button class="wizard-btn" data-intent="schedule">View bus schedule</button>
+        <button class="wizard-btn" data-intent="eta"><span class="wiz-icon">⏱️</span> When is my next bus?</button>
+        <button class="wizard-btn" data-intent="schedule"><span class="wiz-icon">📅</span> View bus schedule</button>
       </div>
     </div>
   `;
@@ -132,10 +132,10 @@ function renderStepKnowStop(){
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>Do you know your 4-digit Stop ID-</h4>
+      <h4><span class="wiz-icon">📍</span> Do you know your 4-digit Stop ID?</h4>
       <div class="wizard-grid">
-        <button class="wizard-btn" data-know="yes">Yes</button>
-        <button class="wizard-btn" data-know="no">No</button>
+        <button class="wizard-btn" data-know="yes"><span class="wiz-icon">✓</span> Yes, I know it</button>
+        <button class="wizard-btn" data-know="no"><span class="wiz-icon">🔍</span> No, help me find it</button>
       </div>
     </div>
   `;
@@ -156,26 +156,26 @@ function renderStepStopId(){
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>Enter stop ID</h4>
+      <h4><span class="wiz-icon">🔢</span> Enter stop ID</h4>
       <div class="wizard-row">
         <input id="wiz-stop-id" type="text" inputmode="numeric" placeholder="e.g. 0073" />
-        <button class="wizard-btn primary" id="wiz-stop-submit">Continue</button>
+        <button class="wizard-btn primary" id="wiz-stop-submit">Continue →</button>
       </div>
-      <p class="wizard-hint">Use the 3-4 digits on the stop sign.</p>
+      <p class="wizard-hint">💡 Use the 3-4 digits on the stop sign.</p>
     </div>
   `;
   w('wiz-stop-submit').addEventListener('click', async () => {
     const raw = w('wiz-stop-id').value || '';
     const stop = normalizeStopId(raw);
     if(!stop){
-      setOutput('<div class="wizard-error">Please enter a valid 3-4 digit stop ID.</div>');
+      setOutput('<div class="wizard-error"><span class="wiz-icon">⚠️</span> Please enter a valid 3-4 digit stop ID.</div>');
       return;
     }
     WIZ.state.stopId = stop;
     pushStep(renderStepStopId);
     if(WIZ.state.intent === 'eta'){
       // Check if multiple routes serve this stop
-      setOutput('<div class="wizard-note">Checking routes for this stop...</div>');
+      setOutput('<div class="wizard-note"><span class="wiz-icon">⏳</span> Checking routes for this stop...</div>');
       const routes = await getRoutesForStop(stop);
       if(routes.length > 1){
         askRoutePreferenceEta(routes);
@@ -198,10 +198,10 @@ function askRoutePreference() {
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>Do you want a specific route or all routes-</h4>
+      <h4><span class="wiz-icon">🚌</span> Do you want a specific route or all routes?</h4>
       <div class="wizard-grid">
-        <button class="wizard-btn" id="wiz-route-specific">Specific route</button>
-        <button class="wizard-btn" id="wiz-route-all">All routes</button>
+        <button class="wizard-btn" id="wiz-route-specific"><span class="wiz-icon">🎯</span> Specific route</button>
+        <button class="wizard-btn" id="wiz-route-all"><span class="wiz-icon">📋</span> All routes</button>
       </div>
     </div>
   `;
@@ -235,10 +235,10 @@ function askRoutePreferenceEta(routes) {
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>This stop is served by multiple routes. Do you want a specific route or all routes-</h4>
+      <h4><span class="wiz-icon">🚌</span> This stop is served by multiple routes</h4>
       <div class="wizard-grid">
-        <button class="wizard-btn" id="wiz-eta-all">All routes</button>
-        ${routes.map(r => `<button class="wizard-btn" data-route="${r}">Route ${r}</button>`).join('')}
+        <button class="wizard-btn" id="wiz-eta-all"><span class="wiz-icon">📋</span> All routes</button>
+        ${routes.map(r => `<button class="wizard-btn" data-route="${r}"><span class="wiz-icon">🎯</span> Route ${r}</button>`).join('')}
       </div>
     </div>
   `;
@@ -259,8 +259,8 @@ async function renderStepRoute(){
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>Select a route</h4>
-      <div class="wizard-grid" id="wiz-routes">Loading routes…</div>
+      <h4><span class="wiz-icon">🚌</span> Select a route</h4>
+      <div class="wizard-grid" id="wiz-routes"><span class="wiz-icon">⏳</span> Loading routes…</div>
     </div>
   `;
   const container = w('wiz-routes');
@@ -292,8 +292,8 @@ async function renderStepDirection(){
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>Choose a direction</h4>
-      <div class="wizard-grid" id="wiz-directions">Loading directions…</div>
+      <h4><span class="wiz-icon">🧭</span> Choose a direction</h4>
+      <div class="wizard-grid" id="wiz-directions"><span class="wiz-icon">⏳</span> Loading directions…</div>
     </div>
   `;
   const container = w('wiz-directions');
@@ -323,8 +323,8 @@ async function renderStepStop(){
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>Select a stop</h4>
-      <div class="wizard-grid" id="wiz-stops">Loading stops…</div>
+      <h4><span class="wiz-icon">🚏</span> Select a stop</h4>
+      <div class="wizard-grid" id="wiz-stops"><span class="wiz-icon">⏳</span> Loading stops…</div>
     </div>
   `;
   const container = w('wiz-stops');
@@ -359,11 +359,11 @@ function renderStepTime(){
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>How do you want to set the time-</h4>
+      <h4><span class="wiz-icon">🕐</span> How do you want to set the time?</h4>
       <div class="wizard-grid">
-        <button class="wizard-btn" id="wiz-specific">Specific date & time</button>
-        <button class="wizard-btn" id="wiz-window">Time window</button>
-        <button class="wizard-btn" id="wiz-weekday">Weekdays or Weekends</button>
+        <button class="wizard-btn" id="wiz-specific"><span class="wiz-icon">📅</span> Specific date & time</button>
+        <button class="wizard-btn" id="wiz-window"><span class="wiz-icon">⏰</span> Time window</button>
+        <button class="wizard-btn" id="wiz-weekday"><span class="wiz-icon">📆</span> Weekdays or Weekends</button>
       </div>
     </div>
   `;
@@ -385,17 +385,17 @@ function renderSpecificDateTime(){
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>Pick a date and time</h4>
+      <h4><span class="wiz-icon">📅</span> Pick a date and time</h4>
       <div class="wizard-row">
         <input id="wiz-dt" type="datetime-local" />
-        <button class="wizard-btn primary" id="wiz-dt-submit">Use this date/time</button>
+        <button class="wizard-btn primary" id="wiz-dt-submit">Use this date/time →</button>
       </div>
     </div>
   `;
   w('wiz-dt-submit').addEventListener('click', () => {
     const v = w('wiz-dt').value;
     if(!v){
-      setOutput('<div class="wizard-error">Please enter a valid date/time.</div>');
+      setOutput('<div class="wizard-error"><span class="wiz-icon">⚠️</span> Please enter a valid date/time.</div>');
       return;
     }
     WIZ.state.timeframe = formatDateTime(v);
@@ -407,20 +407,20 @@ function renderTimeWindow(){
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>Choose a time window</h4>
+      <h4><span class="wiz-icon">⏰</span> Choose a time window</h4>
       <div class="wizard-row">
         <input id="wiz-date" type="date" />
         <input id="wiz-start" type="time" />
         <input id="wiz-end" type="time" />
       </div>
-      <button class="wizard-btn primary" id="wiz-window-submit">Use this time window</button>
+      <button class="wizard-btn primary" id="wiz-window-submit">Use this time window →</button>
     </div>
   `;
   w('wiz-window-submit').addEventListener('click', () => {
     const start = w('wiz-start').value;
     const end = w('wiz-end').value;
     if(!start || !end){
-      setOutput('<div class="wizard-error">Please enter a valid time window.</div>');
+      setOutput('<div class="wizard-error"><span class="wiz-icon">⚠️</span> Please enter a valid time window.</div>');
       return;
     }
     const date = w('wiz-date').value;
@@ -434,10 +434,10 @@ function renderWeekdayWeekend(){
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>Weekdays or weekends-</h4>
+      <h4><span class="wiz-icon">📆</span> Weekdays or weekends?</h4>
       <div class="wizard-grid">
-        <button class="wizard-btn" id="wiz-weekdays">Weekdays</button>
-        <button class="wizard-btn" id="wiz-weekends">Weekends</button>
+        <button class="wizard-btn" id="wiz-weekdays"><span class="wiz-icon">💼</span> Weekdays</button>
+        <button class="wizard-btn" id="wiz-weekends"><span class="wiz-icon">🌴</span> Weekends</button>
       </div>
     </div>
   `;
@@ -452,19 +452,19 @@ function renderWeekdayWeekend(){
 }
 
 async function fetchEta(stopId){
-  setOutput('<div class="wizard-note">Checking real-time arrivals…</div>');
+  setOutput('<div class="wizard-note"><span class="wiz-icon">⏳</span> Checking real-time arrivals…</div>');
   try{
     const res = await fetch(`${WIZ.base}/api/predictions?stop_id=${encodeURIComponent(stopId)}`);
     const data = await res.json();
     if(!res.ok){
-      setOutput(`<div class="wizard-error">${data.error_message || 'Stop not found.'}</div><div class="wizard-hint">These are the available routes. Pick one to see all stops and locate your stop ID.</div>`);
+      setOutput(`<div class="wizard-error"><span class="wiz-icon">⚠️</span> ${data.error_message || 'Stop not found.'}</div><div class="wizard-hint">💡 These are the available routes. Pick one to see all stops and locate your stop ID.</div>`);
       renderStepRoute();
       return;
     }
     // Check if stop exists - if no stop_name and no predictions, stop is invalid
     const preds = data.predictions || [];
     if (!data.stop_name && !preds.length) {
-      setOutput(`<div class="wizard-error">Stop ID ${stopId} not found. Please check the number and try again.</div><div class="wizard-hint">Stop IDs are the 3-4 digit numbers on the bus stop sign.</div>`);
+      setOutput(`<div class="wizard-error"><span class="wiz-icon">⚠️</span> Stop ID ${stopId} not found. Please check the number and try again.</div><div class="wizard-hint">💡 Stop IDs are the 3-4 digit numbers on the bus stop sign.</div>`);
       return;
     }
     // Store stop name for display
@@ -490,7 +490,7 @@ async function fetchEta(stopId){
     }
     setOutput(renderPredictionsV2(upcoming));
   } catch (e){
-    setOutput('<div class="wizard-error">Unable to load predictions.</div>');
+    setOutput('<div class="wizard-error"><span class="wiz-icon">❌</span> Unable to load predictions.</div>');
   }
 }
 
@@ -509,7 +509,7 @@ async function fetchSchedule(){
   else if(WIZ.state.stopId) parts.push(`stop id ${WIZ.state.stopId}`);
   if(WIZ.state.timeframe) parts.push(WIZ.state.timeframe);
   const message = parts.join(' ');
-  setOutput('<div class="wizard-note">Checking schedule…</div>');
+  setOutput('<div class="wizard-note"><span class="wiz-icon">⏳</span> Checking schedule…</div>');
   try{
     const res = await fetch(`${WIZ.base}/api/agent`, {
       method: 'POST',
@@ -520,7 +520,7 @@ async function fetchSchedule(){
     let answer = data.answer || 'No response.';
     // Add fallback note if coming from ETA with no real-time arrivals
     if (WIZ.state.etaFallback) {
-      answer = '<div class="wizard-fallback-note">No real-time arrivals right now. Here are the next scheduled buses:</div>\n' + answer;
+      answer = '<div class="wizard-fallback-note"><span class="wiz-icon">📋</span> No real-time arrivals right now. Here are the next scheduled buses:</div>\n' + answer;
       WIZ.state.etaFallback = false;
     }
     // Style exception notes if present
@@ -531,7 +531,7 @@ async function fetchSchedule(){
       setOutput(`<pre class="wizard-result">${answer}</pre>`);
     }
   } catch (e){
-    setOutput('<div class="wizard-error">Unable to load schedule.</div>');
+    setOutput('<div class="wizard-error"><span class="wiz-icon">❌</span> Unable to load schedule.</div>');
   }
 }
 
@@ -571,9 +571,9 @@ function renderPredictionsV2(preds){
     });
   });
   // Build header with Stop ID and Stop Name
-  let label = 'Next buses:';
+  let label = '<span class="wiz-icon">🚌</span> Next buses:';
   if (WIZ.state.stopId) {
-    label = `Next buses for Stop ID ${WIZ.state.stopId}`;
+    label = `<span class="wiz-icon">🚌</span> Next buses for Stop ID ${WIZ.state.stopId}`;
     if (WIZ.state.stopName) {
       label += ` — ${WIZ.state.stopName}`;
     }

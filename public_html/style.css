@@ -973,6 +973,22 @@ input[type="text"]:focus {
   font-weight: 600;
 }
 
+/* Wizard icon styling */
+.wiz-icon{
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 1.1em;
+  vertical-align: middle;
+}
+
+.wizard-card h4 .wiz-icon{
+  font-size: 1.2em;
+}
+
+.wizard-btn .wiz-icon{
+  opacity: 0.9;
+}
+
 .wizard-shell input{
   border: 1px solid #d1d5db;
   border-radius: 10px;
