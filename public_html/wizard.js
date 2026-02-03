@@ -99,6 +99,7 @@ function pushStep(step){
 }
 
 function goBack(){
+  setOutput(''); // Clear results when going back
   if(!WIZ.stack.length){
     renderStepIntent();
     return;
