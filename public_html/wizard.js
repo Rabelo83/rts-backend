@@ -6,10 +6,12 @@ const WIZ = {
     intent: null, // eta | schedule
     knowsStop: null,
     stopId: null,
+    stopName: null,
     route: null,
     direction: null,
     stop: null,
     timeframe: null,
+    etaFallback: false,
   },
   stack: [],
 };
@@ -21,10 +23,12 @@ function resetWizard(){
     intent: null,
     knowsStop: null,
     stopId: null,
+    stopName: null,
     route: null,
     direction: null,
     stop: null,
     timeframe: null,
+    etaFallback: false,
   };
   WIZ.stack = [];
   renderStepIntent();
@@ -157,7 +161,7 @@ function renderStepStopId(){
       <p class="wizard-hint">Use the 3-4 digits on the stop sign.</p>
     </div>
   `;
-  w('wiz-stop-submit').addEventListener('click', () => {
+  w('wiz-stop-submit').addEventListener('click', async () => {
     const raw = w('wiz-stop-id').value || '';
     const stop = normalizeStopId(raw);
     if(!stop){
@@ -167,7 +171,14 @@ function renderStepStopId(){
     WIZ.state.stopId = stop;
     pushStep(renderStepStopId);
     if(WIZ.state.intent === 'eta'){
-      fetchEta(stop);
+      // Check if multiple routes serve this stop
+      setOutput('<div class="wizard-note">Checking routes for this stop...</div>');
+      const routes = await getRoutesForStop(stop);
+      if(routes.length > 1){
+        askRoutePreferenceEta(routes);
+      } else {
+        fetchEta(stop);
+      }
     } else {
       askRoutePreference();
     }
@@ -198,6 +209,44 @@ function askRoutePreference() {
     WIZ.state.route = null;
     WIZ.state.direction = null;
     fetchSchedule();
+  });
+}
+
+async function getRoutesForStop(stopId) {
+  try {
+    const res = await fetch(`${WIZ.base}/api/predictions?stop_id=${encodeURIComponent(stopId)}`);
+    const data = await res.json();
+    if (!res.ok || !data.predictions) return [];
+    const routeSet = new Set();
+    (data.predictions || []).forEach(p => {
+      if (p.route) routeSet.add(String(p.route));
+    });
+    return Array.from(routeSet);
+  } catch (e) {
+    return [];
+  }
+}
+
+function askRoutePreferenceEta(routes) {
+  const el = w('wizard-steps');
+  el.innerHTML = `
+    <div class="wizard-card">
+      <h4>This stop is served by multiple routes. Do you want a specific route or all routes-</h4>
+      <div class="wizard-grid">
+        <button class="wizard-btn" id="wiz-eta-all">All routes</button>
+        ${routes.map(r => `<button class="wizard-btn" data-route="${r}">Route ${r}</button>`).join('')}
+      </div>
+    </div>
+  `;
+  w('wiz-eta-all').addEventListener('click', () => {
+    WIZ.state.route = null;
+    fetchEta(WIZ.state.stopId);
+  });
+  el.querySelectorAll('[data-route]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      WIZ.state.route = btn.dataset.route;
+      fetchEta(WIZ.state.stopId);
+    });
   });
 }
 
@@ -245,7 +294,7 @@ async function renderStepDirection(){
   `;
   const container = w('wiz-directions');
   try{
-    const res = await fetch(`${WIZ.base}/api/directions-route_id=${encodeURIComponent(WIZ.state.route)}`);
+    const res = await fetch(`${WIZ.base}/api/directions?route_id=${encodeURIComponent(WIZ.state.route)}`);
     const data = await res.json();
     container.innerHTML = '';
     (data.directions || []).forEach(d => {
@@ -277,7 +326,7 @@ async function renderStepStop(){
   try{
     const params = new URLSearchParams({ route_id: WIZ.state.route });
     if(WIZ.state.direction){ params.set('direction_id', WIZ.state.direction); }
-    const res = await fetch(`${WIZ.base}/api/stops-${params.toString()}`);
+    const res = await fetch(`${WIZ.base}/api/stops?${params.toString()}`);
     const data = await res.json();
     container.innerHTML = '';
     (data.stops || []).forEach(s => {
@@ -391,14 +440,20 @@ function renderWeekdayWeekend(){
 async function fetchEta(stopId){
   setOutput('<div class="wizard-note">Checking real-time arrivals…</div>');
   try{
-    const res = await fetch(`${WIZ.base}/api/predictions-stop_id=${encodeURIComponent(stopId)}`);
+    const res = await fetch(`${WIZ.base}/api/predictions?stop_id=${encodeURIComponent(stopId)}`);
     const data = await res.json();
     if(!res.ok){
       setOutput(`<div class="wizard-error">${data.error_message || 'Stop not found.'}</div><div class="wizard-hint">These are the available routes. Pick one to see all stops and locate your stop ID.</div>`);
       renderStepRoute();
       return;
     }
-    const preds = data.predictions || [];
+    // Store stop name for display
+    WIZ.state.stopName = data.stop_name || '';
+    let preds = data.predictions || [];
+    // Filter by route if user selected a specific route
+    if(WIZ.state.route){
+      preds = preds.filter(p => String(p.route) === String(WIZ.state.route));
+    }
     if(!preds.length){
       autoScheduleFallback();
       return;
@@ -422,6 +477,7 @@ async function fetchEta(stopId){
 function autoScheduleFallback(){
   WIZ.state.intent = 'schedule';
   WIZ.state.timeframe = 'now';
+  WIZ.state.etaFallback = true;
   fetchSchedule();
 }
 
@@ -441,14 +497,28 @@ async function fetchSchedule(){
       body: JSON.stringify({ message }),
     });
     const data = await res.json();
+    let answer = data.answer || 'No response.';
+    // Add fallback note if coming from ETA with no real-time arrivals
+    if (WIZ.state.etaFallback) {
+      answer = '<div class="wizard-fallback-note">No real-time arrivals right now. Here are the next scheduled buses:</div>\n' + answer;
+      WIZ.state.etaFallback = false;
+    }
+    // Style exception notes if present
+    answer = styleExceptionNotes(answer);
     if (data && data.buttons && data.buttons.length) {
-      setOutputWithButtons(data.answer || 'No response.', data.buttons);
+      setOutputWithButtons(answer, data.buttons);
     } else {
-      setOutput(`<pre class="wizard-result">${data.answer || 'No response.'}</pre>`);
+      setOutput(`<pre class="wizard-result">${answer}</pre>`);
     }
   } catch (e){
     setOutput('<div class="wizard-error">Unable to load schedule.</div>');
   }
+}
+
+function styleExceptionNotes(text){
+  if (!text) return text;
+  // Style "Note: Service exception..." lines
+  return text.replace(/(Note:\s*Service exception[^\n]*)/gi, '<span class="wizard-exception">$1</span>');
 }
 
 function renderPredictions(preds){
@@ -472,12 +542,44 @@ function renderPredictionsV2(preds){
   byRoute.forEach((items, route) => {
     const limit = multiRoute ? 2 : 5;
     items.slice(0, limit).forEach(p => {
-      const mins = String(p.minutes).toUpperCase() === 'DUE' ? 'DUE' : `${p.minutes} min`;
-      rows.push(`<li><strong>Route ${route}</strong> to ${p.destination} - ${mins}</li>`);
+      const minsRaw = p.minutes;
+      const isDue = String(minsRaw).toUpperCase() === 'DUE';
+      const clockTime = formatArrivalTime(minsRaw);
+      const mins = isDue ? 'DUE' : `${minsRaw} min`;
+      const timeDisplay = clockTime ? `${mins} (${clockTime})` : mins;
+      rows.push(`<li><strong>Route ${route}</strong> to ${p.destination} — ${timeDisplay}</li>`);
     });
   });
-  const label = WIZ.state.stopId ? `Next buses for Stop ID ${WIZ.state.stopId}` : 'Next buses:';
+  // Build header with Stop ID and Stop Name
+  let label = 'Next buses:';
+  if (WIZ.state.stopId) {
+    label = `Next buses for Stop ID ${WIZ.state.stopId}`;
+    if (WIZ.state.stopName) {
+      label += ` — ${WIZ.state.stopName}`;
+    }
+  }
   return `<div class="wizard-note">${label}</div><ul class="wizard-list">${rows.join('')}</ul>`;
+}
+
+function formatArrivalTime(minutes){
+  if (!minutes && minutes !== 0) return '';
+  if (String(minutes).toUpperCase() === 'DUE') {
+    const now = new Date();
+    return formatTime12h(now.getHours(), now.getMinutes());
+  }
+  const mins = parseInt(minutes, 10);
+  if (isNaN(mins)) return '';
+  const now = new Date();
+  now.setMinutes(now.getMinutes() + mins);
+  return formatTime12h(now.getHours(), now.getMinutes());
+}
+
+function formatTime12h(hours, minutes){
+  const ap = hours >= 12 ? 'PM' : 'AM';
+  let h = hours % 12;
+  if (h === 0) h = 12;
+  const m = String(minutes).padStart(2, '0');
+  return `${h}:${m} ${ap}`;
 }
 
 function normalizeStopId(raw){
