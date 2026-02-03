@@ -195,10 +195,32 @@ function renderStepStopId(){
     if(WIZ.state.intent === 'eta'){
       fetchEta(stop);
     } else {
-      renderStepTime();
+      askRoutePreference();
     }
   });
 }
+
+function askRoutePreference() {
+  const el = w('wizard-steps');
+  el.innerHTML = `
+    <div class="wizard-card">
+      <h4>Do you want a specific route or all routes?</h4>
+      <div class="wizard-grid">
+        <button class="wizard-btn" id="wiz-route-specific">Specific route</button>
+        <button class="wizard-btn" id="wiz-route-all">All routes</button>
+      </div>
+    </div>
+  `;
+  w('wiz-route-specific').addEventListener('click', () => {
+    renderStepRoute();
+  });
+  w('wiz-route-all').addEventListener('click', () => {
+    WIZ.state.route = null;
+    WIZ.state.direction = null;
+    fetchSchedule();
+  });
+}
+
 
 async function renderStepRoute(){
   const el = w('wizard-steps');
