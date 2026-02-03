@@ -9,6 +9,7 @@ const WIZ = {
     stopName: null,
     route: null,
     direction: null,
+    directionName: null,
     stop: null,
     timeframe: null,
     etaFallback: false,
@@ -26,6 +27,7 @@ function resetWizard(){
     stopName: null,
     route: null,
     direction: null,
+    directionName: null,
     stop: null,
     timeframe: null,
     etaFallback: false,
@@ -304,6 +306,7 @@ async function renderStepDirection(){
       b.textContent = name;
       b.addEventListener('click', () => {
         WIZ.state.direction = d.id || d.dir || d.name;
+        WIZ.state.directionName = name;
         pushStep(renderStepDirection);
         renderStepStop();
       });
@@ -447,18 +450,24 @@ async function fetchEta(stopId){
       renderStepRoute();
       return;
     }
+    // Check if stop exists - if no stop_name and no predictions, stop is invalid
+    const preds = data.predictions || [];
+    if (!data.stop_name && !preds.length) {
+      setOutput(`<div class="wizard-error">Stop ID ${stopId} not found. Please check the number and try again.</div><div class="wizard-hint">Stop IDs are the 3-4 digit numbers on the bus stop sign.</div>`);
+      return;
+    }
     // Store stop name for display
     WIZ.state.stopName = data.stop_name || '';
-    let preds = data.predictions || [];
+    let filteredPreds = preds;
     // Filter by route if user selected a specific route
     if(WIZ.state.route){
-      preds = preds.filter(p => String(p.route) === String(WIZ.state.route));
+      filteredPreds = preds.filter(p => String(p.route) === String(WIZ.state.route));
     }
-    if(!preds.length){
+    if(!filteredPreds.length){
       autoScheduleFallback();
       return;
     }
-    const upcoming = preds.filter(p => {
+    const upcoming = filteredPreds.filter(p => {
       const mins = p.minutes;
       if(String(mins).toUpperCase() === 'DUE') return true;
       const n = parseInt(mins, 10);
@@ -475,7 +484,7 @@ async function fetchEta(stopId){
 }
 
 function autoScheduleFallback(){
-  WIZ.state.intent = 'schedule';
+  // Don't change intent - keep it as 'eta' so back button works correctly
   WIZ.state.timeframe = 'now';
   WIZ.state.etaFallback = true;
   fetchSchedule();
@@ -484,7 +493,7 @@ function autoScheduleFallback(){
 async function fetchSchedule(){
   const parts = ['Schedule'];
   if(WIZ.state.route) parts.push(`Route ${WIZ.state.route}`);
-  if(WIZ.state.direction) parts.push(WIZ.state.direction);
+  if(WIZ.state.directionName) parts.push(WIZ.state.directionName);
   if(WIZ.state.stop) parts.push(`at ${WIZ.state.stop}`);
   else if(WIZ.state.stopId) parts.push(`stop id ${WIZ.state.stopId}`);
   if(WIZ.state.timeframe) parts.push(WIZ.state.timeframe);
