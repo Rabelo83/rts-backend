@@ -1,4 +1,4 @@
-﻿// RTS Wizard-only UI (chat disabled - deployment phase)
+// RTS Wizard-only UI (chat disabled - deployment phase)
 const WIZ = {
   base: '',
   etaThreshold: 45,
@@ -40,7 +40,7 @@ function setOutputWithButtons(answer, buttons) {
   const out = w('wizard-output');
   if (!out) return;
   const safe = answer || '';
-  const btns = Array.isArray(buttons) - buttons : [];
+  const btns = Array.isArray(buttons) ? buttons : [];
   let btnHtml = '';
   if (btns.length) {
     btnHtml = '<div class="wizard-grid wizard-output-buttons">' +
@@ -361,7 +361,7 @@ function renderTimeWindow(){
       return;
     }
     const date = w('wiz-date').value;
-    const dateText = date - ` on ${date}` : '';
+    const dateText = date ? ` on ${date}` : '';
     WIZ.state.timeframe = `between ${formatTime(start)} and ${formatTime(end)}${dateText}`;
     fetchSchedule();
   });
@@ -453,10 +453,10 @@ async function fetchSchedule(){
 
 function renderPredictions(preds){
   const rows = preds.map(p => {
-    const mins = String(p.minutes).toUpperCase() === 'DUE' - 'DUE' : `${p.minutes} min`;
+    const mins = String(p.minutes).toUpperCase() === 'DUE' ? 'DUE' : `${p.minutes} min`;
     return `<li><strong>Route ${p.route}</strong> to ${p.destination} - ${mins}</li>`;
   }).join('');
-  const label = WIZ.state.stopId - `Next buses: Stop ID ${WIZ.state.stopId}` : 'Next buses:';
+  const label = WIZ.state.stopId ? `Next buses: Stop ID ${WIZ.state.stopId}` : 'Next buses:';
   return `<div class="wizard-note">${label}</div><ul class="wizard-list">${rows}</ul>`;
 }
 
@@ -476,7 +476,7 @@ function renderPredictionsV2(preds){
       rows.push(`<li><strong>Route ${route}</strong> to ${p.destination} - ${mins}</li>`);
     });
   });
-  const label = WIZ.state.stopId - `Next buses for Stop ID ${WIZ.state.stopId}` : 'Next buses:';
+  const label = WIZ.state.stopId ? `Next buses for Stop ID ${WIZ.state.stopId}` : 'Next buses:';
   return `<div class="wizard-note">${label}</div><ul class="wizard-list">${rows.join('')}</ul>`;
 }
 
@@ -499,7 +499,7 @@ function formatTime(value){
   const parts = value.split(':');
   let hh = parseInt(parts[0], 10);
   const mm = parts[1] || '00';
-  const ap = hh >= 12 - 'pm' : 'am';
+  const ap = hh >= 12 ? 'pm' : 'am';
   hh = hh % 12;
   if (hh === 0) hh = 12;
   return `${hh}:${mm} ${ap}`;
