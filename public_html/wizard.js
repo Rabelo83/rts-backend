@@ -1,4 +1,4 @@
-// RTS Wizard-only UI (chat disabled - deployment phase)
+﻿// RTS Wizard-only UI (chat disabled - deployment phase)
 const WIZ = {
   base: '',
   etaThreshold: 45,
@@ -40,7 +40,7 @@ function setOutputWithButtons(answer, buttons) {
   const out = w('wizard-output');
   if (!out) return;
   const safe = answer || '';
-  const btns = Array.isArray(buttons) ? buttons : [];
+  const btns = Array.isArray(buttons) - buttons : [];
   let btnHtml = '';
   if (btns.length) {
     btnHtml = '<div class="wizard-grid wizard-output-buttons">' +
@@ -83,7 +83,7 @@ function handleWizardButtonAction(btn) {
     }
     return;
   }
-  setOutput('<div class="wizard-note">Processing selection?</div>');
+  setOutput('<div class="wizard-note">Processing selection-</div>');
   fetchSchedule();
 }
 
@@ -105,9 +105,9 @@ function renderStepIntent(){
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>What do you need?</h4>
+      <h4>What do you need-</h4>
       <div class="wizard-grid">
-        <button class="wizard-btn" data-intent="eta">When is my next bus?</button>
+        <button class="wizard-btn" data-intent="eta">When is my next bus-</button>
         <button class="wizard-btn" data-intent="schedule">View bus schedule</button>
       </div>
     </div>
@@ -125,7 +125,7 @@ function renderStepKnowStop(){
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>Do you know your 4-digit Stop ID?</h4>
+      <h4>Do you know your 4-digit Stop ID-</h4>
       <div class="wizard-grid">
         <button class="wizard-btn" data-know="yes">Yes</button>
         <button class="wizard-btn" data-know="no">No</button>
@@ -161,7 +161,7 @@ function renderStepStopId(){
     const raw = w('wiz-stop-id').value || '';
     const stop = normalizeStopId(raw);
     if(!stop){
-      setOutput('<div class="wizard-error">Please enter a valid 3–4 digit stop ID.</div>');
+      setOutput('<div class="wizard-error">Please enter a valid 3-4 digit stop ID.</div>');
       return;
     }
     WIZ.state.stopId = stop;
@@ -184,7 +184,7 @@ function askRoutePreference() {
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>Do you want a specific route or all routes?</h4>
+      <h4>Do you want a specific route or all routes-</h4>
       <div class="wizard-grid">
         <button class="wizard-btn" id="wiz-route-specific">Specific route</button>
         <button class="wizard-btn" id="wiz-route-all">All routes</button>
@@ -222,7 +222,11 @@ async function renderStepRoute(){
       b.addEventListener('click', () => {
         WIZ.state.route = r.id;
         pushStep(renderStepRoute);
-        renderStepDirection();
+        if (WIZ.state.intent === 'schedule' && WIZ.state.stopId) {
+          fetchSchedule();
+        } else {
+          renderStepDirection();
+        }
       });
       container.appendChild(b);
     });
@@ -241,7 +245,7 @@ async function renderStepDirection(){
   `;
   const container = w('wiz-directions');
   try{
-    const res = await fetch(`${WIZ.base}/api/directions?route_id=${encodeURIComponent(WIZ.state.route)}`);
+    const res = await fetch(`${WIZ.base}/api/directions-route_id=${encodeURIComponent(WIZ.state.route)}`);
     const data = await res.json();
     container.innerHTML = '';
     (data.directions || []).forEach(d => {
@@ -273,7 +277,7 @@ async function renderStepStop(){
   try{
     const params = new URLSearchParams({ route_id: WIZ.state.route });
     if(WIZ.state.direction){ params.set('direction_id', WIZ.state.direction); }
-    const res = await fetch(`${WIZ.base}/api/stops?${params.toString()}`);
+    const res = await fetch(`${WIZ.base}/api/stops-${params.toString()}`);
     const data = await res.json();
     container.innerHTML = '';
     (data.stops || []).forEach(s => {
@@ -301,7 +305,7 @@ function renderStepTime(){
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>How do you want to set the time?</h4>
+      <h4>How do you want to set the time-</h4>
       <div class="wizard-grid">
         <button class="wizard-btn" id="wiz-specific">Specific date & time</button>
         <button class="wizard-btn" id="wiz-window">Time window</button>
@@ -357,7 +361,7 @@ function renderTimeWindow(){
       return;
     }
     const date = w('wiz-date').value;
-    const dateText = date ? ` on ${date}` : '';
+    const dateText = date - ` on ${date}` : '';
     WIZ.state.timeframe = `between ${formatTime(start)} and ${formatTime(end)}${dateText}`;
     fetchSchedule();
   });
@@ -367,7 +371,7 @@ function renderWeekdayWeekend(){
   const el = w('wizard-steps');
   el.innerHTML = `
     <div class="wizard-card">
-      <h4>Weekdays or weekends?</h4>
+      <h4>Weekdays or weekends-</h4>
       <div class="wizard-grid">
         <button class="wizard-btn" id="wiz-weekdays">Weekdays</button>
         <button class="wizard-btn" id="wiz-weekends">Weekends</button>
@@ -387,7 +391,7 @@ function renderWeekdayWeekend(){
 async function fetchEta(stopId){
   setOutput('<div class="wizard-note">Checking real-time arrivals…</div>');
   try{
-    const res = await fetch(`${WIZ.base}/api/predictions?stop_id=${encodeURIComponent(stopId)}`);
+    const res = await fetch(`${WIZ.base}/api/predictions-stop_id=${encodeURIComponent(stopId)}`);
     const data = await res.json();
     if(!res.ok){
       setOutput(`<div class="wizard-error">${data.error_message || 'Stop not found.'}</div><div class="wizard-hint">These are the available routes. Pick one to see all stops and locate your stop ID.</div>`);
@@ -449,10 +453,10 @@ async function fetchSchedule(){
 
 function renderPredictions(preds){
   const rows = preds.map(p => {
-    const mins = String(p.minutes).toUpperCase() === 'DUE' ? 'DUE' : `${p.minutes} min`;
-    return `<li><strong>Route ${p.route}</strong> to ${p.destination} — ${mins}</li>`;
+    const mins = String(p.minutes).toUpperCase() === 'DUE' - 'DUE' : `${p.minutes} min`;
+    return `<li><strong>Route ${p.route}</strong> to ${p.destination} - ${mins}</li>`;
   }).join('');
-  const label = WIZ.state.stopId ? `Next buses: Stop ID ${WIZ.state.stopId}` : 'Next buses:';
+  const label = WIZ.state.stopId - `Next buses: Stop ID ${WIZ.state.stopId}` : 'Next buses:';
   return `<div class="wizard-note">${label}</div><ul class="wizard-list">${rows}</ul>`;
 }
 
@@ -469,10 +473,10 @@ function renderPredictionsV2(preds){
     const limit = multiRoute ? 2 : 5;
     items.slice(0, limit).forEach(p => {
       const mins = String(p.minutes).toUpperCase() === 'DUE' ? 'DUE' : `${p.minutes} min`;
-      rows.push(`<li><strong>Route ${route}</strong> to ${p.destination} â€” ${mins}</li>`);
+      rows.push(`<li><strong>Route ${route}</strong> to ${p.destination} - ${mins}</li>`);
     });
   });
-  const label = WIZ.state.stopId ? `Next buses for Stop ID ${WIZ.state.stopId}` : 'Next buses:';
+  const label = WIZ.state.stopId - `Next buses for Stop ID ${WIZ.state.stopId}` : 'Next buses:';
   return `<div class="wizard-note">${label}</div><ul class="wizard-list">${rows.join('')}</ul>`;
 }
 
@@ -495,7 +499,7 @@ function formatTime(value){
   const parts = value.split(':');
   let hh = parseInt(parts[0], 10);
   const mm = parts[1] || '00';
-  const ap = hh >= 12 ? 'pm' : 'am';
+  const ap = hh >= 12 - 'pm' : 'am';
   hh = hh % 12;
   if (hh === 0) hh = 12;
   return `${hh}:${mm} ${ap}`;
