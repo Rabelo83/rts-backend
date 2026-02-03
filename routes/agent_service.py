@@ -1294,6 +1294,8 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     intent = extracted.get("intent", intent)
     route_id = route_id or extracted.get("route_id")
     stop_id = stop_id or extracted.get("stop_id")
+    if route_id and stop_id and route_id == stop_id and 'route' not in msg_ctx.lower():
+        route_id = None
     direction_hint = (extracted.get("direction") or "").strip()
     stop_name_hint = (extracted.get("stop_name") or "").strip()
     llm_destination = (extracted.get("destination_hint") or "").strip()
@@ -1545,6 +1547,15 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             })
 
         if data.get("time"):
+            if not next_by_dir:
+                return _with_meta({
+                    "answer": tmsg(
+                        lang,
+                        "No scheduled trips found after that time for this stop. Try another time.",
+                        "No encontre viajes programados despues de esa hora para esta parada. Intenta otra hora.",
+                    ) + (f"\n{exception_note}" if exception_note else ""),
+                    "sources": [{"type": "schedule_no_time"}],
+                })
             lines = [
                 f"Next departures for route {data['route']} from {data['stop']} on {data['date']} after {format_time_12h(data['time'])}:"
             ]

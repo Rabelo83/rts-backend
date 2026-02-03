@@ -350,7 +350,7 @@ async function fetchSchedule(){
   if(WIZ.state.route) parts.push(`Route ${WIZ.state.route}`);
   if(WIZ.state.direction) parts.push(WIZ.state.direction);
   if(WIZ.state.stop) parts.push(`at ${WIZ.state.stop}`);
-  else if(WIZ.state.stopId) parts.push(`stop ${WIZ.state.stopId}`);
+  else if(WIZ.state.stopId) parts.push(`stop id ${WIZ.state.stopId}`);
   if(WIZ.state.timeframe) parts.push(WIZ.state.timeframe);
   const message = parts.join(' ');
   setOutput('<div class="wizard-note">Checking schedule…</div>');
