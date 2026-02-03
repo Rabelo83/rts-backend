@@ -38,6 +38,58 @@ function setOutput(html){
   if(out){ out.innerHTML = html || ''; }
 }
 
+function setOutputWithButtons(answer, buttons) {
+  const out = w('wizard-output');
+  if (!out) return;
+  const safe = answer || '';
+  const btns = Array.isArray(buttons) ? buttons : [];
+  let btnHtml = '';
+  if (btns.length) {
+    btnHtml = '<div class="wizard-grid wizard-output-buttons">' +
+      btns.map((b, i) => '<button class="wizard-btn" data-idx="' + i + '">' + b.label + '</button>').join('') +
+      '</div>';
+  }
+  out.innerHTML = '<pre class="wizard-result">' + safe + '</pre>' + btnHtml;
+  if (btns.length) {
+    out.querySelectorAll('[data-idx]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const b = btns[Number(btn.dataset.idx)];
+        handleWizardButtonAction(b);
+      });
+    });
+  }
+}
+
+function handleWizardButtonAction(btn) {
+  if (!btn || !btn.action) return;
+  const action = String(btn.action).trim();
+  if (action.toLowerCase().startsWith('route ')) {
+    const rt = action.replace(/route\s+/i, '').trim();
+    WIZ.state.route = rt;
+    if (WIZ.state.intent === 'schedule' && WIZ.state.stopId) {
+      fetchSchedule();
+      return;
+    }
+    renderStepDirection();
+    return;
+  }
+  if (action.toLowerCase().startsWith('stop ')) {
+    const sid = normalizeStopId(action.replace(/stop\s+/i, ''));
+    if (sid) {
+      WIZ.state.stopId = sid;
+      if (WIZ.state.intent === 'schedule' && WIZ.state.route) {
+        fetchSchedule();
+      } else {
+        renderStepRoute();
+      }
+    }
+    return;
+  }
+  setOutput('<div class="wizard-note">Processing selection?</div>');
+  fetchSchedule();
+}
+
+
 function pushStep(step){
   WIZ.stack.push(step);
 }
@@ -361,7 +413,11 @@ async function fetchSchedule(){
       body: JSON.stringify({ message }),
     });
     const data = await res.json();
-    setOutput(`<pre class="wizard-result">${data.answer || 'No response.'}</pre>`);
+    if (data && data.buttons && data.buttons.length) {
+      setOutputWithButtons(data.answer || 'No response.', data.buttons);
+    } else {
+      setOutput(`<pre class="wizard-result">${data.answer || 'No response.'}</pre>`);
+    }
   } catch (e){
     setOutput('<div class="wizard-error">Unable to load schedule.</div>');
   }
