@@ -4,7 +4,6 @@ const WIZ = {
   etaThreshold: 45,
   state: {
     intent: null, // eta | schedule
-    serviceDay: null, // weekdays | weekends
     knowsStop: null,
     stopId: null,
     route: null,
@@ -20,7 +19,6 @@ function w(id){ return document.getElementById(id); }
 function resetWizard(){
   WIZ.state = {
     intent: null,
-    serviceDay: null,
     knowsStop: null,
     stopId: null,
     route: null,
@@ -118,30 +116,6 @@ function renderStepIntent(){
     btn.addEventListener('click', () => {
       WIZ.state.intent = btn.dataset.intent;
       pushStep(renderStepIntent);
-      if(WIZ.state.intent === 'schedule'){
-        renderStepServiceDay();
-      } else {
-        renderStepKnowStop();
-      }
-    });
-  });
-}
-
-function renderStepServiceDay(){
-  const el = w('wizard-steps');
-  el.innerHTML = `
-    <div class="wizard-card">
-      <h4>Weekdays or weekends?</h4>
-      <div class="wizard-grid">
-        <button class="wizard-btn" data-day="weekdays">Weekdays</button>
-        <button class="wizard-btn" data-day="weekends">Weekends</button>
-      </div>
-    </div>
-  `;
-  el.querySelectorAll('[data-day]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      WIZ.state.serviceDay = btn.dataset.day;
-      pushStep(renderStepServiceDay);
       renderStepKnowStop();
     });
   });
@@ -196,6 +170,12 @@ function renderStepStopId(){
       fetchEta(stop);
     } else {
       askRoutePreference();
+    }
+  });
+  w('wiz-stop-id').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      w('wiz-stop-submit').click();
     }
   });
 }
@@ -325,11 +305,13 @@ function renderStepTime(){
       <div class="wizard-grid">
         <button class="wizard-btn" id="wiz-specific">Specific date & time</button>
         <button class="wizard-btn" id="wiz-window">Time window</button>
+        <button class="wizard-btn" id="wiz-weekday">Weekdays or Weekends</button>
       </div>
     </div>
   `;
   w('wiz-specific').addEventListener('click', () => renderSpecificDateTime());
   w('wiz-window').addEventListener('click', () => renderTimeWindow());
+  w('wiz-weekday').addEventListener('click', () => renderWeekdayWeekend());
 }
 
 function renderSpecificDateTime(){
@@ -381,6 +363,27 @@ function renderTimeWindow(){
   });
 }
 
+function renderWeekdayWeekend(){
+  const el = w('wizard-steps');
+  el.innerHTML = `
+    <div class="wizard-card">
+      <h4>Weekdays or weekends?</h4>
+      <div class="wizard-grid">
+        <button class="wizard-btn" id="wiz-weekdays">Weekdays</button>
+        <button class="wizard-btn" id="wiz-weekends">Weekends</button>
+      </div>
+    </div>
+  `;
+  w('wiz-weekdays').addEventListener('click', () => {
+    WIZ.state.timeframe = 'weekdays';
+    fetchSchedule();
+  });
+  w('wiz-weekends').addEventListener('click', () => {
+    WIZ.state.timeframe = 'weekends';
+    fetchSchedule();
+  });
+}
+
 async function fetchEta(stopId){
   setOutput('<div class="wizard-note">Checking real-time arrivals…</div>');
   try{
@@ -406,7 +409,7 @@ async function fetchEta(stopId){
       autoScheduleFallback();
       return;
     }
-    setOutput(renderPredictions(upcoming));
+    setOutput(renderPredictionsV2(upcoming));
   } catch (e){
     setOutput('<div class="wizard-error">Unable to load predictions.</div>');
   }
@@ -420,7 +423,6 @@ function autoScheduleFallback(){
 
 async function fetchSchedule(){
   const parts = ['Schedule'];
-  if(WIZ.state.serviceDay) parts.push(WIZ.state.serviceDay);
   if(WIZ.state.route) parts.push(`Route ${WIZ.state.route}`);
   if(WIZ.state.direction) parts.push(WIZ.state.direction);
   if(WIZ.state.stop) parts.push(`at ${WIZ.state.stop}`);
@@ -452,6 +454,26 @@ function renderPredictions(preds){
   }).join('');
   const label = WIZ.state.stopId ? `Next buses: Stop ID ${WIZ.state.stopId}` : 'Next buses:';
   return `<div class="wizard-note">${label}</div><ul class="wizard-list">${rows}</ul>`;
+}
+
+function renderPredictionsV2(preds){
+  const byRoute = new Map();
+  preds.forEach(p => {
+    const key = String(p.route || '').trim() || 'Unknown';
+    if (!byRoute.has(key)) byRoute.set(key, []);
+    byRoute.get(key).push(p);
+  });
+  const multiRoute = byRoute.size > 1;
+  const rows = [];
+  byRoute.forEach((items, route) => {
+    const limit = multiRoute ? 2 : 5;
+    items.slice(0, limit).forEach(p => {
+      const mins = String(p.minutes).toUpperCase() === 'DUE' ? 'DUE' : `${p.minutes} min`;
+      rows.push(`<li><strong>Route ${route}</strong> to ${p.destination} â€” ${mins}</li>`);
+    });
+  });
+  const label = WIZ.state.stopId ? `Next buses for Stop ID ${WIZ.state.stopId}` : 'Next buses:';
+  return `<div class="wizard-note">${label}</div><ul class="wizard-list">${rows.join('')}</ul>`;
 }
 
 function normalizeStopId(raw){
