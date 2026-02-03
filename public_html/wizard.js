@@ -206,6 +206,7 @@ function askRoutePreference() {
     </div>
   `;
   w('wiz-route-specific').addEventListener('click', () => {
+    pushStep(askRoutePreference);
     renderStepRoute();
   });
   w('wiz-route-all').addEventListener('click', () => {
@@ -366,9 +367,18 @@ function renderStepTime(){
       </div>
     </div>
   `;
-  w('wiz-specific').addEventListener('click', () => renderSpecificDateTime());
-  w('wiz-window').addEventListener('click', () => renderTimeWindow());
-  w('wiz-weekday').addEventListener('click', () => renderWeekdayWeekend());
+  w('wiz-specific').addEventListener('click', () => {
+    pushStep(renderStepTime);
+    renderSpecificDateTime();
+  });
+  w('wiz-window').addEventListener('click', () => {
+    pushStep(renderStepTime);
+    renderTimeWindow();
+  });
+  w('wiz-weekday').addEventListener('click', () => {
+    pushStep(renderStepTime);
+    renderWeekdayWeekend();
+  });
 }
 
 function renderSpecificDateTime(){
