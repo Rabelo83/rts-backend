@@ -34,3 +34,9 @@ How to use:
 - Summary: Switched manual dashboard task storage from JSON file writes to SQLite and merged manual tasks into dashboard API output.
 - Files/Areas: `routes/project_status.py`, `public_html/dashboard.html`
 - Notes / Follow-up: Default DB path is `data/project_tasks.sqlite`; override with `PROJECT_TASKS_DB_PATH` (recommended for Render persistent disk mount path).
+
+### 2026-02-24
+- Type: `decision`
+- Summary: Reverted dashboard manual task entry and returned `/dashboard` to read-only task viewing.
+- Files/Areas: `routes/project_status.py`, `public_html/dashboard.html`
+- Notes / Follow-up: Continue updating `TASKS.md` and `data/project_tasks.json` manually as the project task source of truth.

@@ -118,11 +118,6 @@
       font-size: 1rem;
     }
 
-    .panel h3 {
-      margin: 16px 0 10px;
-      font-size: 0.95rem;
-    }
-
     .toolbar {
       display: flex;
       gap: 8px;
@@ -143,73 +138,6 @@
       border-color: var(--accent);
       color: #0369a1;
       background: rgba(14, 165, 233, 0.08);
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-
-    .field.full {
-      grid-column: 1 / -1;
-    }
-
-    .field label {
-      font-size: 0.8rem;
-      color: var(--muted);
-      font-weight: 600;
-    }
-
-    .field input,
-    .field select,
-    .field textarea {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 9px 10px;
-      font: inherit;
-      color: var(--text);
-      background: #fff;
-    }
-
-    .field textarea {
-      min-height: 82px;
-      resize: vertical;
-    }
-
-    .form-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-
-    .btn {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 9px 12px;
-      background: #fff;
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    .btn.primary {
-      background: linear-gradient(135deg, #0ea5e9, #2563eb);
-      color: #fff;
-      border-color: transparent;
-    }
-
-    .form-note {
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-bottom: 12px;
     }
 
     .task-list {
@@ -242,12 +170,6 @@
       color: var(--muted);
       font-size: 0.82rem;
       margin-top: 2px;
-    }
-
-    .task-meta {
-      color: var(--muted);
-      font-size: 0.78rem;
-      margin-top: 6px;
     }
 
     .badge {
@@ -314,14 +236,6 @@
       padding: 12px;
     }
 
-    .success {
-      color: #166534;
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      border-radius: 12px;
-      padding: 12px;
-    }
-
     .empty {
       color: var(--muted);
       border: 1px dashed var(--line);
@@ -340,9 +254,6 @@
         grid-template-columns: 1fr;
       }
 
-      .form-grid {
-        grid-template-columns: 1fr;
-      }
     }
 
     @media (max-width: 520px) {
@@ -390,42 +301,6 @@
     <section class="layout">
       <div class="card panel">
         <h2>Tasks</h2>
-        <h3>Add Task</h3>
-        <form id="addTaskForm">
-          <div class="form-grid">
-            <div class="field full">
-              <label for="taskTitle">Title</label>
-              <input id="taskTitle" name="title" type="text" maxlength="200" required placeholder="Example: Add tests for predictions endpoint" />
-            </div>
-            <div class="field">
-              <label for="taskStatus">Status</label>
-              <select id="taskStatus" name="status">
-                <option value="pending" selected>Pending</option>
-                <option value="next">Next</option>
-                <option value="completed">Completed</option>
-                <option value="blocked">Blocked</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="taskArea">Area</label>
-              <input id="taskArea" name="area" type="text" maxlength="80" placeholder="Backend / Frontend / Ops" />
-            </div>
-            <div class="field full">
-              <label for="taskDetails">Details</label>
-              <textarea id="taskDetails" name="details" maxlength="1000" placeholder="Short description of what needs to be done"></textarea>
-            </div>
-            <div class="field full" id="blockerField" style="display:none;">
-              <label for="taskBlocker">Blocker</label>
-              <input id="taskBlocker" name="blocker" type="text" maxlength="200" placeholder="What is blocking this task?" />
-            </div>
-          </div>
-          <div class="form-actions">
-            <button type="reset" class="btn">Clear</button>
-            <button type="submit" class="btn primary">Add Task</button>
-          </div>
-          <div class="form-note">Adds a task through the backend API and stores manual tasks in SQLite.</div>
-          <div id="formMessage"></div>
-        </form>
         <div class="toolbar" id="toolbar">
           <button class="filter active" data-filter="all">All</button>
           <button class="filter" data-filter="completed">Completed</button>
@@ -493,10 +368,6 @@
         const blocker = task.blocker
           ? '<div class="task-blocker"><strong>Blocker:</strong> ' + escapeHtml(task.blocker) + '</div>'
           : "";
-        const meta = [];
-        if (task.source) meta.push(`source: ${task.source}`);
-        if (task.created_at) meta.push(`created: ${task.created_at}`);
-        const metaHtml = meta.length ? `<div class="task-meta">${escapeHtml(meta.join(" | "))}</div>` : "";
 
         return `
           <article class="task">
@@ -508,7 +379,6 @@
               <span class="badge ${status}">${status}</span>
             </div>
             <p class="task-details">${escapeHtml(task.details || "")}</p>
-            ${metaHtml}
             ${blocker}
           </article>
         `;
@@ -545,74 +415,6 @@
       }
     }
 
-    function setFormMessage(kind, text) {
-      const el = document.getElementById("formMessage");
-      if (!text) {
-        el.innerHTML = "";
-        return;
-      }
-      el.innerHTML = `<div class="${kind}">${escapeHtml(text)}</div>`;
-    }
-
-    function bindAddTaskForm() {
-      const form = document.getElementById("addTaskForm");
-      const statusEl = document.getElementById("taskStatus");
-      const blockerField = document.getElementById("blockerField");
-
-      function toggleBlockerField() {
-        blockerField.style.display = statusEl.value === "blocked" ? "" : "none";
-      }
-
-      statusEl.addEventListener("change", toggleBlockerField);
-      form.addEventListener("reset", () => {
-        setTimeout(() => {
-          statusEl.value = "pending";
-          toggleBlockerField();
-          setFormMessage("", "");
-        }, 0);
-      });
-
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        setFormMessage("", "");
-
-        const payload = {
-          title: document.getElementById("taskTitle").value.trim(),
-          status: document.getElementById("taskStatus").value,
-          area: document.getElementById("taskArea").value.trim(),
-          details: document.getElementById("taskDetails").value.trim(),
-          blocker: document.getElementById("taskBlocker").value.trim()
-        };
-
-        if (!payload.title) {
-          setFormMessage("error", "Title is required.");
-          return;
-        }
-
-        try {
-          const res = await fetch("/api/project/tasks", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Accept": "application/json" },
-            body: JSON.stringify(payload)
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            throw new Error(data.error || ("HTTP " + res.status));
-          }
-
-          form.reset();
-          toggleBlockerField();
-          const storageText = data.storage ? ` Stored in: ${data.storage}` : "";
-          setFormMessage("success", "Task added successfully." + storageText);
-          await loadDashboard();
-        } catch (err) {
-          setFormMessage("error", "Failed to add task: " + (err.message || "Unknown error"));
-        }
-      });
-
-      toggleBlockerField();
-    }
-
     async function loadDashboard() {
       const taskList = document.getElementById("taskList");
       taskList.innerHTML = '<div class="empty">Loading tasks...</div>';
@@ -627,10 +429,6 @@
         document.getElementById("projectGoal").textContent = data.summary?.goal || "Project task tracking dashboard";
         document.getElementById("metaLine").textContent =
           `Updated: ${data.updated_at || "unknown"}${data.note ? " | " + data.note : ""}`;
-        if (data.storage?.manual_tasks) {
-          document.getElementById("metaLine").textContent += ` | Manual task storage: ${data.storage.manual_tasks}`;
-        }
-
         renderSummary(state.tasks);
         renderTasks();
         renderGroups();
@@ -641,7 +439,6 @@
     }
 
     bindFilters();
-    bindAddTaskForm();
     loadDashboard();
   </script>
 </body>
