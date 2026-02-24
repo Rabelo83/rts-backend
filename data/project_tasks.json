@@ -1,6 +1,6 @@
 {
   "project": "RTS Backend + Web Assistant",
-  "updated_at": "2026-02-26",
+  "updated_at": "2026-02-27",
   "note": "Task inventory updated after reliability fixes (analytics SQLite, webqa fallback, session timeout, CORS). Three code-quality improvements pending.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
@@ -137,6 +137,116 @@
       "status": "completed",
       "area": "Frontend",
       "details": "index.html:134 has 'Open RTS Assistant' linking to /chat, which is disabled. Points users to a dead-end. Change href to /wizard."
+    },
+    {
+      "id": "improve-stop-name-resolution",
+      "title": "Fuzzy stop name resolution in agent (fix 'santa fe' type queries)",
+      "status": "pending",
+      "area": "AI",
+      "priority": "critical",
+      "details": "When a user says 'santa fe' or 'Walmart on 34th', the agent asks for a stop ID instead of resolving it. Need fuzzy matching against GTFS stop names (stop_name column) so natural landmark references resolve to stop_id. Approach: load stop names into memory at startup, score against user input using token overlap or embeddings, pass matched stop_id to existing ETA/schedule lookup."
+    },
+    {
+      "id": "fix-session-fragmentation",
+      "title": "Fix session fragmentation across Gunicorn workers",
+      "status": "pending",
+      "area": "Backend",
+      "priority": "critical",
+      "details": "SessionManager is in-memory per worker. With multiple Gunicorn workers, request 1 on worker A and request 2 on worker B lose session context. Quickest fix: set workers=1 in render.yaml startCommand. Proper fix: SQLite-backed or Redis-backed session store shared across workers."
+    },
+    {
+      "id": "add-rate-limiting",
+      "title": "Add rate limiting to /api/agent to prevent API cost abuse",
+      "status": "pending",
+      "area": "Security",
+      "priority": "critical",
+      "details": "No rate limiting on /api/agent. Each request can fire up to 4 OpenAI calls. One user or bot can drain API quota. Add Flask-Limiter: 30 requests/hour per IP (configurable via env var). Return 429 with a clear message when limit hit."
+    },
+    {
+      "id": "set-cors-origins-render",
+      "title": "Set CORS_ORIGINS env var in Render to restrict to production domain",
+      "status": "pending",
+      "area": "Security",
+      "priority": "critical",
+      "details": "CORS_ORIGINS code support added but env var not set in Render. Currently any website can call the API. Set CORS_ORIGINS=https://rts-backend-7ru5.onrender.com in Render environment variables dashboard."
+    },
+    {
+      "id": "fix-webqa-hardcoded-model",
+      "title": "Fix webqa.py hardcoded gpt-4o-mini (ignores OPENAI_MODEL env var)",
+      "status": "pending",
+      "area": "Backend",
+      "priority": "high",
+      "details": "webqa.py line 20 hardcodes model='gpt-4o-mini' instead of reading os.getenv('OPENAI_MODEL', 'gpt-4o-mini'). When OPENAI_BASE_URL points to Ollama locally, webqa still calls OpenAI directly. One-line fix."
+    },
+    {
+      "id": "add-openai-retry-logic",
+      "title": "Add retry with exponential backoff for OpenAI API calls",
+      "status": "pending",
+      "area": "Backend",
+      "priority": "high",
+      "details": "All 5 OpenAI client calls in agent_service.py silently fail on 429 or 500 with no retry. Add tenacity or manual backoff: 3 retries, 1s/2s/4s delays. Log retry attempts to analytics. This prevents transient OpenAI errors from reaching the user."
+    },
+    {
+      "id": "reduce-openai-calls-per-request",
+      "title": "Reduce OpenAI calls from up to 4 down to 1-2 per agent request",
+      "status": "pending",
+      "area": "AI",
+      "priority": "high",
+      "details": "Current flow can fire: intent extraction + history summary + humanization + direction clarification = 4 calls. Combine intent extraction and humanization into a single structured prompt. Skip humanization when the GTFS engine returns a deterministic answer. Skip history summary when history is short enough to fit in context."
+    },
+    {
+      "id": "add-input-validation",
+      "title": "Add input length and content validation to /api/agent",
+      "status": "pending",
+      "area": "Security",
+      "priority": "high",
+      "details": "The 'message' field has no length limit. A 50k-character message would hit OpenAI token limits and possibly crash. Add: max 1000 characters, strip control characters, return 400 with clear error if invalid. Also validate session_id format."
+    },
+    {
+      "id": "gunicorn-single-worker-fix",
+      "title": "Configure Gunicorn workers in render.yaml to avoid session loss",
+      "status": "pending",
+      "area": "Ops",
+      "priority": "high",
+      "details": "render.yaml startCommand should specify --workers 1 until sessions are moved to a shared store. Multiple workers with in-memory sessions cause users to lose conversation context mid-session. Also set --timeout 120 to handle slow LLM responses."
+    },
+    {
+      "id": "improve-gtfs-stop-fuzzy-match",
+      "title": "Improve GTFS stop name fuzzy matching for natural language stop references",
+      "status": "pending",
+      "area": "AI",
+      "priority": "medium",
+      "details": "Related to stop-name-resolution. Beyond simple token overlap, use Levenshtein distance or embeddings to match 'Rosa Parks' to 'Rosa Parks Transit Center', 'Publix on Archer' to stops near that landmark. Load stop name→id mapping at startup."
+    },
+    {
+      "id": "add-openai-retry-backoff",
+      "title": "Handle OpenAI 429 rate limit errors gracefully",
+      "status": "pending",
+      "area": "Backend",
+      "priority": "medium",
+      "details": "Currently if OpenAI returns 429 (rate limited), the agent silently returns a fallback with no user feedback and no retry. Detect RateLimitError specifically, wait 2s and retry once, then return a clear 'service busy, try again in a moment' message."
+    },
+    {
+      "id": "gtfs-auto-refresh",
+      "title": "Automate GTFS schedule data refresh on RTS service changes",
+      "status": "pending",
+      "area": "Data",
+      "priority": "medium",
+      "details": "GTFS SQLite is built once at deploy time. RTS publishes new schedules each semester and for service changes. Stale data means wrong answers. Add: a /api/admin/rebuild-gtfs endpoint (token-protected) that re-fetches GTFS zip and rebuilds the DB, plus a cron trigger or Render deploy hook."
+    },
+    {
+      "id": "structured-outputs-intent",
+      "title": "Use OpenAI structured outputs (JSON schema) for intent extraction",
+      "status": "pending",
+      "area": "AI",
+      "priority": "medium",
+      "details": "Intent extraction currently asks the LLM to return JSON in a system prompt and hopes it complies. Replace with OpenAI's response_format={type:'json_schema', schema:{...}} to guarantee field names, types, and presence. Eliminates regex fallback parsing and JSON parse errors."
+    },
+    {
+      "id": "task-maintenance-ongoing",
+      "title": "Keep task inventory updated after each change",
+      "status": "pending",
+      "area": "Project Management"
     },
     {
       "id": "pending-task-maintenance",
