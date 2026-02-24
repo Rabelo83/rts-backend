@@ -22,3 +22,9 @@ How to use:
 - Summary: Added project task tracking system and dashboard page for status visibility.
 - Files/Areas: `TASKS.md`, `data/project_tasks.json`, `routes/project_status.py`, `public_html/dashboard.html`, `app.py`
 - Notes / Follow-up: Keep `TASKS.md` and `data/project_tasks.json` updated after each completed/pending/blocked status change. Dashboard is currently public at `/dashboard` once deployed.
+
+### 2026-02-24
+- Type: `feature`
+- Summary: Added manual task creation from dashboard via `POST /api/project/tasks`.
+- Files/Areas: `routes/project_status.py`, `public_html/dashboard.html`
+- Notes / Follow-up: Current persistence writes to `data/project_tasks.json` on the server filesystem. On Render, this may be temporary across restarts/redeploys unless moved to a database/persistent store.
