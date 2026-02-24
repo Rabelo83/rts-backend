@@ -19,7 +19,7 @@ from routes.agent_service import handle_agent_message
 bp = Blueprint("agent_api", __name__)
 
 LOG_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "chat_logs.sqlite"
-ANALYTICS_LOG_PATH = Path(__file__).resolve().parents[1] / "data" / "analytics.log"
+ANALYTICS_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "analytics.sqlite"
 
 def _log_chat(message: str, response: str) -> None:
     if os.environ.get("CHAT_LOG_ENABLED", "false").lower() not in ("1", "true", "yes", "on"):
@@ -53,9 +53,58 @@ def _log_analytics(entry: dict) -> None:
     if os.environ.get("ANALYTICS_ENABLED", "true").lower() not in ("1", "true", "yes", "on"):
         return
     try:
-        ANALYTICS_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with open(ANALYTICS_LOG_PATH, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        ANALYTICS_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(ANALYTICS_DB_PATH)
+        try:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS analytics (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts_utc TEXT,
+                    session_id TEXT,
+                    message TEXT,
+                    route TEXT,
+                    stop_id TEXT,
+                    destination TEXT,
+                    intent TEXT,
+                    language TEXT,
+                    needs TEXT,
+                    prefer_schedule INTEGER,
+                    timeframe TEXT,
+                    response_time_ms INTEGER,
+                    success INTEGER,
+                    source_types TEXT
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO analytics (
+                    ts_utc, session_id, message, route, stop_id, destination,
+                    intent, language, needs, prefer_schedule, timeframe,
+                    response_time_ms, success, source_types
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    entry.get("ts_utc"),
+                    entry.get("session_id"),
+                    entry.get("message"),
+                    entry.get("route"),
+                    entry.get("stop_id"),
+                    entry.get("destination"),
+                    entry.get("intent"),
+                    entry.get("language"),
+                    entry.get("needs"),
+                    int(bool(entry.get("prefer_schedule"))),
+                    entry.get("timeframe"),
+                    entry.get("response_time_ms"),
+                    int(bool(entry.get("success"))),
+                    json.dumps(entry.get("source_types") or []),
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
     except Exception:
         return
 

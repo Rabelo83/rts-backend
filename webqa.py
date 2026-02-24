@@ -17,6 +17,7 @@ import urllib.parse
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 BASES = [
     "https://53733956.com",    # mirror (preferred)
+    "https://go-rts.com",      # official site (fallback)
 ]
 HEADERS = {
     "User-Agent": "rts-backend/1.0 (+https://rts-backend)"
@@ -91,7 +92,11 @@ def _ensure_index() -> None:
 
     # keep only the ones we fetched
     _INDEX_URLS = list(_CACHE.keys())
-    _INDEX_BUILT = True
+    # Only mark the index as built if we actually cached something.
+    # If every fetch failed (mirror + official site both down), leave
+    # _INDEX_BUILT = False so the next request retries.
+    if _INDEX_URLS:
+        _INDEX_BUILT = True
 
 
 STOPWORDS = {

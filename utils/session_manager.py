@@ -16,7 +16,7 @@ class SessionManager:
 
     Features:
     - Server-generated UUIDs (cryptographically secure)
-    - Automatic session expiration (5 minutes inactivity)
+    - Automatic session expiration (30 minutes inactivity)
     - Max sessions limit (prevents memory exhaustion)
     - Thread-safe operations
     - Session statistics
@@ -27,7 +27,7 @@ class SessionManager:
         Initialize session manager
 
         Args:
-            timeout_seconds: Session timeout in seconds (default: 5 minutes)
+            timeout_seconds: Session timeout in seconds (default: 30 minutes)
             max_sessions: Maximum number of concurrent sessions
         """
         self.timeout_seconds = timeout_seconds
@@ -231,8 +231,8 @@ class SessionManager:
 # GLOBAL SESSION MANAGER INSTANCE
 # ============================================================
 
-# 5-minute timeout, max 10000 concurrent sessions
-session_manager = SessionManager(timeout_seconds=300, max_sessions=10000)
+# 30-minute timeout, max 10000 concurrent sessions
+session_manager = SessionManager(timeout_seconds=1800, max_sessions=10000)
 
 
 # ============================================================

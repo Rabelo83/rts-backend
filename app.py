@@ -1,3 +1,4 @@
+import os
 from flask import Flask, send_from_directory
 from flask_cors import CORS
 
@@ -17,7 +18,8 @@ except Exception:
 
 def create_app() -> Flask:
     app = Flask(__name__, static_folder="public_html", static_url_path="/static")
-    CORS(app)
+    _origins = os.environ.get("CORS_ORIGINS", "*")
+    CORS(app, origins=_origins.split(",") if _origins != "*" else "*")
 
     # Register routes
     app.register_blueprint(health_bp)     # /api/health
