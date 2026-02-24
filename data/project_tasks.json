@@ -1,7 +1,13 @@
 {
   "project": "RTS Backend + Web Assistant",
-  "updated_at": "2026-02-24",
+  "updated_at": "2026-02-25",
   "note": "Task inventory updated after reliability fixes (analytics SQLite, webqa fallback, session timeout, CORS). Three code-quality improvements pending.",
+  "vision": {
+    "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
+    "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
+    "wizard_strategy": "The Trip Wizard is the conversation flow prototype. It makes the decision tree explicit (intent → route → stop → direction → result) in a structured UI so the paths can be validated. Once proven, the same guided logic is translated into the chat assistant's prompting — the AI replicates the wizard's flow in natural language instead of button clicks.",
+    "end_state": "A single assistant interface where any RTS rider can ask a transit question in plain English (or Spanish) and get a reliable, accurate answer without needing to know stop IDs, route numbers, or schedules."
+  },
   "summary": {
     "goal": "Deliver a stable Gainesville RTS backend with realtime bus info, schedule support, and a user-facing web assistant/dashboard."
   },
