@@ -1,4 +1,14 @@
 // RTS Wizard-only UI (chat disabled - deployment phase)
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const WIZ = {
   base: '',
   etaThreshold: 45,
@@ -260,6 +270,7 @@ async function renderStepRoute(){
   el.innerHTML = `
     <div class="wizard-card">
       <h4><span class="wiz-icon">🚌</span> Select a route</h4>
+      <input id="wiz-route-filter" type="text" placeholder="Filter by number or name…" class="wiz-filter-input" />
       <div class="wizard-grid" id="wiz-routes"><span class="wiz-icon">⏳</span> Loading routes…</div>
     </div>
   `;
@@ -267,22 +278,38 @@ async function renderStepRoute(){
   try{
     const res = await fetch(`${WIZ.base}/api/routes`);
     const data = await res.json();
-    container.innerHTML = '';
-    (data.routes || []).forEach(r => {
-      const b = document.createElement('button');
-      b.className = 'wizard-btn';
-      b.textContent = `Route ${r.id}`;
-      b.addEventListener('click', () => {
-        WIZ.state.route = r.id;
-        pushStep(renderStepRoute);
-        if (WIZ.state.intent === 'schedule' && WIZ.state.stopId) {
-          fetchSchedule();
-        } else {
-          renderStepDirection();
-        }
+    const routes = data.routes || [];
+
+    function buildRouteButtons(filter) {
+      const q = (filter || '').toLowerCase();
+      container.innerHTML = '';
+      const filtered = q
+        ? routes.filter(r => String(r.id).includes(q) || (r.name || '').toLowerCase().includes(q))
+        : routes;
+      if (!filtered.length) {
+        container.innerHTML = '<span class="wizard-hint">No routes match.</span>';
+        return;
+      }
+      filtered.forEach(r => {
+        const b = document.createElement('button');
+        b.className = 'wizard-btn';
+        const label = r.name ? `Route ${r.id} — ${r.name}` : `Route ${r.id}`;
+        b.textContent = label;
+        b.addEventListener('click', () => {
+          WIZ.state.route = r.id;
+          pushStep(renderStepRoute);
+          if (WIZ.state.intent === 'schedule' && WIZ.state.stopId) {
+            fetchSchedule();
+          } else {
+            renderStepDirection();
+          }
+        });
+        container.appendChild(b);
       });
-      container.appendChild(b);
-    });
+    }
+
+    buildRouteButtons('');
+    w('wiz-route-filter').addEventListener('input', e => buildRouteButtons(e.target.value));
   } catch (e){
     container.innerHTML = 'Unable to load routes.';
   }
@@ -517,13 +544,14 @@ async function fetchSchedule(){
       body: JSON.stringify({ message }),
     });
     const data = await res.json();
-    let answer = data.answer || 'No response.';
-    // Add fallback note if coming from ETA with no real-time arrivals
+    // Escape the raw API response before any DOM insertion
+    let answer = escapeHtml(data.answer || 'No response.');
+    // Add fallback note (trusted HTML, added after escaping the API text)
     if (WIZ.state.etaFallback) {
       answer = '<div class="wizard-fallback-note"><span class="wiz-icon">📋</span> No real-time arrivals right now. Here are the next scheduled buses:</div>\n' + answer;
       WIZ.state.etaFallback = false;
     }
-    // Style exception notes if present
+    // Style exception notes (operates on escaped text, wraps in controlled span)
     answer = styleExceptionNotes(answer);
     if (data && data.buttons && data.buttons.length) {
       setOutputWithButtons(answer, data.buttons);

@@ -84,6 +84,41 @@
       "details": "schedule_service.parse_date and parse_time handle many edge cases (weekdays, tomorrow, 12am/pm, etc.) with no test coverage. agent_service intent extraction is similarly untested. A small pytest suite would catch regressions."
     },
     {
+      "id": "pending-wizard-xss",
+      "title": "Fix XSS: escape API answer before innerHTML in wizard.js",
+      "status": "completed",
+      "area": "Security",
+      "details": "fetchSchedule places the raw LLM answer string directly into innerHTML. Add escapeHtml() and escape the answer before DOM insertion; apply styleExceptionNotes and fallback note after escaping."
+    },
+    {
+      "id": "pending-wizard-remove-disabled-chat",
+      "title": "Remove disabled chat panel from wizard.html",
+      "status": "completed",
+      "area": "Frontend",
+      "details": "wizard.html has a grayed-out chat section below the working wizard. It signals 'broken' rather than 'coming soon'. Remove it; chat being in development phase is already communicated on /chat."
+    },
+    {
+      "id": "pending-wizard-route-names",
+      "title": "Show route names in wizard route selection buttons",
+      "status": "completed",
+      "area": "Frontend",
+      "details": "renderStepRoute shows only route numbers. /api/routes already returns r.name (e.g. 'Rosa Parks to Butler Plaza TS'). Display it so riders know which route to pick."
+    },
+    {
+      "id": "pending-wizard-route-filter",
+      "title": "Add route filter input to wizard route selection step",
+      "status": "completed",
+      "area": "Frontend",
+      "details": "With 20+ routes as buttons, mobile users have to scroll through a wall of options. Add a search/filter input above the route grid to narrow down by number or name."
+    },
+    {
+      "id": "pending-index-assistant-link",
+      "title": "Fix index.html assistant button to point to /wizard instead of /chat",
+      "status": "completed",
+      "area": "Frontend",
+      "details": "index.html:134 has 'Open RTS Assistant' linking to /chat, which is disabled. Points users to a dead-end. Change href to /wizard."
+    },
+    {
       "id": "pending-task-maintenance",
       "title": "Keep task inventory updated after each change",
       "status": "pending",

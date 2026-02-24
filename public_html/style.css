@@ -778,6 +778,21 @@ input[type="text"]:focus {
   font-size: 1rem;
 }
 
+.wiz-filter-input{
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  outline: none;
+}
+.wiz-filter-input:focus{
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37,99,235,.15);
+}
+
 .wizard-grid{
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
