@@ -244,6 +244,12 @@
       margin-top: 2px;
     }
 
+    .task-meta {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-top: 6px;
+    }
+
     .badge {
       border-radius: 999px;
       padding: 4px 9px;
@@ -417,7 +423,7 @@
             <button type="reset" class="btn">Clear</button>
             <button type="submit" class="btn primary">Add Task</button>
           </div>
-          <div class="form-note">Adds a task to `data/project_tasks.json` through the backend API.</div>
+          <div class="form-note">Adds a task through the backend API and stores manual tasks in SQLite.</div>
           <div id="formMessage"></div>
         </form>
         <div class="toolbar" id="toolbar">
@@ -487,6 +493,10 @@
         const blocker = task.blocker
           ? '<div class="task-blocker"><strong>Blocker:</strong> ' + escapeHtml(task.blocker) + '</div>'
           : "";
+        const meta = [];
+        if (task.source) meta.push(`source: ${task.source}`);
+        if (task.created_at) meta.push(`created: ${task.created_at}`);
+        const metaHtml = meta.length ? `<div class="task-meta">${escapeHtml(meta.join(" | "))}</div>` : "";
 
         return `
           <article class="task">
@@ -498,6 +508,7 @@
               <span class="badge ${status}">${status}</span>
             </div>
             <p class="task-details">${escapeHtml(task.details || "")}</p>
+            ${metaHtml}
             ${blocker}
           </article>
         `;
@@ -591,7 +602,8 @@
 
           form.reset();
           toggleBlockerField();
-          setFormMessage("success", "Task added successfully.");
+          const storageText = data.storage ? ` Stored in: ${data.storage}` : "";
+          setFormMessage("success", "Task added successfully." + storageText);
           await loadDashboard();
         } catch (err) {
           setFormMessage("error", "Failed to add task: " + (err.message || "Unknown error"));
@@ -615,6 +627,9 @@
         document.getElementById("projectGoal").textContent = data.summary?.goal || "Project task tracking dashboard";
         document.getElementById("metaLine").textContent =
           `Updated: ${data.updated_at || "unknown"}${data.note ? " | " + data.note : ""}`;
+        if (data.storage?.manual_tasks) {
+          document.getElementById("metaLine").textContent += ` | Manual task storage: ${data.storage.manual_tasks}`;
+        }
 
         renderSummary(state.tasks);
         renderTasks();

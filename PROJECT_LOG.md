@@ -27,4 +27,10 @@ How to use:
 - Type: `feature`
 - Summary: Added manual task creation from dashboard via `POST /api/project/tasks`.
 - Files/Areas: `routes/project_status.py`, `public_html/dashboard.html`
-- Notes / Follow-up: Current persistence writes to `data/project_tasks.json` on the server filesystem. On Render, this may be temporary across restarts/redeploys unless moved to a database/persistent store.
+- Notes / Follow-up: Followed by SQLite-backed storage for manual dashboard tasks. Set `PROJECT_TASKS_DB_PATH` to a persistent disk path on Render for redeploy-safe storage.
+
+### 2026-02-24
+- Type: `feature`
+- Summary: Switched manual dashboard task storage from JSON file writes to SQLite and merged manual tasks into dashboard API output.
+- Files/Areas: `routes/project_status.py`, `public_html/dashboard.html`
+- Notes / Follow-up: Default DB path is `data/project_tasks.sqlite`; override with `PROJECT_TASKS_DB_PATH` (recommended for Render persistent disk mount path).
