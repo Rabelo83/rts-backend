@@ -141,10 +141,10 @@
     {
       "id": "improve-stop-name-resolution",
       "title": "Fuzzy stop name resolution in agent (fix 'santa fe' type queries)",
-      "status": "pending",
+      "status": "completed",
       "area": "AI",
       "priority": "critical",
-      "details": "When a user says 'santa fe' or 'Walmart on 34th', the agent asks for a stop ID instead of resolving it. Need fuzzy matching against GTFS stop names (stop_name column) so natural landmark references resolve to stop_id. Approach: load stop names into memory at startup, score against user input using token overlap or embeddings, pass matched stop_id to existing ETA/schedule lookup."
+      "details": "Fixed 4 root causes: is_transit_keywords now catches 'next'/'when'/'leaving'/'depart'; transit gate also passes if message has a route number; prefer_schedule trigger fires on stop_name_hint/origin_hint; _gtfs_resolve_stop_name() added for LIKE+fuzzy_lookup scoped to route. Also: parse_time now handles 'morning'→06:00, 'afternoon'→12:00, 'evening'→17:00; history date/time context preserved when user clicks a stop button."
     },
     {
       "id": "fix-session-fragmentation",

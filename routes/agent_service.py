@@ -1194,9 +1194,14 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     msg_has_strong_context = _has_strong_context(msg)
     last_assistant = _last_assistant_message(history)
     direction_followup = _assistant_asked_direction(last_assistant) and not msg_has_strong_context
-    # If user provides a stop ID without a route, don't carry prior route context.
+    # If user provides a stop ID without a route, don't carry prior route context,
+    # BUT do carry date/time context from history (e.g., "tomorrow morning" from a prior turn).
     if extract_stop_id_regex(msg) and not extract_route_id_regex(msg):
-        msg_ctx = msg
+        prev = _last_user_with_context(history)
+        if prev and has_explicit_timeframe(prev):
+            msg_ctx = f"{msg} {prev}".strip()
+        else:
+            msg_ctx = msg
     elif direction_followup:
         prev = _last_user_with_context(history)
         if prev:

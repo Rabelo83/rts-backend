@@ -87,6 +87,13 @@ def parse_time(text):
         return "12:00:00"
     if "midnight" in text:
         return "00:00:00"
+    # Vague time-of-day words → anchor to start of that window
+    if "morning" in text or "mañana" in text or "madrugada" in text:
+        return "06:00:00"
+    if "afternoon" in text or "tarde" in text:
+        return "12:00:00"
+    if "evening" in text or "noche" in text or "night" in text:
+        return "17:00:00"
     m = re.search(r"\b(\d{1,2})(?::(\d{1,2}))?\s*(am|pm)\b", text)
     if not m:
         return None
