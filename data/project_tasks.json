@@ -62,6 +62,13 @@
       "details": "Dashboard page reads task status from JSON and shows completed/pending/blocked counts."
     },
     {
+      "id": "completed-chat-reactivated",
+      "title": "Re-enable chat assistant at /chat",
+      "status": "completed",
+      "area": "Frontend",
+      "details": "Replaced disabled placeholder in chat.html with real chat UI wired to chat_v2.js. Uses #chat-panel.standalone layout with 55vh message area, End Session button, language toggle, and full session/history management. /chat link restored to dashboard nav."
+    },
+    {
       "id": "completed-local-llm-setup",
       "title": "Add local LLM (Ollama) support for development testing",
       "status": "completed",
