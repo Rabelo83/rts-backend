@@ -1166,6 +1166,14 @@ function isSessionMessage(text) {
          text === es.session_cleared || text === es.session_expired;
 }
 
+function isGreetingMessage(text) {
+  if (!text) return false;
+  const en = TRANSLATIONS.en;
+  const es = TRANSLATIONS.es;
+  const keys = ['greeting_morning', 'greeting_afternoon', 'greeting_evening', 'greeting_night'];
+  return keys.some(k => text.startsWith(en[k]) || text.startsWith(es[k]));
+}
+
 function formatDirectionLabel(raw) {
   if (!raw) return '';
   const text = String(raw).replace(/\s+/g, ' ').trim();
@@ -1330,25 +1338,20 @@ window.addEventListener('DOMContentLoaded', () => {
   // Load state from localStorage
   loadState();
 
-  // Restore history
+  // Strip stale greeting messages so they don't accumulate across sessions
+  AppState.chatHistory = AppState.chatHistory.filter(m => !isGreetingMessage(m.content));
+
+  // Restore history (without greetings — a fresh one is shown below)
   if (AppState.chatHistory.length > 0) {
     AppState.chatHistory.forEach((m) => {
       if (!isSessionMessage(m.content)) {
         appendBubble(m.content, m.role === 'user' ? 'user' : 'bot');
       }
     });
-
-    // Resume wizard if it was active
-    if (AppState.wizardActive) {
-      // Could restore wizard state, but for now just show greeting
-      startGreeting();
-    } else {
-      showIntentSelection();
-    }
-  } else {
-    // Fresh start
-    startGreeting();
   }
+
+  // Always show a fresh greeting
+  startGreeting();
 
   // Event listeners
   sendBtn.addEventListener('click', sendMessage);

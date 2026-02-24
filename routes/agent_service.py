@@ -1214,12 +1214,13 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         msg_ctx = (ctx + " " + msg).strip()
     else:
         if msg_has_strong_context:
-            prev = _last_user_with_context(history) or ctx
             lacks_route = not extract_route_id_regex(msg)
             lacks_stop = not extract_stop_id_regex(msg)
             lacks_place = not guess_destination_hint(msg)
-            if prev and (lacks_route and lacks_stop and lacks_place):
-                msg_ctx = f"{msg} {prev}".strip()
+            if lacks_route and lacks_stop and lacks_place and ctx:
+                # Pure follow-up (e.g. "after 7am?"): merge with full user history
+                # to carry forward route/stop/place context from earlier turns
+                msg_ctx = f"{msg} {ctx}".strip()
             else:
                 msg_ctx = msg
         else:

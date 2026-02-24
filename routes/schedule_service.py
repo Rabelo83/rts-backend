@@ -87,6 +87,20 @@ def parse_time(text):
         return "12:00:00"
     if "midnight" in text:
         return "00:00:00"
+    # Explicit times first (e.g. "7am", "3:30pm") — takes priority over vague words
+    m = re.search(r"\b(\d{1,2})(?::(\d{1,2}))?\s*(am|pm)\b", text)
+    if m:
+        hour = int(m.group(1))
+        minute_raw = m.group(2) or "0"
+        if len(minute_raw) == 1:
+            minute_raw = minute_raw.zfill(2)
+        minute = int(minute_raw)
+        ampm = m.group(3)
+        if ampm == "pm" and hour != 12:
+            hour += 12
+        if ampm == "am" and hour == 12:
+            hour = 0
+        return f"{hour:02d}:{minute:02d}:00"
     # Vague time-of-day words → anchor to start of that window
     if "morning" in text or "mañana" in text or "madrugada" in text:
         return "06:00:00"
@@ -94,20 +108,7 @@ def parse_time(text):
         return "12:00:00"
     if "evening" in text or "noche" in text or "night" in text:
         return "17:00:00"
-    m = re.search(r"\b(\d{1,2})(?::(\d{1,2}))?\s*(am|pm)\b", text)
-    if not m:
-        return None
-    hour = int(m.group(1))
-    minute_raw = m.group(2) or "0"
-    if len(minute_raw) == 1:
-        minute_raw = minute_raw.zfill(2)
-    minute = int(minute_raw)
-    ampm = m.group(3)
-    if ampm == "pm" and hour != 12:
-        hour += 12
-    if ampm == "am" and hour == 12:
-        hour = 0
-    return f"{hour:02d}:{minute:02d}:00"
+    return None
 
 
 def extract_stop_term(text):
