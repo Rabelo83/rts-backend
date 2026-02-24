@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
   "updated_at": "2026-02-28",
-  "note": "Quick-win batch complete: webqa OPENAI_BASE_URL fix, Gunicorn single-worker + timeout, rate limiting (Flask-Limiter 30 req/hr), input validation (1000 char cap, UUID session check).",
+  "note": "Session 3 complete: security quick-wins (rate limit, input validation, Gunicorn), stop name resolution (santa fe type queries now work), date/time parsing (morning/afternoon/evening), chat wizard button removal. Chat is now free-form; disambiguation buttons still appear mid-conversation.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -67,6 +67,20 @@
       "status": "completed",
       "area": "Frontend",
       "details": "Replaced disabled placeholder in chat.html with real chat UI wired to chat_v2.js. Uses #chat-panel.standalone layout with 55vh message area, End Session button, language toggle, and full session/history management. /chat link restored to dashboard nav."
+    },
+    {
+      "id": "completed-chat-free-form",
+      "title": "Remove wizard intent buttons from chat initial greeting",
+      "status": "completed",
+      "area": "Frontend",
+      "details": "Chat was showing 'When is my next bus?' / 'View bus schedule' wizard buttons at startup, launching the full guided wizard flow. Removed showIntentSelection() call from startGreeting() in chat_v2.js. Chat is now free-form: user types naturally, AI responds, disambiguation buttons (stop selection, etc.) still appear mid-conversation when needed."
+    },
+    {
+      "id": "completed-datetime-parsing",
+      "title": "Fix date/time parsing: morning/afternoon/evening + history context on button click",
+      "status": "completed",
+      "area": "Backend",
+      "details": "schedule_service.parse_time now maps 'morning'→06:00, 'afternoon'→12:00, 'evening'→17:00 (previously fell back to current clock time). agent_service now carries date/time context from history when user replies with just a stop ID (e.g. clicking a disambiguation button), so 'tomorrow morning' survives the button-click turn."
     },
     {
       "id": "completed-local-llm-setup",
