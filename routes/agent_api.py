@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 import os
+import re
 import sqlite3
 import json
 import time
@@ -12,6 +13,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "utils"))
 
 from session_manager import session_manager
 from api_schemas import ErrorCode
+from limiter import limiter
+
+MAX_MSG_LEN = 1000
+# Allow UUID v4 session IDs only (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+_UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
 
 # This MUST exist in routes/agent_service.py
 from routes.agent_service import handle_agent_message
@@ -112,6 +118,7 @@ def _log_analytics(entry: dict) -> None:
 # No need for manual pruning, session_manager handles it automatically
 
 @bp.route("/api/agent", methods=["GET", "POST"])
+@limiter.limit(os.getenv("RATE_LIMIT", "30 per hour"))
 def api_agent():
     # If you open /api/agent in a browser, it's a GET request.
     # Returning a helpful JSON avoids "Method Not Allowed".
@@ -127,14 +134,25 @@ def api_agent():
 
     payload = request.get_json(silent=True) or {}
     msg = (payload.get("message") or "").strip()
+    # Strip ASCII control characters (except tab/newline which are fine in messages)
+    msg = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', msg)
     history = payload.get("history") or payload.get("messages") or []
-    session_id = (payload.get("session_id") or payload.get("session") or "").strip()
+    raw_sid = (payload.get("session_id") or payload.get("session") or "").strip()
+    # Only accept well-formed UUID session IDs; discard anything else
+    session_id = raw_sid if _UUID_RE.match(raw_sid) else ""
 
     if not msg:
         return jsonify({
             "error": True,
             "error_code": ErrorCode.MISSING_PARAMETER,
             "error_message": "message parameter is required"
+        }), 400
+
+    if len(msg) > MAX_MSG_LEN:
+        return jsonify({
+            "error": True,
+            "error_code": ErrorCode.MISSING_PARAMETER,
+            "error_message": f"Message too long (max {MAX_MSG_LEN} characters)"
         }), 400
 
     # Handle session management

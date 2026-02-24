@@ -1,6 +1,11 @@
 import os
+import sys
+from pathlib import Path
 from flask import Flask, send_from_directory
 from flask_cors import CORS
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "utils"))
+from limiter import limiter  # noqa: E402
 
 # Blueprints (your split routes)
 from routes.health import health_bp
@@ -21,6 +26,7 @@ def create_app() -> Flask:
     app = Flask(__name__, static_folder="public_html", static_url_path="/static")
     _origins = os.environ.get("CORS_ORIGINS", "*")
     CORS(app, origins=_origins.split(",") if _origins != "*" else "*")
+    limiter.init_app(app)
 
     # Register routes
     app.register_blueprint(health_bp)     # /api/health

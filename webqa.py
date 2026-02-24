@@ -143,7 +143,11 @@ def answer(question: str, max_chars_per_doc: int = 1800) -> tuple[str, list[str]
     Returns a natural-language answer using snippets from am2ar/go-rts.
     """
     from openai import OpenAI
-    client = OpenAI()  # uses OPENAI_API_KEY from env
+    _client_kwargs: dict = {"api_key": os.getenv("OPENAI_API_KEY", "")}
+    _base_url = os.getenv("OPENAI_BASE_URL", "").strip()
+    if _base_url:
+        _client_kwargs["base_url"] = _base_url
+    client = OpenAI(**_client_kwargs)
 
     top_docs = _top_k(question, k=3)
     if not top_docs:

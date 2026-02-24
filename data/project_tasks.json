@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
-  "updated_at": "2026-02-27",
-  "note": "Task inventory updated after reliability fixes (analytics SQLite, webqa fallback, session timeout, CORS). Three code-quality improvements pending.",
+  "updated_at": "2026-02-28",
+  "note": "Quick-win batch complete: webqa OPENAI_BASE_URL fix, Gunicorn single-worker + timeout, rate limiting (Flask-Limiter 30 req/hr), input validation (1000 char cap, UUID session check).",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -157,10 +157,10 @@
     {
       "id": "add-rate-limiting",
       "title": "Add rate limiting to /api/agent to prevent API cost abuse",
-      "status": "pending",
+      "status": "completed",
       "area": "Security",
       "priority": "critical",
-      "details": "No rate limiting on /api/agent. Each request can fire up to 4 OpenAI calls. One user or bot can drain API quota. Add Flask-Limiter: 30 requests/hour per IP (configurable via env var). Return 429 with a clear message when limit hit."
+      "details": "Flask-Limiter added (requirements.txt). utils/limiter.py holds shared instance. limiter.init_app(app) called in app factory. /api/agent decorated with @limiter.limit('30 per hour') (configurable via RATE_LIMIT env var). Returns 429 on breach."
     },
     {
       "id": "set-cors-origins-render",
@@ -173,10 +173,10 @@
     {
       "id": "fix-webqa-hardcoded-model",
       "title": "Fix webqa.py hardcoded gpt-4o-mini (ignores OPENAI_MODEL env var)",
-      "status": "pending",
+      "status": "completed",
       "area": "Backend",
       "priority": "high",
-      "details": "webqa.py line 20 hardcodes model='gpt-4o-mini' instead of reading os.getenv('OPENAI_MODEL', 'gpt-4o-mini'). When OPENAI_BASE_URL points to Ollama locally, webqa still calls OpenAI directly. One-line fix."
+      "details": "webqa.py answer() now builds its OpenAI client with OPENAI_BASE_URL and OPENAI_API_KEY from env, matching the agent_service pattern. OPENAI_MODEL already read from env at module level."
     },
     {
       "id": "add-openai-retry-logic",
@@ -197,18 +197,18 @@
     {
       "id": "add-input-validation",
       "title": "Add input length and content validation to /api/agent",
-      "status": "pending",
+      "status": "completed",
       "area": "Security",
       "priority": "high",
-      "details": "The 'message' field has no length limit. A 50k-character message would hit OpenAI token limits and possibly crash. Add: max 1000 characters, strip control characters, return 400 with clear error if invalid. Also validate session_id format."
+      "details": "agent_api.py now strips ASCII control chars from message, enforces 1000-char max (returns 400 on breach), and validates session_id against UUID v4 regex — rejects non-UUID values rather than crashing."
     },
     {
       "id": "gunicorn-single-worker-fix",
       "title": "Configure Gunicorn workers in render.yaml to avoid session loss",
-      "status": "pending",
+      "status": "completed",
       "area": "Ops",
       "priority": "high",
-      "details": "render.yaml startCommand should specify --workers 1 until sessions are moved to a shared store. Multiple workers with in-memory sessions cause users to lose conversation context mid-session. Also set --timeout 120 to handle slow LLM responses."
+      "details": "render.yaml startCommand updated to 'gunicorn server:app --workers 1 --timeout 120'. Single worker ensures in-memory SessionManager is consistent. 120s timeout prevents Gunicorn killing slow LLM responses."
     },
     {
       "id": "improve-gtfs-stop-fuzzy-match",

@@ -5,7 +5,7 @@ services:
     plan: free
     # Build installs deps AND builds the GTFS SQLite schedule DB
     buildCommand: pip install -r requirements.txt && python "Backend Basics/db/build_gtfs_db.py"
-    startCommand: gunicorn server:app
+    startCommand: gunicorn server:app --workers 1 --timeout 120
     envVars:
       - key: BUS_API_KEY
         # set the value in the Render dashboard later, do not hardcode here
