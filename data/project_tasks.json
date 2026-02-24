@@ -1,0 +1,117 @@
+{
+  "project": "RTS Backend + Web Assistant",
+  "updated_at": "2026-02-24",
+  "note": "Initial task inventory inferred from the current repository contents. Update items as work progresses.",
+  "summary": {
+    "goal": "Deliver a stable Gainesville RTS backend with realtime bus info, schedule support, and a user-facing web assistant/dashboard."
+  },
+  "tasks": [
+    {
+      "id": "done-core-flask-app",
+      "title": "Set up Flask backend application and deployment entrypoints",
+      "status": "completed",
+      "area": "Backend",
+      "details": "Created app factory, server entrypoint, and static file hosting for web UI pages."
+    },
+    {
+      "id": "done-bustime-routes",
+      "title": "Implement RTS BusTime API integration routes",
+      "status": "completed",
+      "area": "Backend",
+      "details": "Backend exposes realtime routes/predictions endpoints through route blueprints and service modules."
+    },
+    {
+      "id": "done-health-monitoring",
+      "title": "Add health endpoint with cache/session status checks",
+      "status": "completed",
+      "area": "Ops",
+      "details": "Health endpoint reports service status, BusTime reachability, backend basics availability, and cache/session stats."
+    },
+    {
+      "id": "done-web-ui",
+      "title": "Create main tracker UI, chat page, and wizard page",
+      "status": "completed",
+      "area": "Frontend",
+      "details": "Static pages in public_html include main interface, standalone chat, and wizard workflow."
+    },
+    {
+      "id": "done-ai-assistant",
+      "title": "Integrate AI assistant API and web indexing endpoints",
+      "status": "completed",
+      "area": "AI",
+      "details": "Added agent and web indexing/search/ask endpoints for assistant functionality."
+    },
+    {
+      "id": "done-deployment-config",
+      "title": "Prepare Render deployment configuration and docs",
+      "status": "completed",
+      "area": "Ops",
+      "details": "Repository includes render.yaml, README, deployment notes, SOP, and implementation summary docs."
+    },
+    {
+      "id": "done-dashboard-foundation",
+      "title": "Add project task dashboard page and task API",
+      "status": "completed",
+      "area": "Project Management",
+      "details": "Dashboard page reads task status from JSON and shows completed/pending/blocked counts."
+    },
+    {
+      "id": "pending-task-maintenance",
+      "title": "Keep task inventory updated after each change",
+      "status": "pending",
+      "area": "Project Management",
+      "details": "Review and update TASKS.md and project_tasks.json whenever a feature is finished or scope changes."
+    },
+    {
+      "id": "pending-tests",
+      "title": "Add/expand automated tests for routes and services",
+      "status": "pending",
+      "area": "Quality",
+      "details": "Add unit/integration tests for API routes, service behavior, and edge cases before major rollout."
+    },
+    {
+      "id": "pending-auth-admin",
+      "title": "Protect admin/project dashboard endpoints if needed",
+      "status": "pending",
+      "area": "Security",
+      "details": "Decide whether /dashboard and project status APIs should be public or require a token/auth guard."
+    },
+    {
+      "id": "pending-observability",
+      "title": "Add error logging and production monitoring improvements",
+      "status": "pending",
+      "area": "Ops",
+      "details": "Centralize structured logs and alerting for API failures, timeouts, and dependency outages."
+    },
+    {
+      "id": "pending-data-refresh",
+      "title": "Define repeatable GTFS/schedule data refresh workflow",
+      "status": "pending",
+      "area": "Data",
+      "details": "Document and automate schedule ingest/rebuild process for semester/service changes."
+    },
+    {
+      "id": "blocked-bustime-reliability",
+      "title": "Realtime reliability depends on external RTS BusTime API uptime",
+      "status": "blocked",
+      "area": "Dependency",
+      "details": "Intermittent provider/API outages can degrade predictions; mitigation is caching and fallback messaging.",
+      "blocker": "External third-party/API availability"
+    },
+    {
+      "id": "blocked-requirements-clarity",
+      "title": "Finalize acceptance criteria for production-ready completion",
+      "status": "blocked",
+      "area": "Project Management",
+      "details": "Need final definition of done (features, QA, uptime, security, and stakeholder signoff) to close the project.",
+      "blocker": "Stakeholder decisions / scope confirmation"
+    },
+    {
+      "id": "next-release-checklist",
+      "title": "Run pre-release validation on Render deployment",
+      "status": "next",
+      "area": "Release",
+      "details": "Verify health endpoint, main UI, chat, wizard, schedule flows, and dashboard after deploy."
+    }
+  ]
+}

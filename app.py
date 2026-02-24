@@ -7,6 +7,7 @@ from routes.health import health_bp
 from routes.bustime import bustime_bp
 from routes.agent_api import bp as agent_bp
 from routes.schedule_api import schedule_bp
+from routes.project_status import project_status_bp
 
 # If you have web index routes, keep this import.
 # If the file doesn't exist or you don't want it right now, you can delete these 2 lines.
@@ -26,6 +27,7 @@ def create_app() -> Flask:
     app.register_blueprint(bustime_bp)    # /api/routes, /api/predictions, etc.
     app.register_blueprint(agent_bp)      # /api/agent
     app.register_blueprint(schedule_bp)   # /api/schedule/debug (optional)
+    app.register_blueprint(project_status_bp)  # /api/project/tasks
 
     if web_index_bp:
         app.register_blueprint(web_index_bp)
@@ -41,6 +43,10 @@ def create_app() -> Flask:
     @app.route("/wizard")
     def wizard():
         return send_from_directory(app.static_folder, "wizard.html")
+
+    @app.route("/dashboard")
+    def dashboard():
+        return send_from_directory(app.static_folder, "dashboard.html")
 
     return app
 

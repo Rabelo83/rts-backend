@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RTS Project Dashboard</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap");
+
+    :root {
+      --bg: #edf3f8;
+      --card: #ffffff;
+      --line: #d7e1ec;
+      --text: #0f172a;
+      --muted: #5b667a;
+      --accent: #0ea5e9;
+      --ok: #16a34a;
+      --warn: #d97706;
+      --block: #dc2626;
+      --next: #7c3aed;
+      --pending: #2563eb;
+      --shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 0% 0%, rgba(14, 165, 233, 0.12), transparent 45%),
+        radial-gradient(circle at 100% 0%, rgba(124, 58, 237, 0.08), transparent 35%),
+        var(--bg);
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #0f172a, #1e3a8a 65%, #0ea5e9);
+      color: #fff;
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.6rem;
+    }
+
+    .hero p {
+      margin: 8px 0 0;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .meta {
+      margin-top: 10px;
+      font-size: 0.9rem;
+      color: rgba(255, 255, 255, 0.82);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .stat {
+      padding: 14px;
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin: 0 0 8px;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .stat.completed .stat-value { color: var(--ok); }
+    .stat.pending .stat-value { color: var(--pending); }
+    .stat.blocked .stat-value { color: var(--block); }
+    .stat.next .stat-value { color: var(--next); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel {
+      padding: 14px;
+    }
+
+    .panel h2 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    button.filter {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button.filter.active {
+      border-color: var(--accent);
+      color: #0369a1;
+      background: rgba(14, 165, 233, 0.08);
+    }
+
+    .task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .task {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .task-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .task-title {
+      margin: 0;
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    .task-area {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-top: 2px;
+    }
+
+    .badge {
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      white-space: nowrap;
+      border: 1px solid transparent;
+      text-transform: capitalize;
+    }
+
+    .badge.completed { color: #166534; background: #dcfce7; border-color: #bbf7d0; }
+    .badge.pending { color: #1d4ed8; background: #dbeafe; border-color: #bfdbfe; }
+    .badge.blocked { color: #991b1b; background: #fee2e2; border-color: #fecaca; }
+    .badge.next { color: #6d28d9; background: #ede9fe; border-color: #ddd6fe; }
+
+    .task-details {
+      margin: 8px 0 0;
+      color: #334155;
+      font-size: 0.88rem;
+    }
+
+    .task-blocker {
+      margin-top: 8px;
+      font-size: 0.82rem;
+      color: #7f1d1d;
+      background: #fff1f2;
+      border: 1px solid #ffe4e6;
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+
+    .group-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .group {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+
+    .group strong {
+      display: block;
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+    }
+
+    .group ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #334155;
+      font-size: 0.88rem;
+    }
+
+    .error {
+      color: #991b1b;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .empty {
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      background: #f8fbff;
+    }
+
+    @media (max-width: 980px) {
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero h1 {
+        font-size: 1.35rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1 id="projectTitle">RTS Project Dashboard</h1>
+      <p id="projectGoal">Loading project summary...</p>
+      <div class="meta" id="metaLine">Loading...</div>
+    </section>
+
+    <section class="summary-grid" id="summaryGrid">
+      <div class="card stat">
+        <p class="stat-label">Total Tasks</p>
+        <div class="stat-value" id="totalCount">-</div>
+      </div>
+      <div class="card stat completed">
+        <p class="stat-label">Completed</p>
+        <div class="stat-value" id="completedCount">-</div>
+      </div>
+      <div class="card stat pending">
+        <p class="stat-label">Pending</p>
+        <div class="stat-value" id="pendingCount">-</div>
+      </div>
+      <div class="card stat blocked">
+        <p class="stat-label">Blocked</p>
+        <div class="stat-value" id="blockedCount">-</div>
+      </div>
+      <div class="card stat next">
+        <p class="stat-label">Next</p>
+        <div class="stat-value" id="nextCount">-</div>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="card panel">
+        <h2>Tasks</h2>
+        <div class="toolbar" id="toolbar">
+          <button class="filter active" data-filter="all">All</button>
+          <button class="filter" data-filter="completed">Completed</button>
+          <button class="filter" data-filter="pending">Pending</button>
+          <button class="filter" data-filter="blocked">Blocked</button>
+          <button class="filter" data-filter="next">Next</button>
+        </div>
+        <div id="taskList" class="task-list"></div>
+      </div>
+
+      <div class="card panel">
+        <h2>Status Groups</h2>
+        <div id="groups" class="group-list"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const state = { tasks: [], filter: "all" };
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function normalizeStatus(status) {
+      return ["completed", "pending", "blocked", "next"].includes(status) ? status : "pending";
+    }
+
+    function counts(tasks) {
+      const result = { total: tasks.length, completed: 0, pending: 0, blocked: 0, next: 0 };
+      for (const task of tasks) {
+        const s = normalizeStatus(task.status);
+        if (result[s] !== undefined) result[s] += 1;
+      }
+      return result;
+    }
+
+    function renderSummary(tasks) {
+      const c = counts(tasks);
+      document.getElementById("totalCount").textContent = c.total;
+      document.getElementById("completedCount").textContent = c.completed;
+      document.getElementById("pendingCount").textContent = c.pending;
+      document.getElementById("blockedCount").textContent = c.blocked;
+      document.getElementById("nextCount").textContent = c.next;
+    }
+
+    function renderTasks() {
+      const list = document.getElementById("taskList");
+      const tasks = state.filter === "all"
+        ? state.tasks
+        : state.tasks.filter(t => normalizeStatus(t.status) === state.filter);
+
+      if (!tasks.length) {
+        list.innerHTML = '<div class="empty">No tasks in this filter.</div>';
+        return;
+      }
+
+      list.innerHTML = tasks.map(task => {
+        const status = normalizeStatus(task.status);
+        const blocker = task.blocker
+          ? '<div class="task-blocker"><strong>Blocker:</strong> ' + escapeHtml(task.blocker) + '</div>'
+          : "";
+
+        return `
+          <article class="task">
+            <div class="task-header">
+              <div>
+                <p class="task-title">${escapeHtml(task.title)}</p>
+                <div class="task-area">${escapeHtml(task.area || "General")}</div>
+              </div>
+              <span class="badge ${status}">${status}</span>
+            </div>
+            <p class="task-details">${escapeHtml(task.details || "")}</p>
+            ${blocker}
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderGroups() {
+      const groups = document.getElementById("groups");
+      const statuses = ["completed", "pending", "blocked", "next"];
+
+      groups.innerHTML = statuses.map(status => {
+        const items = state.tasks.filter(t => normalizeStatus(t.status) === status);
+        const li = items.length
+          ? items.map(i => `<li>${escapeHtml(i.title)}</li>`).join("")
+          : "<li>None</li>";
+        return `
+          <section class="group">
+            <strong>${status[0].toUpperCase() + status.slice(1)} (${items.length})</strong>
+            <ul>${li}</ul>
+          </section>
+        `;
+      }).join("");
+    }
+
+    function bindFilters() {
+      const buttons = Array.from(document.querySelectorAll("button.filter"));
+      for (const btn of buttons) {
+        btn.addEventListener("click", () => {
+          state.filter = btn.dataset.filter || "all";
+          for (const b of buttons) b.classList.remove("active");
+          btn.classList.add("active");
+          renderTasks();
+        });
+      }
+    }
+
+    async function loadDashboard() {
+      const taskList = document.getElementById("taskList");
+      taskList.innerHTML = '<div class="empty">Loading tasks...</div>';
+
+      try {
+        const res = await fetch("/api/project/tasks", { headers: { "Accept": "application/json" } });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+
+        document.getElementById("projectTitle").textContent = data.project || "RTS Project Dashboard";
+        document.getElementById("projectGoal").textContent = data.summary?.goal || "Project task tracking dashboard";
+        document.getElementById("metaLine").textContent =
+          `Updated: ${data.updated_at || "unknown"}${data.note ? " | " + data.note : ""}`;
+
+        renderSummary(state.tasks);
+        renderTasks();
+        renderGroups();
+      } catch (err) {
+        taskList.innerHTML = `<div class="error">Failed to load tasks: ${escapeHtml(err.message)}</div>`;
+        document.getElementById("groups").innerHTML = "";
+      }
+    }
+
+    bindFilters();
+    loadDashboard();
+  </script>
+</body>
+</html>
