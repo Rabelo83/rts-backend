@@ -303,12 +303,13 @@ def humanize_answer(text: str, lang: str) -> str:
 def is_transit_keywords(text: str) -> bool:
     t = (text or "").lower()
     keywords = [
-        "eta", "next bus", "bus", "route", "rt", "stop",
+        "eta", "next bus", "next", "bus", "route", "rt", "stop",
         "minutes", "mins", "min", "arrive", "arrival", "prediction", "predictions",
         "schedule", "sched", "schedual", "timetable", "first bus", "last bus",
+        "when", "leaving", "depart", "departure", "heading",
         # Spanish
         "parada", "ruta", "horario", "llega", "llegada", "cuantos minutos", "tiempo real",
-        "ubicacion", "ubicación", "mañana",
+        "ubicacion", "ubicación", "mañana", "cuando", "cuándo", "sale", "salida",
     ]
     return any(k in t for k in keywords)
 
@@ -968,6 +969,72 @@ def suggest_stops_by_route(route_id: str, message: str, limit: int = 8) -> list[
     return [s for _, s in scored[:limit]]
 
 
+def _gtfs_resolve_stop_name(route_id: str, stop_name: str) -> dict | None:
+    """
+    Resolve a textual stop name to a stop_id using GTFS data.
+    Returns:
+      {'stop_id': '0520', 'stop_name': 'Santa Fe'}        — single match, use directly
+      {'candidates': [{'stop_id':..., 'stop_name':...}]}  — ambiguous, offer buttons
+      None                                                  — no match
+    """
+    if not route_id or not stop_name:
+        return None
+    if not GTFS_DB_PATH.exists():
+        return None
+    try:
+        import sqlite3 as _sqlite3
+        conn = _sqlite3.connect(str(GTFS_DB_PATH))
+        conn.row_factory = _sqlite3.Row
+        try:
+            # 1. LIKE search scoped to the route
+            rows = conn.execute(
+                """
+                SELECT DISTINCT s.stop_id_padded, s.stop_name
+                FROM stops s
+                JOIN stop_times st ON st.stop_id = s.stop_id
+                JOIN trips t ON t.trip_id = st.trip_id
+                JOIN routes r ON r.route_id = t.route_id
+                WHERE TRIM(r.route_short_name) = ?
+                  AND LOWER(TRIM(s.stop_name)) LIKE LOWER(?)
+                ORDER BY length(s.stop_name), s.stop_name
+                """,
+                (str(route_id), f"%{stop_name.strip()}%"),
+            ).fetchall()
+            if len(rows) == 1:
+                return {"stop_id": rows[0]["stop_id_padded"], "stop_name": rows[0]["stop_name"]}
+            if len(rows) > 1:
+                return {"candidates": [{"stop_id": r["stop_id_padded"], "stop_name": r["stop_name"]} for r in rows[:5]]}
+
+            # 2. Fuzzy token search via fuzzy_lookup table
+            norm = stop_name.lower().strip()
+            pattern = "%" + "%".join(norm.split()) + "%"
+            rows2 = conn.execute(
+                """
+                SELECT DISTINCT s.stop_id_padded, s.stop_name
+                FROM fuzzy_lookup f
+                JOIN stops s ON s.stop_id = f.entity_id
+                JOIN stop_times st ON st.stop_id = s.stop_id
+                JOIN trips t ON t.trip_id = st.trip_id
+                JOIN routes r ON r.route_id = t.route_id
+                WHERE f.entity_type = 'stop'
+                  AND f.normalized LIKE ?
+                  AND TRIM(r.route_short_name) = ?
+                ORDER BY length(s.stop_name), s.stop_name
+                """,
+                (pattern, str(route_id)),
+            ).fetchall()
+            if len(rows2) == 1:
+                return {"stop_id": rows2[0]["stop_id_padded"], "stop_name": rows2[0]["stop_name"]}
+            if len(rows2) > 1:
+                return {"candidates": [{"stop_id": r["stop_id_padded"], "stop_name": r["stop_name"]} for r in rows2[:5]]}
+
+            return None
+        finally:
+            conn.close()
+    except Exception:
+        return None
+
+
 def fmt_stop_list(lang: str, title: str, candidates: list[dict]) -> str:
     lines = []
     for c in candidates:
@@ -1280,7 +1347,9 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 "sources": [{"type": "clarify_number"}],
             })
 
-    if not is_transit_keywords(msg_ctx):
+    # Pass through if: transit keyword present OR message contains a route/stop number
+    # This catches natural-language queries like "when does the next 43 leave santa fe?"
+    if not is_transit_keywords(msg_ctx) and not extract_route_id_regex(msg_ctx) and not extract_stop_id_regex(msg_ctx):
         return None
 
     # Option 3 (Hybrid): ALWAYS use LLM extraction with full conversation history
@@ -1354,8 +1423,10 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     has_time = bool(timeframe_hint) or has_explicit_timeframe(msg_ctx)
     prefer_schedule = has_time or (intent == "schedule") or (wants_schedule(msg_ctx) and not wants_realtime(msg_ctx))
 
-    # If user asks for "next" with a route + landmark, prefer schedule (no stop_id yet)
-    if not prefer_schedule and route_id and destination_hint and not stop_id and _has_next_intent(msg_ctx) and not wants_realtime(msg_ctx):
+    # If user asks for "next" with a route + any place hint, prefer schedule (no stop_id yet)
+    # Catches: "when the next 43 will be at santa fe?" where stop_name_hint/origin_hint is "santa fe"
+    _has_place = bool(destination_hint or stop_name_hint or origin_hint)
+    if not prefer_schedule and route_id and _has_place and not stop_id and _has_next_intent(msg_ctx) and not wants_realtime(msg_ctx):
         prefer_schedule = True
 
     wants_first = "first" in msg_ctx.lower()
@@ -1468,7 +1539,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     # Schedule questions (deterministic, direct DB)
     if prefer_schedule and schedule_service and route_id:
         kind = "first" if wants_first else ("last" if wants_last else "next")
-        stop_name = None if direction_followup else (stop_name_hint or destination_hint or None)
+        stop_name = None if direction_followup else (stop_name_hint or destination_hint or origin_hint or None)
         data = get_schedule_cached(route_id, msg_ctx, stop_id=stop_id, stop_name=stop_name, kind=kind)
         if data.get("error") == "multiple_stops":
             cands = data.get("candidates") or []
@@ -1739,6 +1810,27 @@ def try_transit_answer(message: str, history=None) -> dict | None:
 
     # If stop_id missing (ETA flow only):
     if not prefer_schedule and not stop_id:
+        # Try GTFS lookup first using the stop name hint from LLM or origin/destination hints
+        _stop_name_for_gtfs = stop_name_hint or origin_hint or destination_hint
+        if route_id and _stop_name_for_gtfs:
+            _gtfs = _gtfs_resolve_stop_name(route_id, _stop_name_for_gtfs)
+            if _gtfs and "stop_id" in _gtfs:
+                stop_id = _gtfs["stop_id"]
+            elif _gtfs and "candidates" in _gtfs:
+                buttons = [
+                    {"label": f"Stop {c['stop_id']} - {c['stop_name'][:40]}", "action": f"ETA stop {c['stop_id']}"}
+                    for c in _gtfs["candidates"][:3]
+                ]
+                return _with_meta({
+                    "answer": tmsg(
+                        lang,
+                        f"Multiple stops match '{_stop_name_for_gtfs}' on Route {route_id}. Which one?",
+                        f"Varias paradas coinciden con '{_stop_name_for_gtfs}' en la Ruta {route_id}. ¿Cuál?",
+                    ),
+                    "buttons": buttons,
+                    "sources": [{"type": "stop_suggestions_gtfs", "route_id": route_id}],
+                })
+
         if route_id:
             candidates = suggest_stops_by_route(route_id, (destination_hint + " " + msg).strip(), limit=8)
 
