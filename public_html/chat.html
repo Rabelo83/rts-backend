@@ -5,9 +5,30 @@
   <title>RTS Live Assistant</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="/static/style.css?v=30" />
+  <style>
+    #chat-messages {
+      height: 55vh;
+      min-height: 280px;
+    }
+    .chat-end-row {
+      text-align: right;
+      padding: 6px 10px 0;
+    }
+    #chat-end {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    #chat-end:hover { color: #ef4444; background: #fff1f2; }
+  </style>
 </head>
 <body class="chat-standalone">
-  <!-- Language Toggle Button -->
+
+  <!-- Language Toggle -->
   <button class="language-toggle" onclick="toggleLanguage()" aria-label="Toggle language">
     <span id="lang-label">EN / ES</span>
   </button>
@@ -23,19 +44,23 @@
   </header>
 
   <main class="chat-alone-main">
-    <section class="chat-panel-disabled" aria-labelledby="chat-disabled-title">
-      <div class="chat-disabled-header">
-        <div>
-          <h3 id="chat-disabled-title">RTS Chat (Development Phase)</h3>
-          <p>This chat experience is in development phase and temporarily disabled.</p>
-          <p class="chat-disabled-note">Use the RTS Trip Wizard at /wizard.</p>
-        </div>
+    <div id="chat-panel" class="open standalone">
+      <div id="chat-messages" aria-live="polite" aria-label="Chat messages"></div>
+      <div class="chat-end-row">
+        <button id="chat-end" type="button" title="End session">End session</button>
       </div>
-      <div class="chat-disabled-body">
-        <textarea disabled placeholder="Chat is in development phase. Use /wizard for now."></textarea>
-        <button disabled type="button">Send</button>
+      <div id="chat-input-row">
+        <textarea
+          id="chat-input"
+          placeholder="Ask about routes, ETAs, or schedules…"
+          aria-label="Your message"
+          rows="2"
+        ></textarea>
+        <button id="chat-send" type="button">Send</button>
       </div>
-    </section>
+    </div>
   </main>
+
+  <script src="/static/chat_v2.js?v=1" defer></script>
 </body>
 </html>
