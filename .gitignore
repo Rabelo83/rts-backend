@@ -2,3 +2,5 @@ scripts/build_schedule_db.py
 __pycache__/
 *.pyc
 .claude/
+
+.env.local
