@@ -35,6 +35,16 @@ except Exception:
 # Configure logger
 logger = logging.getLogger(__name__)
 
+
+def _openai_client(api_key: str):
+    """Build an OpenAI-compatible client. Set OPENAI_BASE_URL to point at a local LLM
+    (e.g. Ollama at http://localhost:11434/v1 or LM Studio at http://localhost:1234/v1)."""
+    kwargs: dict = {"api_key": api_key}
+    base_url = os.getenv("OPENAI_BASE_URL", "").strip()
+    if base_url:
+        kwargs["base_url"] = base_url
+    return OpenAI(**kwargs)
+
 TZ = ZoneInfo("America/New_York")
 GTFS_DB_PATH = Path(__file__).resolve().parents[1] / "Backend Basics" / "db" / "rts_gtfs.sqlite"
 
@@ -271,7 +281,7 @@ def humanize_answer(text: str, lang: str) -> str:
     if OpenAI is None or not api_key:
         return text
     try:
-        client = OpenAI(api_key=api_key)
+        client = _openai_client(api_key)
         model = os.getenv('HUMANIZE_MODEL', 'gpt-4o-mini')
         sys_msg = (
             'You are a friendly RTS assistant. Rewrite the answer to be clear and human. '
@@ -421,7 +431,7 @@ def _history_summary_for_llm(history) -> str:
     if not api_key or OpenAI is None:
         return fallback
     try:
-        client = OpenAI(api_key=api_key)
+        client = _openai_client(api_key)
         summary_model = os.getenv("SUMMARY_MODEL", os.getenv("HUMANIZE_MODEL", "gpt-4o-mini"))
         messages = [
             {
@@ -700,7 +710,7 @@ def llm_extract_intent(message: str, history_summary: str | None = None) -> dict
     }
 
     try:
-        client = OpenAI(api_key=api_key)
+        client = _openai_client(api_key)
         resp = client.chat.completions.create(
             model=model,
             messages=[
@@ -824,7 +834,7 @@ def llm_extract_intent_hybrid(message: str, history: list = None) -> dict:
     })
 
     try:
-        client = OpenAI(api_key=api_key)
+        client = _openai_client(api_key)
         resp = client.chat.completions.create(
             model=model,
             messages=messages,
@@ -1004,7 +1014,7 @@ def build_direction_prompt(options: str, lang: str, ctx_info: dict | None = None
     if not api_key or OpenAI is None:
         return base
     try:
-        client = OpenAI(api_key=api_key)
+        client = _openai_client(api_key)
         clarify_model = os.getenv("CLARIFY_MODEL", os.getenv("HUMANIZE_MODEL", "gpt-4o-mini"))
         ctx = ctx_info or {}
         user_payload = {

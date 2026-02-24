@@ -265,10 +265,59 @@
         font-size: 1.35rem;
       }
     }
+
+    .nav-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 0 14px;
+      flex-wrap: wrap;
+    }
+
+    .nav-bar a {
+      color: #0369a1;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 6px 14px;
+      border: 1px solid #bae6fd;
+      border-radius: 999px;
+      background: #f0f9ff;
+    }
+
+    .nav-bar a:hover { background: #e0f2fe; }
+
+    .vision-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .vision-item strong {
+      display: block;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .vision-item p {
+      margin: 0;
+      font-size: 0.88rem;
+      color: #334155;
+      line-height: 1.5;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
+    <nav class="nav-bar">
+      <a href="/">← Main Tracker</a>
+      <a href="/wizard">Trip Wizard</a>
+      <a href="/chat">Chat Assistant</a>
+    </nav>
+
     <section class="hero">
       <h1 id="projectTitle">RTS Project Dashboard</h1>
       <p id="projectGoal">Loading project summary...</p>
@@ -311,9 +360,15 @@
         <div id="taskList" class="task-list"></div>
       </div>
 
-      <div class="card panel">
-        <h2>Status Groups</h2>
-        <div id="groups" class="group-list"></div>
+      <div style="display:grid;gap:16px;">
+        <div class="card panel">
+          <h2>Project Vision</h2>
+          <div id="vision-panel" class="vision-list"></div>
+        </div>
+        <div class="card panel">
+          <h2>By Area</h2>
+          <div id="area-groups" class="group-list"></div>
+        </div>
       </div>
     </section>
   </div>
@@ -385,22 +440,39 @@
       }).join("");
     }
 
-    function renderGroups() {
-      const groups = document.getElementById("groups");
-      const statuses = ["completed", "pending", "blocked", "next"];
+    function renderVision(vision) {
+      const el = document.getElementById("vision-panel");
+      if (!el) return;
+      const fields = [
+        { label: "Goal", key: "statement" },
+        { label: "Customer Journey", key: "cx_journey" },
+        { label: "Wizard Strategy", key: "wizard_strategy" },
+        { label: "End State", key: "end_state" },
+      ];
+      const items = fields.filter(f => vision[f.key]);
+      el.innerHTML = items.length
+        ? items.map(f => `
+            <div class="vision-item">
+              <strong>${escapeHtml(f.label)}</strong>
+              <p>${escapeHtml(vision[f.key])}</p>
+            </div>`).join("")
+        : '<p style="color:var(--muted);font-size:.88rem">No vision data.</p>';
+    }
 
-      groups.innerHTML = statuses.map(status => {
-        const items = state.tasks.filter(t => normalizeStatus(t.status) === status);
-        const li = items.length
-          ? items.map(i => `<li>${escapeHtml(i.title)}</li>`).join("")
-          : "<li>None</li>";
-        return `
-          <section class="group">
-            <strong>${status[0].toUpperCase() + status.slice(1)} (${items.length})</strong>
-            <ul>${li}</ul>
-          </section>
-        `;
-      }).join("");
+    function renderAreaGroups(tasks) {
+      const el = document.getElementById("area-groups");
+      if (!el) return;
+      const areas = {};
+      for (const t of tasks) {
+        const area = t.area || "General";
+        if (!areas[area]) areas[area] = [];
+        areas[area].push(t);
+      }
+      el.innerHTML = Object.entries(areas).sort().map(([area, items]) => `
+        <section class="group">
+          <strong>${escapeHtml(area)} (${items.length})</strong>
+          <ul>${items.map(i => `<li>${escapeHtml(i.title)}</li>`).join("")}</ul>
+        </section>`).join("") || '<p style="color:var(--muted)">No data.</p>';
     }
 
     function bindFilters() {
@@ -425,16 +497,18 @@
         const data = await res.json();
         state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
 
+        const vision = data.vision || {};
         document.getElementById("projectTitle").textContent = data.project || "RTS Project Dashboard";
-        document.getElementById("projectGoal").textContent = data.summary?.goal || "Project task tracking dashboard";
-        document.getElementById("metaLine").textContent =
-          `Updated: ${data.updated_at || "unknown"}${data.note ? " | " + data.note : ""}`;
+        document.getElementById("projectGoal").textContent = vision.statement || data.summary?.goal || "Project task tracking dashboard";
+        document.getElementById("metaLine").textContent = `Updated: ${data.updated_at || "unknown"}`;
         renderSummary(state.tasks);
         renderTasks();
-        renderGroups();
+        renderVision(vision);
+        renderAreaGroups(state.tasks);
       } catch (err) {
         taskList.innerHTML = `<div class="error">Failed to load tasks: ${escapeHtml(err.message)}</div>`;
-        document.getElementById("groups").innerHTML = "";
+        document.getElementById("vision-panel").innerHTML = "";
+        document.getElementById("area-groups").innerHTML = "";
       }
     }
 
