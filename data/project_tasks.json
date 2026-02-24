@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
   "updated_at": "2026-02-24",
-  "note": "Initial task inventory inferred from the current repository contents. Update items as work progresses.",
+  "note": "Task inventory updated after reliability fixes (analytics SQLite, webqa fallback, session timeout, CORS). Three code-quality improvements pending.",
   "summary": {
     "goal": "Deliver a stable Gainesville RTS backend with realtime bus info, schedule support, and a user-facing web assistant/dashboard."
   },
@@ -54,6 +54,34 @@
       "status": "completed",
       "area": "Project Management",
       "details": "Dashboard page reads task status from JSON and shows completed/pending/blocked counts."
+    },
+    {
+      "id": "completed-reliability-fixes",
+      "title": "Reliability and data persistence improvements",
+      "status": "completed",
+      "area": "Backend",
+      "details": "Analytics log migrated from ephemeral JSON-lines file to SQLite (survives Render redeploys). webqa.py now has go-rts.com as fallback and only locks the index when pages actually cached. Session timeout extended from 5 to 30 minutes. CORS reads from CORS_ORIGINS env var."
+    },
+    {
+      "id": "pending-split-agent-service",
+      "title": "Split agent_service.py into focused modules",
+      "status": "pending",
+      "area": "Backend",
+      "details": "agent_service.py is ~1500 lines handling regex extraction, LLM intent parsing, cache, stop resolution, fallback chains, language detection, and button generation. Split into: intent_extractor.py, stop_resolver.py, response_builder.py, and a thin orchestrator."
+    },
+    {
+      "id": "pending-embeddings-webqa",
+      "title": "Replace keyword overlap in webqa.py with OpenAI embeddings",
+      "status": "pending",
+      "area": "AI",
+      "details": "Current token-overlap scoring misses synonyms and context. Replace with text-embedding-3-small vector similarity search. Data is small enough to embed entirely in memory on startup."
+    },
+    {
+      "id": "pending-unit-tests",
+      "title": "Add unit tests for parse_date, parse_time, and intent extraction",
+      "status": "pending",
+      "area": "Quality",
+      "details": "schedule_service.parse_date and parse_time handle many edge cases (weekdays, tomorrow, 12am/pm, etc.) with no test coverage. agent_service intent extraction is similarly untested. A small pytest suite would catch regressions."
     },
     {
       "id": "pending-task-maintenance",
