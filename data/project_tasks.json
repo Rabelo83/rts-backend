@@ -1,6 +1,6 @@
 {
   "project": "RTS Backend + Web Assistant",
-  "updated_at": "2026-02-25",
+  "updated_at": "2026-02-26",
   "note": "Task inventory updated after reliability fixes (analytics SQLite, webqa fallback, session timeout, CORS). Three code-quality improvements pending.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
@@ -60,6 +60,13 @@
       "status": "completed",
       "area": "Project Management",
       "details": "Dashboard page reads task status from JSON and shows completed/pending/blocked counts."
+    },
+    {
+      "id": "completed-local-llm-setup",
+      "title": "Add local LLM (Ollama) support for development testing",
+      "status": "completed",
+      "area": "Dev Tools",
+      "details": "agent_service.py now reads OPENAI_BASE_URL env var via _openai_client() helper. Set it to http://localhost:11434/v1 to route all LLM calls to local Ollama (llama3.1:8b). .env.local.example and run_local.sh added for repeatable local dev workflow. Dashboard improved with vision panel, area grouping, and nav links."
     },
     {
       "id": "completed-reliability-fixes",
