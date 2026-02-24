@@ -509,9 +509,6 @@ function startGreeting() {
   appendBubble(greeting, 'bot');
   AppState.chatHistory.push({ role: 'assistant', content: greeting });
   saveState();
-
-  // Show intent selection
-  showIntentSelection();
 }
 
 function showIntentSelection() {
