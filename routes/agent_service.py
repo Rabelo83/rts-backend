@@ -732,6 +732,9 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         if wants_last and "last" not in msg_ctx.lower():
             msg_ctx = f"last {msg_ctx}"
 
+    # Track whether the user explicitly mentioned a time so we can omit "after X PM" when not specified.
+    _explicit_time = has_explicit_timeframe(msg_ctx)
+
     # Schedule questions (deterministic, direct DB)
     if prefer_schedule and schedule_service and route_id:
         kind = "first" if wants_first else ("last" if wants_last else "next")
@@ -833,8 +836,9 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                     ) + (f"\n{exception_note}" if exception_note else ""),
                     "sources": [{"type": "schedule_no_time"}],
                 })
+            _time_suffix = f" after {format_time_12h(data['time'])}" if _explicit_time and data.get("time") else ""
             lines = [
-                f"Next departures for route {data['route']} from {data['stop']} on {data['date']} after {format_time_12h(data['time'])}:"
+                f"Next departures for route {data['route']} from {data['stop']} on {data['date']}{_time_suffix}:"
             ]
             for t, headsign in next_by_dir:
                 lines.append(f"- {format_time_12h(t)} ({headsign})")
@@ -920,9 +924,10 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                             raw["next_by_direction"] = filtered
                             # rebuild answer text using filtered options if we have keys
                             if all(k in raw for k in ("route", "stop", "date", "time")):
+                                _time_suffix_bb = f" after {format_time_12h(raw['time'])}" if _explicit_time else ""
                                 lines = [
                                     f"Next departures for route {raw['route']} from {raw['stop']} on "
-                                    f"{raw['date']} after {format_time_12h(raw['time'])}:"
+                                    f"{raw['date']}{_time_suffix_bb}:"
                                 ]
                                 for t, headsign in filtered:
                                     lines.append(f"- {format_time_12h(t)} ({headsign})")
@@ -961,14 +966,18 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 raw = res.get("raw") or {}
                 next_by_dir = raw.get("next_by_direction") or []
                 if next_by_dir and all(k in raw for k in ("route", "stop", "date", "time")):
+                    _time_suffix_bb = f" after {format_time_12h(raw['time'])}" if _explicit_time else ""
                     lines = [
                         f"Next departures for route {raw['route']} from {raw['stop']} on "
-                        f"{raw['date']} after {format_time_12h(raw['time'])}:"
+                        f"{raw['date']}{_time_suffix_bb}:"
                     ]
                     for t, headsign in next_by_dir:
                         lines.append(f"- {format_time_12h(t)} ({headsign})")
                     answer_text = "\n".join(lines)
             answer_text = normalize_times_in_text(answer_text)
+            # Strip injected "after H:MM AM/PM" from response when user didn't specify a time.
+            if not _explicit_time and answer_text:
+                answer_text = re.sub(r",?\s*after \d{1,2}:\d{2}\s*[AP]M\b", "", answer_text, flags=re.IGNORECASE)
             # If multiple headsigns are present, ask for direction/landmark
             if isinstance(res, dict):
                 raw = res.get("raw") or {}

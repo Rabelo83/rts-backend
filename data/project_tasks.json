@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
   "updated_at": "2026-02-26",
-  "note": "Session 10: Route discovery upgraded — stop_areas.json (from BusStopInventory Area column) gives authoritative area→stop_id mapping; routes_serving_area() replaces LIKE query; 'UF'/'campus'/'university of florida' → 16 correct routes; area aliases map to CG/UF/AL. Session 9: A) SSE streaming added end-to-end — humanize_answer_stream() in intent_extractor.py, stream_agent_message() in agent_service.py, /api/agent/stream endpoint in agent_api.py, sendAgentMessage() rewritten in chat_v2.js to use fetch+ReadableStream typewriter effect; B) wants_first fix — 'first bus after 5pm' no longer returns first-of-day; explicit am/pm suppresses wants_first; C) route discovery — routes_serving_destination() GTFS query added to schedule_service.py; 'What routes go to UF?' now answered with buttons; 145 tests all green.",
+  "note": "Session 12: Fixed implicit 'after X PM' in response — _explicit_time flag (has_explicit_timeframe) set before schedule paths; 'after {time}' suffix omitted from all 3 response-builder locations when time was injected (not user-specified); regex fallback strips 'after H:MM AM/PM' from BB-native response_text; 145 tests all green. Session 11: get_route_day_summary() added to schedule_service.py — determines day type (weekday/Sat/Sun), queries active services, returns first/last/trips per direction + frequency label; wired in agent_service.py so 'Route 43 schedule tomorrow' shows overview + direction buttons instead of dead-end 'which stop?'; button cap fixed [:6]→[:8] to match text. Session 10: stop_areas.json from BusStopInventory Area column; routes_serving_area() replaces LIKE query → 16 exact UF routes.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -389,6 +389,20 @@
       "status": "completed",
       "area": "Backend + AI",
       "details": "Session 9: routes_serving_destination() added (GTFS LIKE query). Session 10: replaced with routes_serving_area() using authoritative BusStopInventory Area column (stop_areas.json). 'UF'/'campus'/'university of florida' → Area=UF → 16 exact routes (vs 12 fuzzy). Area aliases cover UF, downtown/CG, AL, Lake City, Trenton. Falls back to LIKE query for unknown areas."
+    },
+    {
+      "id": "completed-route-day-summary",
+      "title": "Route day summary: show overview when route known but stop missing",
+      "status": "completed",
+      "area": "Backend + AI",
+      "details": "Session 11: get_route_day_summary() in schedule_service.py queries active services for the given date; returns first/last departure per headsign + frequency label ((last-first)/(trips-1) rounded to 5 min); agent_service wires it so 'Route 43 schedule tomorrow' returns day label (e.g. Friday — weekday), per-direction overview, and direction buttons instead of dead-end 'which stop?'. Button cap also fixed from 6 to 8."
+    },
+    {
+      "id": "completed-implicit-time-strip",
+      "title": "Fix: omit 'after X PM' from schedule response when user didn't specify a time",
+      "status": "completed",
+      "area": "Backend",
+      "details": "Session 12: _explicit_time = has_explicit_timeframe(msg_ctx) set before DB and Backend Basics schedule paths. 'after {time}' suffix conditionally omitted at all 3 response-builder locations. Regex fallback strips 'after H:MM AM/PM' from BB-native response_text. Result: 'Next departures for route 43 from... on Feb 27:' instead of '... after 2:41 PM:'."
     },
     {
       "id": "next-release-checklist",
