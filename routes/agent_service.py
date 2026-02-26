@@ -61,6 +61,7 @@ from routes.parsing_helpers import (
     _extract_last_departure_time,
     _advance_time_one_minute,
     _has_next_intent,
+    _has_time_of_day,
     _normalize_time_tokens,
     _has_strong_context,
     parse_when_dt_from_message,
@@ -738,6 +739,24 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     # Schedule questions (deterministic, direct DB)
     if prefer_schedule and schedule_service and route_id:
         kind = "first" if wants_first else ("last" if wants_last else "next")
+        # For schedule queries: if the stop is already resolved but no time-of-day specified,
+        # ask the customer for a time frame instead of silently injecting the current clock time.
+        # (ETA/realtime queries use current time by design; schedule queries should not.)
+        if kind == "next" and stop_id and not _has_time_of_day(msg_ctx):
+            return _with_meta({
+                "answer": tmsg(
+                    lang,
+                    "What time frame are you looking for? Pick one or type a specific time (e.g. 'after 3pm').",
+                    "¿Qué franja horaria te interesa? Elige una o escribe la hora (ej: 'después de las 3pm').",
+                ),
+                "buttons": [
+                    {"label": tmsg(lang, "Morning (before noon)", "Mañana (antes del mediodía)"), "action": "morning"},
+                    {"label": tmsg(lang, "Afternoon (noon–5pm)", "Tarde (mediodía–5pm)"), "action": "afternoon"},
+                    {"label": tmsg(lang, "Evening (after 5pm)", "Noche (después de las 5pm)"), "action": "evening"},
+                    {"label": tmsg(lang, "Right now", "Ahora mismo"), "action": "right now"},
+                ],
+                "sources": [{"type": "need_time_frame"}],
+            })
         stop_name = None if direction_followup else (stop_name_hint or destination_hint or origin_hint or None)
         data = get_schedule_cached(route_id, msg_ctx, stop_id=stop_id, stop_name=stop_name, kind=kind)
         if data.get("error") == "multiple_stops":

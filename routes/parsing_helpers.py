@@ -332,6 +332,25 @@ def _has_next_intent(text: str) -> bool:
     return any(kw in t for kw in ("next", "soonest", "upcoming", "leaving", "depart"))
 
 
+def _has_time_of_day(text: str) -> bool:
+    """
+    Return True only when an explicit time-of-day is present — NOT just a date.
+
+    Catches:  '3pm', '3:30pm', 'noon', 'midnight', 'morning', 'afternoon',
+              'evening', 'tonight', 'now' (word-boundary).
+    Skips:    'tomorrow', 'today', 'weekday', 'monday' … (date-only words).
+    Used to decide whether a schedule query needs a time-frame prompt.
+    """
+    t = (text or "").lower()
+    if re.search(r"\b\d{1,2}(:\d{2})?\s*(am|pm)\b", t):
+        return True
+    if re.search(r"\bnoon\b", t) or "midnight" in t:
+        return True
+    if re.search(r"\bnow\b", t):
+        return True
+    return any(w in t for w in ("morning", "afternoon", "evening", "tonight"))
+
+
 def _normalize_time_tokens(text: str) -> str:
     if not text:
         return text
