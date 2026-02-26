@@ -271,8 +271,15 @@ def _is_next_request(text: str) -> bool:
 
 
 def _is_followup_after(text: str) -> bool:
-    """Detect natural-language 'after that' follow-ups that mean 'next departure after the last shown'."""
+    """Detect natural-language 'after that' follow-ups that mean 'next departure after the last shown'.
+
+    Returns False when the user provides an explicit time ("what about after 6pm?" is a
+    new query with a specific time, NOT a vague 'show me the next one' follow-up).
+    """
     t = (text or "").strip().lower()
+    # If an explicit time is present (e.g. "6pm", "3:30am"), it's a new time query — not a follow-up
+    if re.search(r"\b\d{1,2}(:\d{2})?\s*(am|pm)\b", t):
+        return False
     patterns = [
         "after that", "the one after", "next after", "what about after",
         "one after that", "after this one", "what comes after",

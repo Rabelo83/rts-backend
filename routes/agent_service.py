@@ -447,8 +447,25 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         last_assistant = _last_assistant_message(history)
         last_time = _extract_last_departure_time(last_assistant)
         if last_time:
-            prev = _last_user_with_context(history) or ctx
-            msg_ctx = f"{prev} after {last_time}".strip() if prev else f"after {last_time}"
+            # Find the last user message that has REAL transit context (route/stop/destination).
+            # Avoid messages that are themselves vague follow-ups like "the one after that?"
+            # which would lose the route/stop info and break the transit gate.
+            prev = None
+            for _item in reversed(history or []):
+                if not isinstance(_item, dict) or _item.get("role") != "user":
+                    continue
+                _c = (_item.get("content") or "").strip()
+                if not _c:
+                    continue
+                if extract_route_id_regex(_c) or extract_stop_id_regex(_c) or guess_destination_hint(_c):
+                    prev = _c
+                    break
+            prev = prev or ctx
+            # Strip any existing "after TIME" from prev so parse_time sees only the new threshold
+            prev_clean = re.sub(
+                r"\bafter\s+\d{1,2}(:\d{2})?\s*(am|pm)\b", "", prev, flags=re.IGNORECASE
+            ).strip()
+            msg_ctx = f"{prev_clean} after {last_time}".strip() if prev_clean else f"after {last_time}"
             msg = msg_ctx
 
     # Digits-only messages: clarify route vs stop OR auto-ETA for likely stop IDs

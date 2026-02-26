@@ -371,6 +371,17 @@ class TestIsFollowupAfter:
     def test_empty(self):
         assert _is_followup_after("") is False
 
+    # Regression: explicit times must NOT be treated as vague follow-ups
+    def test_what_about_after_6pm(self):
+        assert _is_followup_after("what about after 6pm?") is False
+
+    def test_what_about_after_330pm(self):
+        assert _is_followup_after("what about after 3:30pm?") is False
+
+    def test_what_about_after_no_time(self):
+        # No explicit time → IS a followup
+        assert _is_followup_after("what about after that?") is True
+
 
 # ──────────────────────────────────────────────
 # _extract_last_departure_time
