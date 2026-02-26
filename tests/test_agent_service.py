@@ -20,6 +20,8 @@ from routes.agent_service import (
     detect_language_simple,
     _has_strong_context,
     _last_user_with_context,
+    _is_followup_after,
+    _extract_last_departure_time,
 )
 
 
@@ -325,3 +327,71 @@ class TestLastUserWithContext:
     def test_no_context_message_returns_empty(self):
         h = self._history("hi", "hello!", "ok", "sure")
         assert _last_user_with_context(h) == ""
+
+
+# ──────────────────────────────────────────────
+# _is_followup_after
+# ──────────────────────────────────────────────
+
+class TestIsFollowupAfter:
+    def test_after_that(self):
+        assert _is_followup_after("after that") is True
+
+    def test_the_one_after_that(self):
+        assert _is_followup_after("the one after that?") is True
+
+    def test_what_about_after(self):
+        assert _is_followup_after("what about after that?") is True
+
+    def test_one_after_that(self):
+        assert _is_followup_after("one after that") is True
+
+    def test_next_after(self):
+        assert _is_followup_after("next after that") is True
+
+    def test_after_this_one(self):
+        assert _is_followup_after("after this one?") is True
+
+    def test_what_comes_after(self):
+        assert _is_followup_after("what comes after?") is True
+
+    # Must NOT match
+    def test_after_7am(self):
+        assert _is_followup_after("after 7am") is False
+
+    def test_next_bus(self):
+        assert _is_followup_after("next bus") is False
+
+    def test_none(self):
+        assert _is_followup_after(None) is False
+
+    def test_empty(self):
+        assert _is_followup_after("") is False
+
+
+# ──────────────────────────────────────────────
+# _extract_last_departure_time
+# ──────────────────────────────────────────────
+
+class TestExtractLastDepartureTime:
+    def test_single_pm_time(self):
+        assert _extract_last_departure_time("The next bus is at 3:30 PM.") == "3:30pm"
+
+    def test_single_am_time(self):
+        assert _extract_last_departure_time("Departs at 7:00 AM from Rosa Parks.") == "7:00am"
+
+    def test_multiple_times_returns_last(self):
+        text = "- 3:00 PM (To NW 13th St)\n- 3:30 PM (To NW 13th St)\n- 4:00 PM (To NW 13th St)"
+        assert _extract_last_departure_time(text) == "4:00pm"
+
+    def test_case_insensitive(self):
+        assert _extract_last_departure_time("Bus at 2:15 pm") == "2:15pm"
+
+    def test_no_time_returns_none(self):
+        assert _extract_last_departure_time("Sorry, no departures found.") is None
+
+    def test_none_returns_none(self):
+        assert _extract_last_departure_time(None) is None
+
+    def test_empty_returns_none(self):
+        assert _extract_last_departure_time("") is None

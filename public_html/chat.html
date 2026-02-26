@@ -4,15 +4,70 @@
   <meta charset="UTF-8" />
   <title>RTS Live Assistant</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="/static/style.css?v=30" />
+  <link rel="stylesheet" href="/static/style.css?v=31" />
   <style>
-    #chat-messages {
-      height: 55vh;
-      min-height: 280px;
+    /* Standalone-only overrides — viewport fill layout */
+    body.chat-standalone {
+      height: 100dvh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-alone-header {
+      flex-shrink: 0;
+      padding: 14px 20px;
+    }
+    .chat-alone-main {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      padding: 12px 20px 0;
+    }
+    #chat-panel.standalone {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      max-height: none;
+    }
+    body.chat-standalone #chat-messages {
+      flex: 1;
+      min-height: 0;
+      height: auto;
+    }
+    body.chat-standalone #chat-input-row {
+      align-items: flex-end;
+      padding: 8px 10px 10px;
+    }
+    body.chat-standalone #chat-input {
+      height: 48px;
+      min-height: 48px;
+      max-height: 140px;
+      resize: none;
+    }
+    body.chat-standalone #chat-send {
+      width: 48px;
+      min-width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      padding: 0;
+      align-self: flex-end;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0;
+    }
+    body.chat-standalone #chat-send svg {
+      width: 20px;
+      height: 20px;
+      fill: white;
+      pointer-events: none;
     }
     .chat-end-row {
       text-align: right;
-      padding: 6px 10px 0;
+      padding: 4px 10px 0;
     }
     #chat-end {
       background: none;
@@ -39,13 +94,14 @@
         <h1>RTS Live Assistant</h1>
         <p>Get Gainesville RTS ETAs and schedules in one place.</p>
       </div>
-      <a class="btn-link" href="/" aria-label="Back to main tracker">← Back to main tracker</a>
+      <a class="btn-link" href="/" aria-label="Back to main tracker">← Back</a>
     </div>
   </header>
 
   <main class="chat-alone-main">
     <div id="chat-panel" class="open standalone">
       <div id="chat-messages" aria-live="polite" aria-label="Chat messages"></div>
+      <div id="starter-questions" class="starter-questions" role="group" aria-label="Quick questions"></div>
       <div class="chat-end-row">
         <button id="chat-end" type="button" title="End session">End session</button>
       </div>
@@ -56,11 +112,15 @@
           aria-label="Your message"
           rows="2"
         ></textarea>
-        <button id="chat-send" type="button">Send</button>
+        <button id="chat-send" type="button" aria-label="Send message">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
+        </button>
       </div>
     </div>
   </main>
 
-  <script src="/static/chat_v2.js?v=1" defer></script>
+  <script src="/static/chat_v2.js?v=2" defer></script>
 </body>
 </html>

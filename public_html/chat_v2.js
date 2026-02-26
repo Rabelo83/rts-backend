@@ -328,7 +328,7 @@ function appendBubble(text, who = 'user', options = {}) {
 
   if (options.loading) {
     bubble.classList.add('loading');
-    bubble.innerHTML = `<span class="loading-spinner">⏳</span> ${text}`;
+    bubble.innerHTML = `<span class="typing-dots"><span></span><span></span><span></span></span>`;
   } else {
     bubble.textContent = text;
   }
@@ -509,6 +509,47 @@ function startGreeting() {
   appendBubble(greeting, 'bot');
   AppState.chatHistory.push({ role: 'assistant', content: greeting });
   saveState();
+  showStarterQuestions();
+}
+
+function showStarterQuestions() {
+  const container = document.getElementById('starter-questions');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const starters = AppState.language === 'es'
+    ? [
+        'Próximo bus en Rosa Parks',
+        'Horario ruta 43 mañana',
+        '¿Cuándo sale el primer bus?',
+        '¿Qué rutas van a UF?',
+      ]
+    : [
+        'Next bus at Rosa Parks',
+        'Route 43 schedule tomorrow',
+        'First bus on route 15?',
+        'What routes go to UF?',
+      ];
+
+  starters.forEach((q) => {
+    const btn = document.createElement('button');
+    btn.className = 'starter-q';
+    btn.textContent = q;
+    btn.addEventListener('click', () => {
+      dismissStarterQuestions();
+      const inputField = document.getElementById('chat-input');
+      if (inputField) {
+        inputField.value = q;
+        sendMessage();
+      }
+    });
+    container.appendChild(btn);
+  });
+}
+
+function dismissStarterQuestions() {
+  const container = document.getElementById('starter-questions');
+  if (container) container.innerHTML = '';
 }
 
 function showIntentSelection() {
@@ -1283,6 +1324,9 @@ async function sendMessage() {
   const msg = inputField.value.trim();
   if (!msg) return;
 
+  // Dismiss starter questions on first user send
+  dismissStarterQuestions();
+
   // Handle expected input (stop ID or timeframe)
   if (AppState.expected === 'stop_id') {
     await handleStopIdInput(msg);
@@ -1315,13 +1359,15 @@ function toggleLanguage() {
 
   // Update UI text
   const sendBtn = el('chat-send');
-  if (sendBtn) sendBtn.textContent = t('send');
+  if (sendBtn) sendBtn.setAttribute('aria-label', t('send'));
 
   // Show confirmation
   appendBubble(
     AppState.language === 'en' ? 'Language changed to English' : 'Idioma cambiado a español',
     'bot'
   );
+  // Refresh starter questions in new language (if still visible)
+  showStarterQuestions();
 }
 
 // ====== INITIALIZATION ======
@@ -1355,7 +1401,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Event listeners
   sendBtn.addEventListener('click', sendMessage);
-  sendBtn.textContent = t('send');
+  sendBtn.setAttribute('aria-label', t('send'));
 
   if (endBtn) {
     endBtn.addEventListener('click', () => endSession(true));

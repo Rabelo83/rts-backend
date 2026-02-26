@@ -533,6 +533,31 @@ def _is_next_request(text: str) -> bool:
         "next?",
     )
 
+def _is_followup_after(text: str) -> bool:
+    """Detect natural-language 'after that' follow-ups that mean 'next departure after the last shown'."""
+    t = (text or "").strip().lower()
+    patterns = [
+        "after that", "the one after", "next after", "what about after",
+        "one after that", "after this one", "what comes after",
+    ]
+    return any(p in t for p in patterns)
+
+
+def _extract_last_departure_time(assistant_text: str) -> str | None:
+    """
+    Extract the last departure time mentioned in an assistant schedule response.
+    e.g. '- 3:30 PM (To NW 13th St)' → '3:30pm'
+    Returns a string like '3:30pm' suitable for injecting into the next msg_ctx.
+    """
+    if not assistant_text:
+        return None
+    matches = re.findall(r"\b(\d{1,2}:\d{2})\s*(AM|PM)\b", assistant_text, re.IGNORECASE)
+    if matches:
+        h, ap = matches[-1]
+        return f"{h}{ap.lower()}"
+    return None
+
+
 def _has_next_intent(text: str) -> bool:
     t = (text or "").lower()
     if "first" in t or "last" in t:
@@ -1300,6 +1325,15 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 else:
                     msg_ctx = f"schedule around {time_str}"
                 msg = msg_ctx
+
+    # "The one after that?" / "after that?" — advance past the last shown departure time
+    if _is_followup_after(normalized_msg):
+        last_assistant = _last_assistant_message(history)
+        last_time = _extract_last_departure_time(last_assistant)
+        if last_time:
+            prev = _last_user_with_context(history) or ctx
+            msg_ctx = f"{prev} after {last_time}".strip() if prev else f"after {last_time}"
+            msg = msg_ctx
 
     # Digits-only messages: clarify route vs stop OR auto-ETA for likely stop IDs
     if re.fullmatch(r"\d{1,6}", msg):

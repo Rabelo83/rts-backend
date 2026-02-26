@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
-  "updated_at": "2026-02-24",
-  "note": "Session 5: unit test suite (110 tests, all green), caught and fixed 'noon' substring bug in parse_time, OpenAI retry via max_retries=3+timeout on _openai_client, removed dead history_summary LLM call from try_transit_answer, replaced build_direction_prompt LLM call with deterministic template.",
+  "updated_at": "2026-02-26",
+  "note": "Session 6: fixed 'the one after that?' follow-up not advancing departure time (_is_followup_after + _extract_last_departure_time + handler in try_transit_answer); 14 new unit tests (92 total, all green); chat UI redesign — viewport fill (100dvh flex layout), bot bubble light-blue with accent border, animated typing dots replace ⏳ spinner, circular SVG send button, 4 starter question chips dismissed on first send.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -217,10 +217,24 @@
     },
     {
       "id": "completed-unit-tests",
-      "title": "Add pytest unit test suite (110 tests)",
+      "title": "Add pytest unit test suite (92 tests, all green)",
       "status": "completed",
       "area": "Quality",
-      "details": "tests/test_schedule_service.py and tests/test_agent_service.py cover parse_date, parse_time, extract_route_id_regex, extract_stop_id_regex, normalize_stop_id, is_transit_keywords, wants_schedule, wants_realtime, has_explicit_timeframe, guess_destination_hint, detect_language_simple, _has_strong_context, _last_user_with_context. Running tests caught and fixed a real bug: 'noon' in text matched 'afternoon', causing 'what about 2pm in the afternoon?' to return 12:00 instead of 14:00."
+      "details": "tests/test_schedule_service.py and tests/test_agent_service.py cover parse_date, parse_time, extract_route_id_regex, extract_stop_id_regex, normalize_stop_id, is_transit_keywords, wants_schedule, wants_realtime, has_explicit_timeframe, guess_destination_hint, detect_language_simple, _has_strong_context, _last_user_with_context, _is_followup_after, _extract_last_departure_time. Running tests caught and fixed 'noon' in text matched 'afternoon'. Session 6 added 14 more tests for the new follow-up detection functions."
+    },
+    {
+      "id": "completed-chat-ui-redesign",
+      "title": "Chat UI redesign: viewport fill, improved bubbles, typing dots, starter questions",
+      "status": "completed",
+      "area": "Frontend",
+      "details": "chat.html: flex 100dvh layout so messages fill the full screen with no void below. style.css: bot bubble now light-blue (#dbeafe) with left accent border (was near-invisible white-on-white). Animated CSS typing dots replace ⏳ Thinking… loading indicator. Send button replaced with circular 48px SVG arrow icon. 4 starter question chips appear after greeting (dismiss on first send or language toggle)."
+    },
+    {
+      "id": "completed-followup-after-fix",
+      "title": "Fix 'the one after that?' not advancing past last shown departure",
+      "status": "completed",
+      "area": "Backend",
+      "details": "Added _is_followup_after() (detects 'after that', 'the one after that?', 'what comes after?', etc.) and _extract_last_departure_time() (parses last HH:MM AM/PM from assistant schedule answer). Wired both into try_transit_answer: when user says 'after that', the last departure time from the assistant's response is extracted and injected as the new 'after X' time threshold."
     },
     {
       "id": "add-input-validation",
