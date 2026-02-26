@@ -4,49 +4,131 @@
   <meta charset="UTF-8" />
   <title>RTS Live Assistant</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="/static/style.css?v=32" />
+  <link rel="stylesheet" href="/static/style.css?v=33" />
   <style>
-    /* Standalone-only overrides — viewport fill layout */
+    /* ── Page shell ─────────────────────────────────────────── */
     body.chat-standalone {
       height: 100dvh;
       overflow: hidden;
       display: flex;
       flex-direction: column;
     }
+
     .chat-alone-header {
       flex-shrink: 0;
-      padding: 14px 20px;
+      padding: 16px 24px;
     }
+
+    /* Header inner: centered, same max-width as panel */
+    .chat-alone-inner {
+      max-width: 780px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* ── Main: full-width so align-items:center actually works ── */
+    /* ROOT FIX: style.css sets max-width:640px on this — override it */
     .chat-alone-main {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      max-width: none;      /* ← was 640px in style.css, caused left-alignment */
+      margin: 0;
+      padding: 20px 16px 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Chat panel: centered card, fills available height ───── */
+    #chat-panel.standalone {
+      width: 100%;
+      max-width: 780px;
       flex: 1;
       min-height: 0;
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      margin: 0;
-      padding: 12px 20px 0;
-    }
-    #chat-panel.standalone {
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
+      /* override fixed-widget defaults from #chat-panel rule */
+      position: relative;
+      right: auto;
+      bottom: auto;
       max-height: none;
+      /* card appearance */
+      background: #ffffff;
+      border-radius: 20px 20px 0 0;
+      box-shadow:
+        0 -2px 0 rgba(255, 255, 255, 0.06),
+        0 -20px 60px rgba(0, 0, 0, 0.25),
+        0 30px 80px rgba(0, 0, 0, 0.4);
     }
+
+    /* ── Messages area ──────────────────────────────────────── */
     body.chat-standalone #chat-messages {
       flex: 1;
       min-height: 0;
       height: auto;
+      padding: 20px 18px;
+      overflow-y: auto;
+      background: #f8fafc;
+      gap: 10px;
     }
+
+    /* ── End session row ────────────────────────────────────── */
+    .chat-end-row {
+      text-align: right;
+      padding: 6px 14px 2px;
+      background: #ffffff;
+      flex-shrink: 0;
+    }
+
+    #chat-end {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      font-size: 0.78rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: color .15s ease, background .15s ease;
+    }
+
+    #chat-end:hover { color: #ef4444; background: #fff1f2; }
+
+    /* ── Input row ──────────────────────────────────────────── */
     body.chat-standalone #chat-input-row {
+      border-top: 1px solid #e5e7eb;
+      padding: 10px 14px 18px;
+      display: flex;
+      gap: 10px;
       align-items: flex-end;
-      padding: 8px 10px 10px;
+      background: #ffffff;
+      flex-shrink: 0;
     }
+
     body.chat-standalone #chat-input {
       height: 48px;
       min-height: 48px;
       max-height: 140px;
       resize: none;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      padding: 12px 14px;
+      border: 1.5px solid #e2e8f0;
+      background: #f8fafc;
+      line-height: 1.4;
+      transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
     }
+
+    body.chat-standalone #chat-input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+      background: #ffffff;
+      outline: none;
+    }
+
+    /* ── Send button ────────────────────────────────────────── */
     body.chat-standalone #chat-send {
       width: 48px;
       min-width: 48px;
@@ -58,27 +140,31 @@
       align-items: center;
       justify-content: center;
       font-size: 0;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+      transition: transform .15s ease, box-shadow .15s ease;
     }
+
+    body.chat-standalone #chat-send:hover {
+      transform: scale(1.06);
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+    }
+
+    body.chat-standalone #chat-send:active {
+      transform: scale(0.96);
+    }
+
     body.chat-standalone #chat-send svg {
       width: 20px;
       height: 20px;
       fill: white;
       pointer-events: none;
     }
-    /* Center header content + main panel */
-    .chat-alone-inner {
-      max-width: 700px;
-      margin: 0 auto;
-      width: 100%;
-    }
-    .chat-alone-main {
-      align-items: center; /* center the flex child (chat-panel) horizontally */
-    }
-    #chat-panel.standalone {
-      max-width: 700px;
-      width: 100%;
-    }
-    /* Language toggle embedded in header — override fixed positioning */
+
+    /* ── Language toggle (flows inside header) ──────────────── */
     body.chat-standalone .language-toggle {
       position: static;
       background: rgba(255, 255, 255, 0.15);
@@ -86,26 +172,15 @@
       color: #fff;
       backdrop-filter: none;
       box-shadow: none;
+      padding: 6px 14px;
+      font-size: 0.82rem;
     }
+
     body.chat-standalone .language-toggle:hover {
       background: rgba(255, 255, 255, 0.28);
       transform: none;
       box-shadow: none;
     }
-    .chat-end-row {
-      text-align: right;
-      padding: 4px 10px 0;
-    }
-    #chat-end {
-      background: none;
-      border: none;
-      color: #94a3b8;
-      font-size: 0.8rem;
-      cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 6px;
-    }
-    #chat-end:hover { color: #ef4444; background: #fff1f2; }
   </style>
 </head>
 <body class="chat-standalone">
