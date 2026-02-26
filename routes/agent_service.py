@@ -555,6 +555,22 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     if not timeframe_hint and has_explicit_timeframe(msg_ctx):
         timeframe_hint = msg_ctx
 
+    # Detect direction-button clicks from the route day summary.
+    # Button action format: "schedule route {N} To/Toward {headsign}"
+    # The headsign (e.g. "To NW 13th St") is the bus DIRECTION, NOT the user's stop.
+    # If we let it flow through, the agent mistakes it for a stop name.
+    _direction_button_m = re.match(
+        r"schedule\s+route\s+\d+\s+(to|toward|towards)\s+(.+)",
+        msg.strip(),
+        re.IGNORECASE,
+    )
+    _is_direction_button = bool(_direction_button_m)
+    if _is_direction_button:
+        # The headsign-derived hints are meaningless as stop names — clear them.
+        stop_name_hint = ""
+        destination_hint = ""
+        origin_hint = ""
+
     prefer_schedule = False
 
     def _with_meta(payload, meta_updates=None):
@@ -680,7 +696,20 @@ def try_transit_answer(message: str, history=None) -> dict | None:
             "sources": [{"type": "need_route_schedule"}],
         })
 
-    if prefer_schedule and route_id and not stop_id and not destination_hint and not re.search(r"\b(from|at|near)\b", msg_ctx.lower()):
+    # Direction button was clicked from route day summary (action: "schedule route N To/Toward X").
+    # The headsign is the bus's destination, NOT the user's stop — ask for their stop instead.
+    if _is_direction_button and prefer_schedule and route_id and not stop_id:
+        _chosen_dir = f"{_direction_button_m.group(1)} {_direction_button_m.group(2)}".strip()
+        return _with_meta({
+            "answer": tmsg(
+                lang,
+                f"Got it — Route {route_id} {_chosen_dir} direction. Which stop are you at? Enter the 4-digit Stop ID or a nearby landmark.",
+                f"Entendido — Ruta {route_id} dirección {_chosen_dir}. ¿En qué parada estás? Ingresa el Stop ID de 4 dígitos o un lugar cercano.",
+            ),
+            "sources": [{"type": "need_stop_after_direction"}],
+        })
+
+    if prefer_schedule and route_id and not stop_id and not destination_hint and not re.search(r"\b(from|at|near)\b", msg_ctx.lower()) and not _is_direction_button:
         # Show route day summary first — give the rider useful context before asking for more
         _parsed_date = schedule_service.parse_date(msg_ctx) if schedule_service else None
         _date_str = _parsed_date.isoformat() if _parsed_date else None
