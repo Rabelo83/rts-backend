@@ -29,7 +29,7 @@ def fmt_stop_list(lang: str, title: str, candidates: list[dict]) -> str:
 
 def format_realtime_answer(lang: str, usable_preds: list[dict]) -> str:
     lines = []
-    for p in usable_preds[:3]:
+    for p in usable_preds[:6]:
         mins = p.get("minutes")
         rt = p.get("route") or ""
         dest = p.get("destination") or ""
