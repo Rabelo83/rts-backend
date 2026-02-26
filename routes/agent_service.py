@@ -59,6 +59,7 @@ from routes.parsing_helpers import (
     _is_next_request,
     _is_followup_after,
     _extract_last_departure_time,
+    _advance_time_one_minute,
     _has_next_intent,
     _normalize_time_tokens,
     _has_strong_context,
@@ -310,9 +311,22 @@ def _extract_confirm_landmark(assistant_text: str) -> str | None:
 
 # ── Core agent logic ──────────────────────────────────────────────────────────
 
+_GREETING_WORDS = frozenset([
+    "hi", "hello", "hey", "hola", "yo", "sup", "howdy",
+    "good morning", "good afternoon", "good evening",
+    "buenos dias", "buenas tardes", "buenas noches",
+])
+
+
 def try_transit_answer(message: str, history=None) -> dict | None:
     msg_raw = (message or "").strip()
     msg = _normalize_time_tokens(msg_raw)
+
+    # Pure greeting — never merge with prior transit history.
+    # Return None so handle_agent_message can respond conversationally.
+    if msg.lower().strip().rstrip("!?., ") in _GREETING_WORDS:
+        return None
+
     ctx = _history_text(history)
     msg_has_strong_context = _has_strong_context(msg)
     last_assistant = _last_assistant_message(history)
@@ -447,25 +461,15 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         last_assistant = _last_assistant_message(history)
         last_time = _extract_last_departure_time(last_assistant)
         if last_time:
-            # Find the last user message that has REAL transit context (route/stop/destination).
-            # Avoid messages that are themselves vague follow-ups like "the one after that?"
-            # which would lose the route/stop info and break the transit gate.
-            prev = None
-            for _item in reversed(history or []):
-                if not isinstance(_item, dict) or _item.get("role") != "user":
-                    continue
-                _c = (_item.get("content") or "").strip()
-                if not _c:
-                    continue
-                if extract_route_id_regex(_c) or extract_stop_id_regex(_c) or guess_destination_hint(_c):
-                    prev = _c
-                    break
-            prev = prev or ctx
-            # Strip any existing "after TIME" from prev so parse_time sees only the new threshold
-            prev_clean = re.sub(
-                r"\bafter\s+\d{1,2}(:\d{2})?\s*(am|pm)\b", "", prev, flags=re.IGNORECASE
+            # Use full ctx (all prior user messages) stripped of old "after TIME" patterns.
+            # This preserves route AND stop name from ALL earlier turns so neither is lost
+            # when the user types vague follow-ups like "the one after that?" or "one after?".
+            # Advance threshold by +1 min so the GTFS >= query does NOT re-show the same bus.
+            next_threshold = _advance_time_one_minute(last_time)
+            ctx_clean = re.sub(
+                r"\bafter\s+\d{1,2}(:\d{2})?\s*(am|pm)\b", "", ctx, flags=re.IGNORECASE
             ).strip()
-            msg_ctx = f"{prev_clean} after {last_time}".strip() if prev_clean else f"after {last_time}"
+            msg_ctx = f"{ctx_clean} after {next_threshold}".strip() if ctx_clean else f"after {next_threshold}"
             msg = msg_ctx
 
     # Digits-only messages: clarify route vs stop OR auto-ETA for likely stop IDs
@@ -1128,7 +1132,27 @@ def handle_agent_message(message: str, history=None) -> dict:
             "meta": transit.get("meta", {}),
         }
 
-    # Check if asking for help
+    lang = detect_language_simple(message)
+    msg_check = message.lower().strip().rstrip("!?., ")
+
+    # Greeting — warm, conversational response
+    if msg_check in _GREETING_WORDS:
+        buttons = [
+            {"label": "Check Next Bus ETA", "action": "I need to check next bus ETA"},
+            {"label": "View Schedule", "action": "I need to view a schedule"},
+        ]
+        return {
+            "answer": tmsg(
+                lang,
+                "Hi! I can look up real-time bus ETAs and schedules for Gainesville RTS. Which route or stop are you asking about?",
+                "¡Hola! Puedo buscar ETAs en tiempo real y horarios de RTS Gainesville. ¿Qué ruta o parada necesitas?"
+            ),
+            "buttons": buttons,
+            "sources": [{"type": "greeting"}],
+            "meta": {"intent": "greeting", "language": lang},
+        }
+
+    # Help request
     msg_lower = message.lower()
     if any(word in msg_lower for word in ["help", "how", "ayuda", "como"]):
         buttons = [
@@ -1137,21 +1161,26 @@ def handle_agent_message(message: str, history=None) -> dict:
             {"label": "Find Stop by Route", "action": "Find stops for route"},
         ]
         return {
-            "answer": "I can help you with:\n• Real-time bus ETAs\n• Schedule lookups\n• Finding stops\n\nJust tell me a route and stop (e.g., 'Route 5 at Rosa Parks') or enter a 4-digit Stop ID.",
+            "answer": tmsg(
+                lang,
+                "I can help you with:\n• Real-time bus ETAs — tell me a route and stop or a 4-digit Stop ID\n• Schedules — ask about tomorrow, a specific time, first/last bus\n• Stop lookup — ask for stops on any route\n\nExample: 'Route 43 from Shands after 5pm' or 'Stop 0473'",
+                "Puedo ayudarte con:\n• ETAs en tiempo real — dime una ruta y parada o el Stop ID\n• Horarios — pregunta por mañana, una hora, primer/último bus\n• Búsqueda de paradas — pide las paradas de cualquier ruta\n\nEjemplo: 'Ruta 43 desde Shands después de las 5pm' o 'Parada 0473'"
+            ),
             "buttons": buttons,
             "sources": [{"type": "help"}],
-            "meta": {"intent": "help", "language": detect_language_simple(message)},
+            "meta": {"intent": "help", "language": lang},
         }
 
+    # Unknown — guide conversationally instead of throwing instructions at the user
     return {
         "answer": tmsg(
-            detect_language_simple(message),
-            "I'm here to help with RTS ETAs and schedules. Tell me a route plus stop (e.g., 'Route 5 at Rosa Parks') or share a 4-digit Stop ID.",
-            "Estoy aqui para ayudarte con ETAs y horarios de RTS. Dime una ruta y parada (ej: 'Ruta 5 en Rosa Parks') o comparte un Stop ID de 4 digitos."
+            lang,
+            "I didn't quite catch that. I can look up schedules and real-time ETAs — just tell me a route number and where you're going, like 'Route 5 from downtown' or 'Stop 0473'.",
+            "No entendí bien. Puedo buscar horarios y ETAs — dime una ruta y destino, como 'Ruta 5 desde el centro' o 'Parada 0473'."
         ),
         "sources": [{"type": "fallback"}],
         "meta": {
             "intent": "fallback",
-            "language": detect_language_simple(message),
+            "language": lang,
         },
     }

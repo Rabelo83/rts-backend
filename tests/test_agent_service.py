@@ -409,3 +409,88 @@ class TestExtractLastDepartureTime:
 
     def test_empty_returns_none(self):
         assert _extract_last_departure_time("") is None
+
+
+# ──────────────────────────────────────────────
+# _advance_time_one_minute
+# ──────────────────────────────────────────────
+
+from routes.parsing_helpers import _advance_time_one_minute
+
+
+class TestAdvanceTimeOneMinute:
+    """Regression: 'after that?' should advance threshold so GTFS >= doesn't re-show same bus."""
+
+    def test_basic_pm(self):
+        assert _advance_time_one_minute("5:16pm") == "5:17pm"
+
+    def test_basic_am(self):
+        assert _advance_time_one_minute("7:00am") == "7:01am"
+
+    def test_minute_rollover(self):
+        # 59 → 00, hour increments
+        assert _advance_time_one_minute("5:59pm") == "6:00pm"
+
+    def test_hour_rollover_noon(self):
+        # 11:59am → 12:00pm
+        assert _advance_time_one_minute("11:59am") == "12:00pm"
+
+    def test_hour_rollover_midnight(self):
+        # 11:59pm → 12:00am
+        assert _advance_time_one_minute("11:59pm") == "12:00am"
+
+    def test_noon_12pm(self):
+        # 12:00pm + 1 → 12:01pm
+        assert _advance_time_one_minute("12:00pm") == "12:01pm"
+
+    def test_midnight_12am(self):
+        # 12:00am = 00:00 + 1 → 00:01 = 12:01am
+        assert _advance_time_one_minute("12:00am") == "12:01am"
+
+    def test_bad_input_passthrough(self):
+        assert _advance_time_one_minute("not-a-time") == "not-a-time"
+
+    def test_none_passthrough(self):
+        assert _advance_time_one_minute(None) is None
+
+
+# ──────────────────────────────────────────────
+# Greeting detection in try_transit_answer
+# ──────────────────────────────────────────────
+
+from unittest.mock import patch
+
+
+class TestGreetingDetection:
+    """Greetings must NOT merge with prior transit history or return schedule results."""
+
+    _TRANSIT_HISTORY = [
+        {"role": "user", "content": "what is the schedule for route 43 tomorrow after 5pm"},
+        {"role": "assistant", "content": "Next departures for route 43 after 5:00 PM:\n- 5:16 PM (To Downtown)"},
+    ]
+
+    def test_hi_returns_none(self):
+        # try_transit_answer must return None for greetings (no transit content)
+        from routes.agent_service import try_transit_answer
+        result = try_transit_answer("hi", history=self._TRANSIT_HISTORY)
+        assert result is None
+
+    def test_hello_returns_none(self):
+        from routes.agent_service import try_transit_answer
+        result = try_transit_answer("hello", history=self._TRANSIT_HISTORY)
+        assert result is None
+
+    def test_hola_returns_none(self):
+        from routes.agent_service import try_transit_answer
+        result = try_transit_answer("hola", history=self._TRANSIT_HISTORY)
+        assert result is None
+
+    def test_hi_with_exclamation_returns_none(self):
+        from routes.agent_service import try_transit_answer
+        result = try_transit_answer("hi!", history=self._TRANSIT_HISTORY)
+        assert result is None
+
+    def test_hey_returns_none(self):
+        from routes.agent_service import try_transit_answer
+        result = try_transit_answer("hey", history=self._TRANSIT_HISTORY)
+        assert result is None

@@ -302,6 +302,29 @@ def _extract_last_departure_time(assistant_text: str) -> str | None:
     return None
 
 
+def _advance_time_one_minute(time_str: str) -> str:
+    """
+    Advance a time string by one minute.
+    '5:16pm' → '5:17pm'
+    Prevents GTFS >= query from re-showing the same departure when the user asks
+    for 'the one after that'.
+    """
+    m = re.match(r"^(\d{1,2}):(\d{2})(am|pm)$", (time_str or "").lower().replace(" ", ""))
+    if not m:
+        return time_str
+    h, mi, ap = int(m.group(1)), int(m.group(2)), m.group(3)
+    # Convert to 24h
+    if ap == "pm" and h != 12:
+        h += 12
+    elif ap == "am" and h == 12:
+        h = 0
+    total = h * 60 + mi + 1
+    h, mi = (total // 60) % 24, total % 60
+    ap = "am" if h < 12 else "pm"
+    h12 = h % 12 or 12
+    return f"{h12}:{mi:02d}{ap}"
+
+
 def _has_next_intent(text: str) -> bool:
     t = (text or "").lower()
     if "first" in t or "last" in t:

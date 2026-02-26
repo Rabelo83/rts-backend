@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
   "updated_at": "2026-02-26",
-  "note": "Session 7: A) CORS_ORIGINS added to render.yaml; B) agent_service.py split 2023→1140 lines into parsing_helpers.py (400), intent_extractor.py (310, structured outputs), stop_resolver.py (258), response_builder.py (75); C) structured outputs — json_schema strict mode on OpenAI, json_object fallback for Ollama; 128 tests all green; chat UI fixes — EN/ES toggle moved into header (no more overlap), chat panel centered at max-width 700px.",
+  "note": "Session 8: A) followup-after chain fixed — _advance_time_one_minute() added to parsing_helpers.py; GTFS >= semantics no longer re-show same departure; B) followup-after context fixed — ctx-strip approach replaces single-message prev lookup, preserving route AND stop name across all turns; C) greeting detection added — hi/hello/hey/hola caught at top of try_transit_answer before ctx merge (no more old schedule on greeting); D) handle_agent_message fallback replaced — greeting gets warm response, unclear query gets guided question instead of robotic instructions; 145 tests all green.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -234,7 +234,14 @@
       "title": "Fix 'the one after that?' not advancing past last shown departure",
       "status": "completed",
       "area": "Backend",
-      "details": "Added _is_followup_after() (detects 'after that', 'the one after that?', 'what comes after?', etc.) and _extract_last_departure_time() (parses last HH:MM AM/PM from assistant schedule answer). Wired both into try_transit_answer: when user says 'after that', the last departure time from the assistant's response is extracted and injected as the new 'after X' time threshold."
+      "details": "Session 6: Added _is_followup_after() and _extract_last_departure_time(). Session 8: Fixed GTFS >= re-show bug via _advance_time_one_minute() (+1 min to threshold). Fixed stop-context loss bug via ctx-strip approach: full user history stripped of old 'after TIME' patterns, preserving route AND stop name from all prior turns. 145 tests all green."
+    },
+    {
+      "id": "completed-greeting-detection",
+      "title": "Fix greetings (hi/hello) returning old schedule from prior session context",
+      "status": "completed",
+      "area": "Backend",
+      "details": "Session 8: Added _GREETING_WORDS frozenset and early-return in try_transit_answer before ctx merge. Greetings no longer absorb prior transit history. handle_agent_message now returns a warm conversational greeting with quick-action buttons. Fallback for unclear queries guides instead of lecturing."
     },
     {
       "id": "add-input-validation",
