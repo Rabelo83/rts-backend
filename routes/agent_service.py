@@ -37,9 +37,17 @@ logger = logging.getLogger(__name__)
 
 
 def _openai_client(api_key: str):
-    """Build an OpenAI-compatible client. Set OPENAI_BASE_URL to point at a local LLM
-    (e.g. Ollama at http://localhost:11434/v1 or LM Studio at http://localhost:1234/v1)."""
-    kwargs: dict = {"api_key": api_key}
+    """Build an OpenAI-compatible client.
+    - Set OPENAI_BASE_URL to point at a local LLM (Ollama, LM Studio, etc.)
+    - max_retries=3: SDK auto-retries on 429 RateLimit and 5xx errors with
+      exponential backoff (~1s, 2s, 4s). Prevents transient failures reaching the rider.
+    - timeout=30: each request hard-capped at 30 s to avoid tying up the Gunicorn worker.
+    """
+    kwargs: dict = {
+        "api_key": api_key,
+        "max_retries": int(os.getenv("OPENAI_MAX_RETRIES", "3")),
+        "timeout": float(os.getenv("OPENAI_TIMEOUT", "30")),
+    }
     base_url = os.getenv("OPENAI_BASE_URL", "").strip()
     if base_url:
         kwargs["base_url"] = base_url
@@ -1072,48 +1080,23 @@ def format_realtime_answer(lang: str, usable_preds: list[dict]) -> str:
     return tmsg(lang, "Real-time ETA:\n- ", "ETA en tiempo real:\n- ") + "\n- ".join(lines)
 
 def build_direction_prompt(options: str, lang: str, ctx_info: dict | None = None) -> str:
-    base = tmsg(
-        lang,
-        f"Which direction are you headed toward: {options}? Reply with the destination or direction.",
-        f"¿Hacia cual direccion vas: {options}? Responde con el destino o la direccion."
-    )
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if not api_key or OpenAI is None:
-        return base
-    try:
-        client = _openai_client(api_key)
-        clarify_model = os.getenv("CLARIFY_MODEL", os.getenv("HUMANIZE_MODEL", "gpt-4o-mini"))
-        ctx = ctx_info or {}
-        user_payload = {
-            "options": options,
-            "language": lang or "en",
-            "route": ctx.get("route"),
-            "stop": ctx.get("stop"),
-            "time": ctx.get("time"),
-        }
-        resp = client.chat.completions.create(
-            model=clarify_model,
-            temperature=0.3,
-            max_tokens=120,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You rewrite clarification questions for the RTS Gainesville assistant. "
-                        "Keep them concise (<=25 words) and match the rider's language (English or Spanish). "
-                        "Mention the route/stop if provided. Ask the rider to choose a direction."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": json.dumps(user_payload, ensure_ascii=False),
-                },
-            ],
-        )
-        text = (resp.choices[0].message.content or "").strip()
-        return text or base
-    except Exception:
-        return base
+    """Build a direction-clarification prompt deterministically (no LLM call needed)."""
+    ctx = ctx_info or {}
+    route = ctx.get("route")
+    stop = ctx.get("stop")
+    parts = []
+    if route:
+        parts.append(f"Route {route}")
+    if stop:
+        parts.append(f"Stop {stop}")
+    ctx_str = ", ".join(parts)
+    if ctx_str:
+        en = f"For {ctx_str} — which direction are you headed: {options}?"
+        es = f"Para {ctx_str} — ¿hacia qué dirección vas: {options}?"
+    else:
+        en = f"Which direction are you headed toward: {options}?"
+        es = f"¿Hacia cuál dirección vas: {options}?"
+    return tmsg(lang, en, es)
 
 
 def format_time_12h(hhmmss: str) -> str:
@@ -1190,7 +1173,6 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     msg_raw = (message or "").strip()
     msg = _normalize_time_tokens(msg_raw)
     ctx = _history_text(history)
-    history_summary = _history_summary_for_llm(history)
     msg_has_strong_context = _has_strong_context(msg)
     last_assistant = _last_assistant_message(history)
     direction_followup = _assistant_asked_direction(last_assistant) and not msg_has_strong_context

@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
-  "updated_at": "2026-02-28",
-  "note": "Session 3 complete: security quick-wins (rate limit, input validation, Gunicorn), stop name resolution (santa fe type queries now work), date/time parsing (morning/afternoon/evening), chat wizard button removal. Chat is now free-form; disambiguation buttons still appear mid-conversation.",
+  "updated_at": "2026-02-24",
+  "note": "Session 5: unit test suite (110 tests, all green), caught and fixed 'noon' substring bug in parse_time, OpenAI retry via max_retries=3+timeout on _openai_client, removed dead history_summary LLM call from try_transit_answer, replaced build_direction_prompt LLM call with deterministic template.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -163,10 +163,17 @@
     {
       "id": "fix-session-fragmentation",
       "title": "Fix session fragmentation across Gunicorn workers",
-      "status": "pending",
+      "status": "completed",
       "area": "Backend",
       "priority": "critical",
-      "details": "SessionManager is in-memory per worker. With multiple Gunicorn workers, request 1 on worker A and request 2 on worker B lose session context. Quickest fix: set workers=1 in render.yaml startCommand. Proper fix: SQLite-backed or Redis-backed session store shared across workers."
+      "details": "Resolved via --workers 1 --timeout 120 in render.yaml. Single worker keeps in-memory SessionManager consistent; 120s timeout prevents Gunicorn killing slow LLM responses."
+    },
+    {
+      "id": "completed-chat-ux-fixes",
+      "title": "Fix chat triple greeting, parse_time priority, and time-only follow-up fallback",
+      "status": "completed",
+      "area": "Frontend + Backend",
+      "details": "Three bugs fixed: (1) chat_v2.js now strips stale greeting messages from localStorage on load and always shows a single fresh greeting — no more accumulation across sessions; (2) schedule_service.parse_time now checks explicit am/pm times (e.g. 7am) before vague time-of-day words (morning/afternoon/evening) so 'after 7am?' returns 07:00 not 06:00; (3) agent_service now merges full user-message history (ctx) for time-only follow-up messages so 'after 7am?' carries route/bus context forward and passes the transit gate."
     },
     {
       "id": "add-rate-limiting",
@@ -195,18 +202,25 @@
     {
       "id": "add-openai-retry-logic",
       "title": "Add retry with exponential backoff for OpenAI API calls",
-      "status": "pending",
+      "status": "completed",
       "area": "Backend",
       "priority": "high",
-      "details": "All 5 OpenAI client calls in agent_service.py silently fail on 429 or 500 with no retry. Add tenacity or manual backoff: 3 retries, 1s/2s/4s delays. Log retry attempts to analytics. This prevents transient OpenAI errors from reaching the user."
+      "details": "Used OpenAI SDK's built-in max_retries=3 and timeout=30 in _openai_client(). SDK retries on 429 RateLimit and 5xx with exponential backoff (~1s/2s/4s). Both params configurable via OPENAI_MAX_RETRIES and OPENAI_TIMEOUT env vars."
     },
     {
       "id": "reduce-openai-calls-per-request",
       "title": "Reduce OpenAI calls from up to 4 down to 1-2 per agent request",
-      "status": "pending",
+      "status": "completed",
       "area": "AI",
       "priority": "high",
-      "details": "Current flow can fire: intent extraction + history summary + humanization + direction clarification = 4 calls. Combine intent extraction and humanization into a single structured prompt. Skip humanization when the GTFS engine returns a deterministic answer. Skip history summary when history is short enough to fit in context."
+      "details": "Removed two wasted LLM calls: (1) history_summary = _history_summary_for_llm(history) was computed in try_transit_answer but never used (code switched to llm_extract_intent_hybrid which takes raw history); (2) build_direction_prompt's LLM rewrite replaced with deterministic template that includes route/stop context. Per-request calls: 1 (intent extraction only) to 2 (if direction needed for multi-direction routes). humanize_answer already off by default."
+    },
+    {
+      "id": "completed-unit-tests",
+      "title": "Add pytest unit test suite (110 tests)",
+      "status": "completed",
+      "area": "Quality",
+      "details": "tests/test_schedule_service.py and tests/test_agent_service.py cover parse_date, parse_time, extract_route_id_regex, extract_stop_id_regex, normalize_stop_id, is_transit_keywords, wants_schedule, wants_realtime, has_explicit_timeframe, guess_destination_hint, detect_language_simple, _has_strong_context, _last_user_with_context. Running tests caught and fixed a real bug: 'noon' in text matched 'afternoon', causing 'what about 2pm in the afternoon?' to return 12:00 instead of 14:00."
     },
     {
       "id": "add-input-validation",

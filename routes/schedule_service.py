@@ -83,9 +83,9 @@ def parse_date(text):
 
 def parse_time(text):
     text = (text or "").lower()
-    if "noon" in text:
+    if re.search(r"\bnoon\b", text):
         return "12:00:00"
-    if "midnight" in text:
+    if re.search(r"\bmidnight\b", text):
         return "00:00:00"
     # Explicit times first (e.g. "7am", "3:30pm") — takes priority over vague words
     m = re.search(r"\b(\d{1,2})(?::(\d{1,2}))?\s*(am|pm)\b", text)
