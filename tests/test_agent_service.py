@@ -1,5 +1,5 @@
 """
-Tests for routes/agent_service.py — regex extraction, keyword detection,
+Tests for transit agent helpers — regex extraction, keyword detection,
 transit gate, and context helpers.
 Run with: pytest tests/test_agent_service.py -v
 """
@@ -8,21 +8,24 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from routes.agent_service import (
+# Parsing utilities now live in their own module
+from routes.parsing_helpers import (
     extract_route_id_regex,
     extract_stop_id_regex,
+    normalize_stop_id,
     is_transit_keywords,
     wants_schedule,
     wants_realtime,
     has_explicit_timeframe,
-    normalize_stop_id,
     guess_destination_hint,
     detect_language_simple,
     _has_strong_context,
-    _last_user_with_context,
     _is_followup_after,
     _extract_last_departure_time,
 )
+
+# History helpers stay in the orchestration module
+from routes.agent_service import _last_user_with_context
 
 
 # ──────────────────────────────────────────────

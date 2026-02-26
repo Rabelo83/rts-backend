@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
   "updated_at": "2026-02-26",
-  "note": "Session 6: fixed 'the one after that?' follow-up not advancing departure time (_is_followup_after + _extract_last_departure_time + handler in try_transit_answer); 14 new unit tests (92 total, all green); chat UI redesign — viewport fill (100dvh flex layout), bot bubble light-blue with accent border, animated typing dots replace ⏳ spinner, circular SVG send button, 4 starter question chips dismissed on first send.",
+  "note": "Session 7: A) CORS_ORIGINS added to render.yaml; B) agent_service.py split 2023→1140 lines into parsing_helpers.py (400), intent_extractor.py (310, structured outputs), stop_resolver.py (258), response_builder.py (75); C) structured outputs — json_schema strict mode on OpenAI, json_object fallback for Ollama; 128 tests all green; chat UI fixes — EN/ES toggle moved into header (no more overlap), chat panel centered at max-width 700px.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -340,6 +340,27 @@
       "area": "Project Management",
       "details": "Need final definition of done (features, QA, uptime, security, and stakeholder signoff) to close the project.",
       "blocker": "Stakeholder decisions / scope confirmation"
+    },
+    {
+      "id": "completed-agent-split",
+      "title": "Split agent_service.py (2023→1140 lines) into 4 focused modules",
+      "status": "completed",
+      "area": "Backend",
+      "details": "parsing_helpers.py (400 lines, pure text/regex), intent_extractor.py (310 lines, LLM client + structured outputs), stop_resolver.py (258 lines, GTFS/Bustime), response_builder.py (75 lines, formatting). agent_service.py now contains only orchestration and history helpers. 128 tests all green."
+    },
+    {
+      "id": "completed-structured-outputs",
+      "title": "Structured outputs for intent extraction (json_schema strict mode)",
+      "status": "completed",
+      "area": "AI",
+      "details": "intent_extractor.py uses response_format=json_schema strict=True on OpenAI production. Falls back to json_object when OPENAI_BASE_URL is set (local Ollama). Enforces intent enum, language enum, needs array — removes defensive post-processing. CORS_ORIGINS=https://rts-backend-7ru5.onrender.com also added to render.yaml."
+    },
+    {
+      "id": "completed-chat-ui-fixes",
+      "title": "Chat UI: fix EN/ES toggle overlap and left-alignment",
+      "status": "completed",
+      "area": "Frontend",
+      "details": "Moved language-toggle button from fixed-positioned (top:80px) into the header (.chat-alone-inner). Override: position:static, white-on-blue styling. Centered .chat-alone-inner (max-width:700px, margin:0 auto). Centered #chat-panel.standalone via align-items:center on .chat-alone-main."
     },
     {
       "id": "next-release-checklist",

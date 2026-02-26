@@ -12,3 +12,5 @@ services:
         value: REPLACE_ME
       - key: RTPIDATAFEED
         value: bustime
+      - key: CORS_ORIGINS
+        value: https://rts-backend-7ru5.onrender.com
