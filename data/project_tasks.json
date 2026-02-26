@@ -99,9 +99,9 @@
     {
       "id": "pending-split-agent-service",
       "title": "Split agent_service.py into focused modules",
-      "status": "pending",
+      "status": "completed",
       "area": "Backend",
-      "details": "agent_service.py is ~1500 lines handling regex extraction, LLM intent parsing, cache, stop resolution, fallback chains, language detection, and button generation. Split into: intent_extractor.py, stop_resolver.py, response_builder.py, and a thin orchestrator."
+      "details": "Done in Session 7. See completed-agent-split entry."
     },
     {
       "id": "pending-embeddings-webqa",
@@ -113,9 +113,9 @@
     {
       "id": "pending-unit-tests",
       "title": "Add unit tests for parse_date, parse_time, and intent extraction",
-      "status": "pending",
+      "status": "completed",
       "area": "Quality",
-      "details": "schedule_service.parse_date and parse_time handle many edge cases (weekdays, tomorrow, 12am/pm, etc.) with no test coverage. agent_service intent extraction is similarly untested. A small pytest suite would catch regressions."
+      "details": "Done in Sessions 5–7. See completed-unit-tests entry. 128 tests all green."
     },
     {
       "id": "pending-wizard-xss",
@@ -186,10 +186,10 @@
     {
       "id": "set-cors-origins-render",
       "title": "Set CORS_ORIGINS env var in Render to restrict to production domain",
-      "status": "pending",
+      "status": "completed",
       "area": "Security",
       "priority": "critical",
-      "details": "CORS_ORIGINS code support added but env var not set in Render. Currently any website can call the API. Set CORS_ORIGINS=https://rts-backend-7ru5.onrender.com in Render environment variables dashboard."
+      "details": "Done in Session 7. CORS_ORIGINS=https://rts-backend-7ru5.onrender.com added to render.yaml."
     },
     {
       "id": "fix-webqa-hardcoded-model",
@@ -263,10 +263,10 @@
     {
       "id": "add-openai-retry-backoff",
       "title": "Handle OpenAI 429 rate limit errors gracefully",
-      "status": "pending",
+      "status": "completed",
       "area": "Backend",
       "priority": "medium",
-      "details": "Currently if OpenAI returns 429 (rate limited), the agent silently returns a fallback with no user feedback and no retry. Detect RateLimitError specifically, wait 2s and retry once, then return a clear 'service busy, try again in a moment' message."
+      "details": "Done in Session 5. SDK max_retries=3 auto-retries 429/5xx with exponential backoff. See add-openai-retry-logic entry."
     },
     {
       "id": "gtfs-auto-refresh",
@@ -279,10 +279,10 @@
     {
       "id": "structured-outputs-intent",
       "title": "Use OpenAI structured outputs (JSON schema) for intent extraction",
-      "status": "pending",
+      "status": "completed",
       "area": "AI",
       "priority": "medium",
-      "details": "Intent extraction currently asks the LLM to return JSON in a system prompt and hopes it complies. Replace with OpenAI's response_format={type:'json_schema', schema:{...}} to guarantee field names, types, and presence. Eliminates regex fallback parsing and JSON parse errors."
+      "details": "Done in Session 7. See completed-structured-outputs entry."
     },
     {
       "id": "task-maintenance-ongoing",
