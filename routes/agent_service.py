@@ -80,6 +80,7 @@ from routes.stop_resolver import (
     infer_routes_from_predictions,
     suggest_stops_by_route,
     _gtfs_resolve_stop_name,
+    resolve_stop_global,
     route_serves_stop,
 )
 
@@ -1082,6 +1083,25 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                     ),
                     "buttons": buttons,
                     "sources": [{"type": "stop_suggestions_gtfs", "route_id": route_id}],
+                })
+        elif not route_id and _stop_name_for_gtfs:
+            # No route specified — try global stop resolution (e.g. "Next bus at Rosa Parks")
+            _global = resolve_stop_global(_stop_name_for_gtfs)
+            if _global and "stop_id" in _global:
+                stop_id = _global["stop_id"]
+            elif _global and "candidates" in _global:
+                buttons = [
+                    {"label": f"Stop {c['stop_id']} - {c['stop_name'][:40]}", "action": f"ETA stop {c['stop_id']}"}
+                    for c in _global["candidates"][:3]
+                ]
+                return _with_meta({
+                    "answer": tmsg(
+                        lang,
+                        f"I found a few stops matching '{_stop_name_for_gtfs}'. Which one?",
+                        f"Encontré varias paradas para '{_stop_name_for_gtfs}'. ¿Cuál?",
+                    ),
+                    "buttons": buttons,
+                    "sources": [{"type": "stop_suggestions_global"}],
                 })
 
         if route_id:

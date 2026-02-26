@@ -227,6 +227,62 @@ def _gtfs_resolve_stop_name(route_id: str, stop_name: str) -> dict | None:
         return None
 
 
+def resolve_stop_global(stop_name: str) -> dict | None:
+    """
+    Resolve a textual stop name to a stop_id using GTFS data, without route constraint.
+    Useful when the user mentions a landmark but no specific route (e.g. 'Next bus at Rosa Parks').
+    Returns:
+      {'stop_id': '0001', 'stop_name': '...'}        — single match, use directly
+      {'candidates': [{'stop_id':..., 'stop_name':...}]}  — ambiguous, offer buttons
+      None                                                  — no match
+    """
+    if not stop_name or not GTFS_DB_PATH.exists():
+        return None
+    try:
+        conn = sqlite3.connect(str(GTFS_DB_PATH))
+        conn.row_factory = sqlite3.Row
+        try:
+            rows = conn.execute(
+                """
+                SELECT DISTINCT stop_id_padded, stop_name
+                FROM stops
+                WHERE LOWER(TRIM(stop_name)) LIKE LOWER(?)
+                ORDER BY length(stop_name), stop_name
+                """,
+                (f"%{stop_name.strip()}%",),
+            ).fetchall()
+            if len(rows) == 1:
+                return {"stop_id": rows[0]["stop_id_padded"], "stop_name": rows[0]["stop_name"]}
+            if len(rows) > 1:
+                return {"candidates": [{"stop_id": r["stop_id_padded"], "stop_name": r["stop_name"]} for r in rows[:5]]}
+
+            # Fuzzy token search via fuzzy_lookup table
+            norm = stop_name.lower().strip()
+            pattern = "%" + "%".join(norm.split()) + "%"
+            rows2 = conn.execute(
+                """
+                SELECT DISTINCT s.stop_id_padded, s.stop_name
+                FROM fuzzy_lookup f
+                JOIN stops s ON s.stop_id = f.entity_id
+                WHERE f.entity_type = 'stop'
+                  AND f.normalized LIKE ?
+                ORDER BY length(s.stop_name), s.stop_name
+                """,
+                (pattern,),
+            ).fetchall()
+            if len(rows2) == 1:
+                return {"stop_id": rows2[0]["stop_id_padded"], "stop_name": rows2[0]["stop_name"]}
+            if len(rows2) > 1:
+                return {"candidates": [{"stop_id": r["stop_id_padded"], "stop_name": r["stop_name"]} for r in rows2[:5]]}
+
+            return None
+        finally:
+            conn.close()
+    except Exception as exc:
+        logger.warning("resolve_stop_global failed: %s", exc)
+        return None
+
+
 def route_serves_stop(route_id: str, stop_id_padded: str) -> bool:
     if not route_id or not stop_id_padded:
         return False
