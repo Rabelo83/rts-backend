@@ -34,9 +34,9 @@ def format_realtime_answer(lang: str, usable_preds: list[dict]) -> str:
         rt = p.get("route") or ""
         dest = p.get("destination") or ""
         if isinstance(mins, str) and mins.upper() == "DUE":
-            lines.append(tmsg(lang, f"Route {rt} to {dest}: DUE", f"Ruta {rt} hacia {dest}: YA"))
+            lines.append(tmsg(lang, f"Route {rt} (heading to {dest}): DUE", f"Ruta {rt} (hacia {dest}): YA"))
         else:
-            lines.append(tmsg(lang, f"Route {rt} to {dest}: {mins} min", f"Ruta {rt} hacia {dest}: {mins} min"))
+            lines.append(tmsg(lang, f"Route {rt} (heading to {dest}): {mins} min", f"Ruta {rt} (hacia {dest}): {mins} min"))
 
     return tmsg(lang, "Real-time ETA:\n- ", "ETA en tiempo real:\n- ") + "\n- ".join(lines)
 

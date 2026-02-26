@@ -1177,7 +1177,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
 
     if usable:
         return _with_meta({
-            "answer": humanize_answer(format_realtime_answer(lang, usable), lang),
+            "answer": format_realtime_answer(lang, usable),
             "sources": [{"type": "realtime", "stop_id": stop_id, "route_id": route_id}],
         })
 
