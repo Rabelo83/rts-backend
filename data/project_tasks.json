@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
   "updated_at": "2026-02-26",
-  "note": "Session 9: A) SSE streaming added end-to-end — humanize_answer_stream() in intent_extractor.py, stream_agent_message() in agent_service.py, /api/agent/stream endpoint in agent_api.py, sendAgentMessage() rewritten in chat_v2.js to use fetch+ReadableStream typewriter effect; B) wants_first fix — 'first bus after 5pm' no longer returns first-of-day; explicit am/pm suppresses wants_first; C) route discovery — routes_serving_destination() GTFS query added to schedule_service.py; 'What routes go to UF?' now answered with buttons; 145 tests all green.",
+  "note": "Session 10: Route discovery upgraded — stop_areas.json (from BusStopInventory Area column) gives authoritative area→stop_id mapping; routes_serving_area() replaces LIKE query; 'UF'/'campus'/'university of florida' → 16 correct routes; area aliases map to CG/UF/AL. Session 9: A) SSE streaming added end-to-end — humanize_answer_stream() in intent_extractor.py, stream_agent_message() in agent_service.py, /api/agent/stream endpoint in agent_api.py, sendAgentMessage() rewritten in chat_v2.js to use fetch+ReadableStream typewriter effect; B) wants_first fix — 'first bus after 5pm' no longer returns first-of-day; explicit am/pm suppresses wants_first; C) route discovery — routes_serving_destination() GTFS query added to schedule_service.py; 'What routes go to UF?' now answered with buttons; 145 tests all green.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -388,7 +388,7 @@
       "title": "Answer 'What routes go to UF?' type discovery queries",
       "status": "completed",
       "area": "Backend + AI",
-      "details": "Session 9: routes_serving_destination() added to schedule_service.py (GTFS LIKE query on stop names). agent_service.py detects 'which/what routes/buses go to X' pattern and calls this before the 'need stop' dead-end. Returns matching routes with quick-select buttons."
+      "details": "Session 9: routes_serving_destination() added (GTFS LIKE query). Session 10: replaced with routes_serving_area() using authoritative BusStopInventory Area column (stop_areas.json). 'UF'/'campus'/'university of florida' → Area=UF → 16 exact routes (vs 12 fuzzy). Area aliases cover UF, downtown/CG, AL, Lake City, Trenton. Falls back to LIKE query for unknown areas."
     },
     {
       "id": "next-release-checklist",

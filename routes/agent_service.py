@@ -1025,7 +1025,10 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 re.search(r"\b(routes?|bus(es)?)\b.+\b(go to|serve|stop at|near|to)\b", msg_ctx.lower())
             )
             if _is_route_discovery and destination_hint and schedule_service:
-                _disc_routes = schedule_service.routes_serving_destination(destination_hint)
+                # Prefer authoritative area lookup; fall back to stop-name LIKE search
+                _disc_routes = schedule_service.routes_serving_area(destination_hint)
+                if not _disc_routes:
+                    _disc_routes = schedule_service.routes_serving_destination(destination_hint)
                 if _disc_routes:
                     _route_labels = ", ".join(
                         f"Route {r['route_id']}" for r in _disc_routes[:8]

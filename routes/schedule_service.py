@@ -10,6 +10,37 @@ TZ = ZoneInfo("America/New_York")
 BASE_DIR = Path(__file__).resolve().parents[1]
 DB_PATH = BASE_DIR / "Backend Basics" / "db" / "rts_gtfs.sqlite"
 DEFAULTS_PATH = BASE_DIR / "Backend Basics" / "db" / "answering_defaults.json"
+STOP_AREAS_PATH = BASE_DIR / "data" / "stop_areas.json"
+
+# Map user-facing place names → Area codes in stop_areas.json
+_AREA_ALIASES: dict[str, str] = {
+    "uf": "UF",
+    "university of florida": "UF",
+    "university florida": "UF",
+    "campus": "UF",
+    "uf campus": "UF",
+    "gator": "UF",
+    "reitz": "UF",
+    "the hub": "UF",
+    "downtown": "CG",
+    "downtown gainesville": "CG",
+    "rosa parks": "CG",
+    "transit center": "CG",
+    "alachua": "AL",
+    "alachua county": "AL",
+    "lake city": "Lake City",
+    "trenton": "Trenton City",
+}
+
+def _load_stop_areas() -> dict[str, list[str]]:
+    """Load area→[stop_id] mapping from stop_areas.json. Returns {} on error."""
+    try:
+        with STOP_AREAS_PATH.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+_STOP_AREAS: dict[str, list[str]] = _load_stop_areas()
 
 
 def normalize_text(text):
@@ -600,6 +631,48 @@ def routes_serving_destination(destination: str, limit: int = 12) -> list[dict]:
             (pattern, limit),
         ).fetchall()
         return [{"route_id": r["route_short_name"], "route_long_name": r["route_long_name"]} for r in rows]
+    except Exception:
+        return []
+    finally:
+        conn.close()
+
+
+def routes_serving_area(destination_hint: str, limit: int = 16) -> list[dict]:
+    """
+    Return routes serving a named area (e.g. 'UF', 'downtown') using the
+    authoritative stop_areas.json inventory instead of fuzzy stop-name matching.
+
+    Returns [] if the hint doesn't map to a known area or no stop IDs overlap
+    with GTFS — falls back to routes_serving_destination() in the caller.
+    """
+    if not destination_hint:
+        return []
+    area_code = _AREA_ALIASES.get(destination_hint.lower().strip())
+    if not area_code:
+        return []
+    stop_ids = _STOP_AREAS.get(area_code, [])
+    if not stop_ids:
+        return []
+
+    conn = connect_db()
+    if not conn:
+        return []
+    try:
+        placeholders = ",".join("?" * len(stop_ids))
+        rows = conn.execute(
+            f"""
+            SELECT DISTINCT r.route_short_name AS route_id,
+                            r.route_long_name  AS route_long_name
+            FROM stop_times st
+            JOIN trips t ON t.trip_id  = st.trip_id
+            JOIN routes r ON r.route_id = t.route_id
+            WHERE st.stop_id IN ({placeholders})
+            ORDER BY CAST(r.route_short_name AS INTEGER), r.route_short_name
+            LIMIT ?
+            """,
+            (*stop_ids, limit),
+        ).fetchall()
+        return [{"route_id": r["route_id"], "route_long_name": r["route_long_name"]} for r in rows]
     except Exception:
         return []
     finally:
