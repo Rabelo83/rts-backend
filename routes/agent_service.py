@@ -1069,7 +1069,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                     )
                     _buttons = [
                         {"label": f"Route {r['route_id']}", "action": f"schedule route {r['route_id']}"}
-                        for r in _disc_routes[:6]
+                        for r in _disc_routes[:8]
                     ]
                     return _with_meta({
                         "answer": tmsg(
