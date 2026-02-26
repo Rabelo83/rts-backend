@@ -1196,7 +1196,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         if route_id:
             preds = [p for p in preds if str(p.get("rt")) == str(route_id)]
 
-        for p in preds[:10]:
+        for p in preds:
             predictions.append({
                 "route": p.get("rt"),
                 "destination": p.get("des"),
