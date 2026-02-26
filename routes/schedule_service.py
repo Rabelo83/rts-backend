@@ -677,3 +677,161 @@ def routes_serving_area(destination_hint: str, limit: int = 16) -> list[dict]:
         return []
     finally:
         conn.close()
+
+
+def get_route_day_summary(route_id: str, date_str: str | None = None) -> dict | None:
+    """
+    Return a high-level schedule summary for a route on a given date.
+
+    Result dict keys:
+        route_id        str   — short name ('13')
+        route_long_name str   — e.g. 'US 441 to Alight Apartments'
+        date_iso        str   — 'YYYY-MM-DD'
+        day_label       str   — 'Friday (weekday)', 'Saturday', 'Sunday'
+        day_type        str   — 'weekday' | 'saturday' | 'sunday' | 'none'
+        directions      list  — [{'headsign': ..., 'first': 'H:MM AM', 'last': 'H:MM PM', 'trips': n}, ...]
+        runs_today      bool  — False if no service on this date
+
+    Returns None if route_id not found in GTFS.
+    """
+    if not route_id:
+        return None
+
+    conn = connect_db()
+    if not conn:
+        return None
+
+    try:
+        # Resolve date
+        if date_str:
+            try:
+                target = date.fromisoformat(date_str)
+            except ValueError:
+                target = date.today()
+        else:
+            target = date.today()
+
+        date_iso = target.isoformat()
+        date_compact = target.strftime("%Y%m%d")
+        dow = target.weekday()  # 0=Mon … 6=Sun
+
+        if dow < 5:
+            day_label = f"{target.strftime('%A')} (weekday)"
+            day_type = "weekday"
+        elif dow == 5:
+            day_label = "Saturday"
+            day_type = "saturday"
+        else:
+            day_label = "Sunday"
+            day_type = "sunday"
+
+        # Confirm route exists
+        rte = conn.execute(
+            "SELECT route_short_name, route_long_name FROM routes WHERE route_short_name = ?",
+            (route_id,),
+        ).fetchone()
+        if not rte:
+            return None
+
+        # Query first/last departure per headsign using same active_services CTE as the rest of the code
+        sql = """
+        WITH base_services AS (
+          SELECT c.service_id FROM calendar c
+          WHERE :date_compact BETWEEN c.start_date AND c.end_date
+            AND (
+              (c.monday    = 1 AND strftime('%w', :date_iso) = '1') OR
+              (c.tuesday   = 1 AND strftime('%w', :date_iso) = '2') OR
+              (c.wednesday = 1 AND strftime('%w', :date_iso) = '3') OR
+              (c.thursday  = 1 AND strftime('%w', :date_iso) = '4') OR
+              (c.friday    = 1 AND strftime('%w', :date_iso) = '5') OR
+              (c.saturday  = 1 AND strftime('%w', :date_iso) = '6') OR
+              (c.sunday    = 1 AND strftime('%w', :date_iso) = '0')
+            )
+        ),
+        exception_add    AS (SELECT service_id FROM calendar_dates WHERE date = :date_compact AND exception_type = 1),
+        exception_remove AS (SELECT service_id FROM calendar_dates WHERE date = :date_compact AND exception_type = 2),
+        active_services  AS (
+          SELECT service_id FROM base_services
+          UNION  SELECT service_id FROM exception_add
+          EXCEPT SELECT service_id FROM exception_remove
+        )
+        SELECT t.trip_headsign,
+               MIN(st.departure_time) AS first_dep,
+               MAX(st.departure_time) AS last_dep,
+               COUNT(DISTINCT t.trip_id) AS trips
+        FROM trips t
+        JOIN routes r       ON r.route_id  = t.route_id
+        JOIN active_services a ON a.service_id = t.service_id
+        JOIN stop_times st  ON st.trip_id = t.trip_id AND st.stop_sequence = 1
+        WHERE r.route_short_name = :route
+        GROUP BY t.trip_headsign
+        ORDER BY first_dep
+        """
+        rows = conn.execute(sql, {
+            "date_iso": date_iso,
+            "date_compact": date_compact,
+            "route": route_id,
+        }).fetchall()
+
+        def _fmt(t: str) -> str:
+            """'06:00:00' → '6:00 AM'  '13:30:00' → '1:30 PM'"""
+            try:
+                h, m, _ = t.split(":")
+                h, m = int(h), int(m)
+                suffix = "AM" if h < 12 else "PM"
+                h12 = h % 12 or 12
+                return f"{h12}:{m:02d} {suffix}"
+            except Exception:
+                return t
+
+        def _to_minutes(t: str) -> int:
+            try:
+                h, m, _ = t.split(":")
+                return int(h) * 60 + int(m)
+            except Exception:
+                return 0
+
+        def _freq_label(first: str, last: str, trips: int) -> str | None:
+            """Return human-readable frequency like 'every ~30 min' or 'every ~1 hr'."""
+            if trips < 2:
+                return None
+            span = _to_minutes(last) - _to_minutes(first)
+            if span <= 0:
+                return None
+            avg = span / (trips - 1)
+            # Round to nearest 5 minutes
+            rounded = max(5, round(avg / 5) * 5)
+            if rounded >= 60 and rounded % 60 == 0:
+                hrs = rounded // 60
+                return f"every ~{hrs} hr"
+            elif rounded >= 60:
+                hrs = rounded // 60
+                mins = rounded % 60
+                return f"every ~{hrs} hr {mins} min"
+            return f"every ~{rounded} min"
+
+        directions = [
+            {
+                "headsign": r["trip_headsign"],
+                "first": _fmt(r["first_dep"]),
+                "last": _fmt(r["last_dep"]),
+                "trips": r["trips"],
+                "frequency": _freq_label(r["first_dep"], r["last_dep"], r["trips"]),
+            }
+            for r in rows
+        ]
+
+        return {
+            "route_id": route_id,
+            "route_long_name": rte["route_long_name"],
+            "date_iso": date_iso,
+            "day_label": day_label,
+            "day_type": day_type,
+            "directions": directions,
+            "runs_today": len(directions) > 0,
+        }
+
+    except Exception:
+        return None
+    finally:
+        conn.close()

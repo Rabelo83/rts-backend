@@ -680,6 +680,40 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         })
 
     if prefer_schedule and route_id and not stop_id and not destination_hint and not re.search(r"\b(from|at|near)\b", msg_ctx.lower()):
+        # Show route day summary first — give the rider useful context before asking for more
+        _parsed_date = schedule_service.parse_date(msg_ctx) if schedule_service else None
+        _date_str = _parsed_date.isoformat() if _parsed_date else None
+        _summary = schedule_service.get_route_day_summary(route_id, _date_str) if schedule_service else None
+        if _summary and _summary.get("runs_today"):
+            _dirs = _summary["directions"]
+            _dir_lines = []
+            for _d in _dirs:
+                _freq = f" ({_d['frequency']})" if _d.get("frequency") else ""
+                _dir_lines.append(f"  • {_d['headsign']}: {_d['first']} – {_d['last']}{_freq}")
+            _overview = "\n".join(_dir_lines)
+            _buttons = [
+                {"label": _d["headsign"], "action": f"schedule route {route_id} {_d['headsign']}"}
+                for _d in _dirs[:4]
+            ]
+            return _with_meta({
+                "answer": tmsg(
+                    lang,
+                    f"Route {route_id} ({_summary['route_long_name']}) runs on {_summary['day_label']}:\n{_overview}\n\nWant the full schedule? Tell me your stop, direction, or a time frame.",
+                    f"La ruta {route_id} ({_summary['route_long_name']}) opera el {_summary['day_label']}:\n{_overview}\n\n¿Quieres el horario completo? Dime tu parada, dirección o franja horaria."
+                ),
+                "buttons": _buttons,
+                "sources": [{"type": "route_day_summary", "route": route_id, "date": _summary["date_iso"]}],
+            })
+        elif _summary and not _summary.get("runs_today"):
+            return _with_meta({
+                "answer": tmsg(
+                    lang,
+                    f"Route {route_id} does not run on {_summary['day_label']}.",
+                    f"La ruta {route_id} no opera el {_summary['day_label']}."
+                ),
+                "sources": [{"type": "route_day_summary", "route": route_id}],
+            })
+        # Fallback: no summary available — ask for stop
         return _with_meta({
             "answer": tmsg(
                 lang,
