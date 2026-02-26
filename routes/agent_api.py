@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response, stream_with_context
 import os
 import re
 import sqlite3
@@ -20,7 +20,7 @@ MAX_MSG_LEN = 1000
 _UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
 
 # This MUST exist in routes/agent_service.py
-from routes.agent_service import handle_agent_message
+from routes.agent_service import handle_agent_message, stream_agent_message
 
 bp = Blueprint("agent_api", __name__)
 
@@ -222,3 +222,82 @@ def api_agent():
     }
     _log_analytics(entry)
     return jsonify(response_data)
+
+
+@bp.route("/api/agent/stream", methods=["POST"])
+@limiter.limit(os.getenv("RATE_LIMIT", "30 per hour"))
+def api_agent_stream():
+    """Streaming SSE endpoint — same logic as /api/agent but answers arrive word-by-word."""
+    payload = request.get_json(silent=True) or {}
+    msg = (payload.get("message") or "").strip()
+    msg = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', msg)
+    history = payload.get("history") or payload.get("messages") or []
+    raw_sid = (payload.get("session_id") or payload.get("session") or "").strip()
+    session_id = raw_sid if _UUID_RE.match(raw_sid) else ""
+
+    if not msg:
+        return jsonify({"error": True, "error_message": "message required"}), 400
+    if len(msg) > MAX_MSG_LEN:
+        return jsonify({"error": True, "error_message": f"Message too long (max {MAX_MSG_LEN})"}), 400
+
+    if session_id:
+        session_data = session_manager.get_session(session_id)
+        if session_data:
+            history = session_data.get("history", [])
+        else:
+            session_id = session_manager.create_session()
+    else:
+        session_id = session_manager.create_session()
+
+    start = time.perf_counter()
+
+    def generate():
+        full_answer = ""
+        result_meta = {}
+        result_sources = []
+
+        try:
+            for event in stream_agent_message(msg, history=history):
+                if event.get("type") == "done":
+                    full_answer = event.get("answer", "")
+                    result_meta = event.get("meta", {})
+                    result_sources = event.get("sources", [])
+                    # Update session BEFORE yielding done so the next request sees it
+                    session_manager.add_message(session_id, "user", msg)
+                    session_manager.add_message(session_id, "assistant", full_answer)
+                    _log_chat(msg, full_answer)
+                    event["session_id"] = session_id
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception:
+            yield f"data: {json.dumps({'type': 'error', 'text': 'Service temporarily unavailable.'})}\n\n"
+            return
+
+        # Analytics (non-critical, runs after last byte is flushed)
+        duration_ms = int((time.perf_counter() - start) * 1000)
+        success = result_meta.get("intent") not in ("fallback", "error")
+        _log_analytics({
+            "ts_utc": datetime.now(timezone.utc).isoformat(),
+            "session_id": session_id,
+            "message": msg,
+            "route": result_meta.get("route"),
+            "stop_id": result_meta.get("stop_id"),
+            "destination": result_meta.get("destination"),
+            "intent": result_meta.get("intent"),
+            "language": result_meta.get("language"),
+            "needs": result_meta.get("needs"),
+            "prefer_schedule": result_meta.get("prefer_schedule"),
+            "timeframe": result_meta.get("timeframe"),
+            "response_time_ms": duration_ms,
+            "success": success,
+            "source_types": [s.get("type") for s in result_sources if isinstance(s, dict)],
+        })
+
+    return Response(
+        stream_with_context(generate()),
+        content_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",   # disable Nginx response buffering
+            "Connection": "keep-alive",
+        },
+    )

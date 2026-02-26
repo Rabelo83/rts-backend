@@ -308,3 +308,54 @@ def humanize_answer(text: str, lang: str) -> str:
         return out or text
     except Exception:
         return text
+
+
+def humanize_answer_stream(text: str, lang: str):
+    """
+    Yields text chunks for streaming delivery to the frontend.
+
+    - When HUMANIZE_ENABLED=true and OpenAI is reachable: yields real LLM tokens
+      token-by-token (natural-language rewrite via streaming completions).
+    - Default (HUMANIZE_ENABLED=false): yields the pre-formatted answer in
+      ~3-word chunks so the frontend shows a typewriter effect without any
+      extra LLM latency or cost.
+    """
+    if not text:
+        return
+
+    # LLM streaming path (opt-in via HUMANIZE_ENABLED env var)
+    if os.getenv('HUMANIZE_ENABLED', 'false').lower() not in ('false', '0', 'no', ''):
+        api_key = os.getenv('OPENAI_API_KEY', '').strip()
+        if OpenAI and api_key:
+            try:
+                client = _openai_client(api_key)
+                model = os.getenv('HUMANIZE_MODEL', 'gpt-4o-mini')
+                sys_msg = (
+                    'You are a friendly RTS assistant. Rewrite the answer to be clear and human. '
+                    'Preserve all times, stop IDs, and route numbers exactly. Do not add facts.'
+                )
+                with client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {'role': 'system', 'content': sys_msg},
+                        {'role': 'user', 'content': text},
+                    ],
+                    temperature=0.2,
+                    stream=True,
+                ) as stream:
+                    for chunk in stream:
+                        delta = chunk.choices[0].delta.content
+                        if delta:
+                            yield delta
+                return
+            except Exception:
+                pass  # fall through to word-chunk mode
+
+    # Default: word-chunked typewriter effect (no extra LLM call)
+    words = text.split(' ')
+    chunk_size = 3
+    for i in range(0, len(words), chunk_size):
+        chunk = ' '.join(words[i:i + chunk_size])
+        if i + chunk_size < len(words):
+            chunk += ' '
+        yield chunk

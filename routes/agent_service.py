@@ -588,8 +588,11 @@ def try_transit_answer(message: str, history=None) -> dict | None:
     if not prefer_schedule and route_id and _has_place and not stop_id and _has_next_intent(msg_ctx) and not wants_realtime(msg_ctx):
         prefer_schedule = True
 
-    wants_first = "first" in msg_ctx.lower()
-    wants_last = "last" in msg_ctx.lower()
+    # "first after 5pm" means "next after 5pm", NOT "first bus of the day".
+    # Suppress wants_first/wants_last when an explicit am/pm time is present in msg_ctx.
+    _has_explicit_ampm = bool(re.search(r"\b\d{1,2}(:\d{2})?\s*(am|pm)\b", msg_ctx.lower()))
+    wants_first = "first" in msg_ctx.lower() and not _has_explicit_ampm
+    wants_last = "last" in msg_ctx.lower() and not _has_explicit_ampm
 
     if stop_id and not route_id:
         route_map = infer_routes_from_predictions(stop_id)
@@ -1015,6 +1018,32 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 })
 
         if not stop_id:
+            # Route discovery: "what routes go to UF?" / "which buses serve Shands?"
+            _is_route_discovery = bool(
+                re.search(r"\b(which|what)\b.+\b(routes?|bus(es)?|lines?)\b", msg_ctx.lower())
+            ) or bool(
+                re.search(r"\b(routes?|bus(es)?)\b.+\b(go to|serve|stop at|near|to)\b", msg_ctx.lower())
+            )
+            if _is_route_discovery and destination_hint and schedule_service:
+                _disc_routes = schedule_service.routes_serving_destination(destination_hint)
+                if _disc_routes:
+                    _route_labels = ", ".join(
+                        f"Route {r['route_id']}" for r in _disc_routes[:8]
+                    )
+                    _buttons = [
+                        {"label": f"Route {r['route_id']}", "action": f"schedule route {r['route_id']}"}
+                        for r in _disc_routes[:6]
+                    ]
+                    return _with_meta({
+                        "answer": tmsg(
+                            lang,
+                            f"These routes serve {destination_hint}: {_route_labels}. Which one do you need?",
+                            f"Estas rutas sirven a {destination_hint}: {_route_labels}. ¿Cuál necesitas?"
+                        ),
+                        "buttons": _buttons,
+                        "sources": [{"type": "route_discovery", "destination": destination_hint}],
+                    })
+
             return _with_meta({
                 "answer": tmsg(
                     lang,
@@ -1120,6 +1149,48 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         ), lang),
         "sources": [{"type": "realtime_none", "stop_id": stop_id, "route_id": route_id}],
     })
+
+
+def stream_agent_message(message: str, history=None):
+    """
+    Generator that yields SSE event dicts for the /api/agent/stream endpoint.
+
+    Event shapes:
+      {"type": "status", "text": "..."}   — update the typing indicator label
+      {"type": "token",  "text": "..."}   — append chunk to the bot bubble
+      {"type": "done",   "answer": "...", "buttons": ..., "sources": ..., "meta": ...}
+      {"type": "error",  "text": "..."}   — terminal error
+    """
+    from routes.intent_extractor import humanize_answer_stream
+
+    yield {"type": "status", "text": "Thinking…"}
+
+    try:
+        result = handle_agent_message(message, history=history)
+    except Exception as e:
+        logger.error("stream_agent_message_error: %s", repr(e))
+        yield {"type": "error", "text": "Something went wrong. Please try again."}
+        return
+
+    answer_text = result.get("answer", "")
+    buttons = result.get("buttons")
+    sources = result.get("sources", [])
+    meta = result.get("meta", {})
+
+    # Stream the answer in word chunks (typewriter effect).
+    # When HUMANIZE_ENABLED=true the LLM itself streams token-by-token.
+    full_streamed = ""
+    for chunk in humanize_answer_stream(answer_text, meta.get("language", "en")):
+        full_streamed += chunk
+        yield {"type": "token", "text": chunk}
+
+    yield {
+        "type": "done",
+        "answer": full_streamed or answer_text,
+        "buttons": buttons,
+        "sources": sources,
+        "meta": meta,
+    }
 
 
 def handle_agent_message(message: str, history=None) -> dict:

@@ -1230,24 +1230,29 @@ function formatDirectionLabel(raw) {
 }
 
 
-// ====== AGENT API CALL ======
+// ====== AGENT API CALL (STREAMING) ======
 async function sendAgentMessage(message) {
-  cancelCurrentRequest(); // Cancel any pending request
+  cancelCurrentRequest();
 
   const inputField = el('chat-input');
-  if (inputField) {
-    inputField.value = '';
-  }
+  if (inputField) inputField.value = '';
 
   appendBubble(message, 'user');
   AppState.chatHistory.push({ role: 'user', content: message });
   saveState();
 
-  const thinkingBubble = appendBubble(t('thinking'), 'bot', { loading: true });
+  // Create bot bubble immediately — shows typing animation
+  const botBubble = appendBubble('', 'bot', { loading: true });
+  let streamedText = '';
+  let tokenReceived = false;
 
-  // Disable send button
   const sendBtn = el('chat-send');
   if (sendBtn) sendBtn.disabled = true;
+
+  const scrollDown = () => {
+    const wrap = el('chat-messages');
+    if (wrap) wrap.scrollTop = wrap.scrollHeight;
+  };
 
   try {
     const payload = {
@@ -1257,60 +1262,99 @@ async function sendAgentMessage(message) {
       language: AppState.language,
     };
 
-    const response = await fetchWithTimeout(`${CONFIG.BASE_URL}/api/agent`, {
+    const response = await fetchWithTimeout(`${CONFIG.BASE_URL}/api/agent/stream`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+      },
       body: JSON.stringify(payload),
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let finalData = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (!raw) continue;
+        let event;
+        try { event = JSON.parse(raw); } catch { continue; }
+
+        if (event.type === 'token') {
+          if (!tokenReceived) {
+            // Switch bubble from typing dots to live text
+            botBubble.classList.remove('loading');
+            botBubble.innerHTML = '';
+            tokenReceived = true;
+          }
+          streamedText += event.text;
+          botBubble.textContent = streamedText;
+          scrollDown();
+        } else if (event.type === 'done') {
+          finalData = event;
+        } else if (event.type === 'error') {
+          throw new Error(event.text || 'Stream error');
+        }
+        // 'status' events keep the typing dots visible — no DOM change needed
+      }
     }
 
-    const data = await response.json();
-
-    // Update session ID from server
-    if (data.session_id) {
-      AppState.sessionId = data.session_id;
-      saveState();
+    // Finalize bubble
+    const finalAnswer = (finalData && finalData.answer) || streamedText || 'No response.';
+    if (!tokenReceived) {
+      botBubble.classList.remove('loading');
+      botBubble.textContent = finalAnswer;
+    } else {
+      botBubble.textContent = finalAnswer; // sync in case of rounding
     }
+    scrollDown();
 
-    const answer = data.answer || 'No response.';
-
-    // Remove thinking bubble
-    thinkingBubble.remove();
-
-    // Display answer
-    appendBubble(answer, 'bot');
-
-    // Add buttons if present
-    if (data.buttons && Array.isArray(data.buttons) && data.buttons.length > 0) {
-      appendActionBubble((container) => {
-        data.buttons.forEach((btn) => {
-          const button = document.createElement('button');
-          button.className = 'chat-btn';
-          button.textContent = btn.label;
-          button.addEventListener('click', () => {
-            if (inputField) {
-              inputField.value = btn.action;
-            }
-            sendMessage();
+    if (finalData) {
+      if (finalData.session_id) {
+        AppState.sessionId = finalData.session_id;
+        saveState();
+      }
+      if (finalData.buttons && Array.isArray(finalData.buttons) && finalData.buttons.length > 0) {
+        appendActionBubble((container) => {
+          finalData.buttons.forEach((btn) => {
+            const button = document.createElement('button');
+            button.className = 'chat-btn';
+            button.textContent = btn.label;
+            button.addEventListener('click', () => {
+              if (inputField) inputField.value = btn.action;
+              sendMessage();
+            });
+            container.appendChild(button);
           });
-          container.appendChild(button);
         });
-      });
+      }
     }
 
-    AppState.chatHistory.push({ role: 'assistant', content: answer });
+    AppState.chatHistory.push({ role: 'assistant', content: finalAnswer });
     saveState();
-
     scheduleInactivityTimeout();
     trackEvent('agent_message_sent', { intent: AppState.intent });
+
   } catch (error) {
-    thinkingBubble.remove();
-    appendBubble(t('network_error'), 'bot');
-    AppState.chatHistory.push({ role: 'assistant', content: t('network_error') });
-    saveState();
+    if (!tokenReceived) {
+      botBubble.remove();
+      appendBubble(t('network_error'), 'bot');
+      AppState.chatHistory.push({ role: 'assistant', content: t('network_error') });
+      saveState();
+    }
     trackEvent('agent_error', { error: error.message });
   } finally {
     if (sendBtn) sendBtn.disabled = false;

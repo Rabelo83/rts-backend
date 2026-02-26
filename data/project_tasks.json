@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
   "updated_at": "2026-02-26",
-  "note": "Session 8: A) followup-after chain fixed — _advance_time_one_minute() added to parsing_helpers.py; GTFS >= semantics no longer re-show same departure; B) followup-after context fixed — ctx-strip approach replaces single-message prev lookup, preserving route AND stop name across all turns; C) greeting detection added — hi/hello/hey/hola caught at top of try_transit_answer before ctx merge (no more old schedule on greeting); D) handle_agent_message fallback replaced — greeting gets warm response, unclear query gets guided question instead of robotic instructions; 145 tests all green.",
+  "note": "Session 9: A) SSE streaming added end-to-end — humanize_answer_stream() in intent_extractor.py, stream_agent_message() in agent_service.py, /api/agent/stream endpoint in agent_api.py, sendAgentMessage() rewritten in chat_v2.js to use fetch+ReadableStream typewriter effect; B) wants_first fix — 'first bus after 5pm' no longer returns first-of-day; explicit am/pm suppresses wants_first; C) route discovery — routes_serving_destination() GTFS query added to schedule_service.py; 'What routes go to UF?' now answered with buttons; 145 tests all green.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -368,6 +368,27 @@
       "status": "completed",
       "area": "Frontend",
       "details": "Moved language-toggle button from fixed-positioned (top:80px) into the header (.chat-alone-inner). Override: position:static, white-on-blue styling. Centered .chat-alone-inner (max-width:700px, margin:0 auto). Centered #chat-panel.standalone via align-items:center on .chat-alone-main."
+    },
+    {
+      "id": "completed-streaming-sse",
+      "title": "Add SSE streaming for chat responses (typewriter effect)",
+      "status": "completed",
+      "area": "Frontend + Backend",
+      "details": "Session 9: Full SSE pipeline added. Backend: humanize_answer_stream() yields text in 3-word chunks (or real LLM tokens if HUMANIZE_ENABLED=true); stream_agent_message() generator wraps handle_agent_message; /api/agent/stream POST endpoint returns text/event-stream. Frontend: sendAgentMessage() uses fetch+ReadableStream; bot bubble fills word-by-word on 'token' events; buttons and session_id applied on 'done' event."
+    },
+    {
+      "id": "completed-wants-first-fix",
+      "title": "Fix 'first bus after 5pm' returning first-of-day instead of next after 5pm",
+      "status": "completed",
+      "area": "Backend",
+      "details": "Session 9: _has_explicit_ampm check added before wants_first/wants_last. When message contains an explicit am/pm time (e.g. '5pm'), 'first' means 'next after that time' not 'first of day'. Fix cascades to follow-ups."
+    },
+    {
+      "id": "completed-route-discovery",
+      "title": "Answer 'What routes go to UF?' type discovery queries",
+      "status": "completed",
+      "area": "Backend + AI",
+      "details": "Session 9: routes_serving_destination() added to schedule_service.py (GTFS LIKE query on stop names). agent_service.py detects 'which/what routes/buses go to X' pattern and calls this before the 'need stop' dead-end. Returns matching routes with quick-select buttons."
     },
     {
       "id": "next-release-checklist",

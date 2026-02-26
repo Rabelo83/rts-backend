@@ -570,3 +570,37 @@ def get_schedule_all_routes(text, stop_id=None, debug=False):
         return out
     finally:
         conn.close()
+
+
+def routes_serving_destination(destination: str, limit: int = 12) -> list[dict]:
+    """
+    Return routes whose stops contain `destination` in the stop name.
+    Each dict has keys: route_id (short name), route_long_name.
+    Used to answer "What routes go to UF?" type queries.
+    """
+    if not destination:
+        return []
+    conn = connect_db()
+    if not conn:
+        return []
+    try:
+        pattern = f"%{destination.lower()}%"
+        rows = conn.execute(
+            """
+            SELECT DISTINCT r.route_short_name AS route_id,
+                            r.route_long_name  AS route_long_name
+            FROM stops s
+            JOIN stop_times st ON st.stop_id = s.stop_id
+            JOIN trips t       ON t.trip_id  = st.trip_id
+            JOIN routes r      ON r.route_id = t.route_id
+            WHERE LOWER(s.stop_name) LIKE ?
+            ORDER BY CAST(r.route_short_name AS INTEGER), r.route_short_name
+            LIMIT ?
+            """,
+            (pattern, limit),
+        ).fetchall()
+        return [{"route_id": r["route_short_name"], "route_long_name": r["route_long_name"]} for r in rows]
+    except Exception:
+        return []
+    finally:
+        conn.close()
