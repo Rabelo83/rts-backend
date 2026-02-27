@@ -8,512 +8,648 @@
     @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap");
 
     :root {
-      --bg: #edf3f8;
-      --card: #ffffff;
-      --line: #d7e1ec;
-      --text: #0f172a;
-      --muted: #5b667a;
-      --accent: #0ea5e9;
-      --ok: #16a34a;
-      --warn: #d97706;
-      --block: #dc2626;
-      --next: #7c3aed;
-      --pending: #2563eb;
-      --shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
-      --radius: 16px;
+      --bg:      #0d1117;
+      --s1:      #161b22;
+      --s2:      #1c2230;
+      --border:  #30363d;
+      --text:    #e6edf3;
+      --muted:   #848d97;
+      --accent:  #58a6ff;
+      --ok:      #3fb950;
+      --warn:    #d29922;
+      --danger:  #f85149;
+      --purple:  #bc8cff;
+      --blue:    #79c0ff;
+      --gold:    #e3b341;
+      --shadow:  0 4px 28px rgba(0,0,0,.55);
+      --r:       10px;
     }
 
-    * { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      margin: 0;
       font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background: var(--bg);
       color: var(--text);
-      background:
-        radial-gradient(circle at 0% 0%, rgba(14, 165, 233, 0.12), transparent 45%),
-        radial-gradient(circle at 100% 0%, rgba(124, 58, 237, 0.08), transparent 35%),
-        var(--bg);
+      min-height: 100vh;
     }
 
-    .wrap {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 24px 16px 48px;
-    }
+    a { color: var(--accent); text-decoration: none; }
 
+    /* ── wrap ─────────────────────────────────────────────────── */
+    .wrap { max-width: 1280px; margin: 0 auto; padding: 20px 16px 64px; }
+
+    /* ── nav ──────────────────────────────────────────────────── */
+    .nav { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 20px; }
+
+    .nav a {
+      display: inline-block;
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: .82rem;
+      font-weight: 600;
+      color: var(--muted);
+      background: var(--s1);
+      transition: border-color .2s, color .2s;
+    }
+    .nav a:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── hero ─────────────────────────────────────────────────── */
     .hero {
-      background: linear-gradient(135deg, #0f172a, #1e3a8a 65%, #0ea5e9);
+      background: linear-gradient(135deg, #0f172a 0%, #1a2744 55%, #1e3a5f 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 32px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      top: -80px; right: -60px;
+      width: 260px; height: 260px;
+      background: radial-gradient(circle, rgba(88,166,255,.10), transparent 68%);
+      pointer-events: none;
+    }
+
+    /* progress ring */
+    .ring-wrap { flex-shrink: 0; position: relative; width: 104px; height: 104px; }
+    .ring-wrap svg { transform: rotate(-90deg); }
+    .ring-track { fill: none; stroke: rgba(255,255,255,.10); stroke-width: 7; }
+    .ring-fill {
+      fill: none;
+      stroke: var(--ok);
+      stroke-width: 7;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1s cubic-bezier(.4,0,.2,1);
+    }
+    .ring-label {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       color: #fff;
-      border-radius: 22px;
-      padding: 20px;
-      box-shadow: var(--shadow);
-      margin-bottom: 20px;
     }
+    .ring-pct { font-family: "Space Grotesk", sans-serif; font-size: 1.5rem; font-weight: 700; line-height: 1; }
+    .ring-sub { font-size: .68rem; color: rgba(255,255,255,.5); margin-top: 3px; }
 
-    .hero h1 {
-      margin: 0;
-      font-family: "Space Grotesk", sans-serif;
-      font-size: 1.6rem;
-    }
+    .hero-text { flex: 1; min-width: 0; }
+    .hero h1 { font-family: "Space Grotesk", sans-serif; font-size: 1.45rem; color: #fff; margin-bottom: 6px; }
+    .hero-goal { color: rgba(255,255,255,.75); font-size: .88rem; line-height: 1.6; margin-bottom: 10px; }
+    .hero-meta { font-size: .76rem; color: rgba(255,255,255,.4); }
 
-    .hero p {
-      margin: 8px 0 0;
-      color: rgba(255, 255, 255, 0.9);
-    }
-
-    .meta {
-      margin-top: 10px;
-      font-size: 0.9rem;
-      color: rgba(255, 255, 255, 0.82);
-    }
-
-    .summary-grid {
+    /* ── stats ────────────────────────────────────────────────── */
+    .stats {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
+      grid-template-columns: repeat(6, minmax(0,1fr));
+      gap: 10px;
+      margin-bottom: 18px;
     }
 
     .stat {
-      padding: 14px;
-    }
-
-    .stat-label {
-      color: var(--muted);
-      font-size: 0.85rem;
-      margin: 0 0 8px;
-    }
-
-    .stat-value {
-      font-size: 1.8rem;
-      font-weight: 700;
-      line-height: 1;
-    }
-
-    .stat.completed .stat-value { color: var(--ok); }
-    .stat.pending .stat-value { color: var(--pending); }
-    .stat.blocked .stat-value { color: var(--block); }
-    .stat.next .stat-value { color: var(--next); }
-
-    .layout {
-      display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 16px;
-      align-items: start;
-    }
-
-    .panel {
-      padding: 14px;
-    }
-
-    .panel h2 {
-      margin: 0 0 12px;
-      font-size: 1rem;
-    }
-
-    .toolbar {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
-    }
-
-    button.filter {
-      border: 1px solid var(--line);
-      background: #fff;
-      border-radius: 999px;
-      padding: 8px 12px;
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 14px 16px;
       cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: border-color .18s, background .18s;
+    }
+    .stat::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+    }
+    .stat.s-all::before    { background: var(--muted); }
+    .stat.s-done::before   { background: var(--ok); }
+    .stat.s-next::before   { background: var(--purple); }
+    .stat.s-pend::before   { background: var(--blue); }
+    .stat.s-back::before   { background: var(--gold); }
+    .stat.s-block::before  { background: var(--danger); }
+
+    .stat:hover, .stat.lit { border-color: var(--accent); background: var(--s2); }
+
+    .stat-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
+    .stat-value { font-family: "Space Grotesk", sans-serif; font-size: 2rem; font-weight: 700; line-height: 1; }
+    .s-all .stat-value   { color: var(--text); }
+    .s-done .stat-value  { color: var(--ok); }
+    .s-next .stat-value  { color: var(--purple); }
+    .s-pend .stat-value  { color: var(--blue); }
+    .s-back .stat-value  { color: var(--gold); }
+    .s-block .stat-value { color: var(--danger); }
+
+    /* ── layout ───────────────────────────────────────────────── */
+    .layout { display: grid; grid-template-columns: 1fr 330px; gap: 14px; align-items: start; }
+
+    /* ── panel ────────────────────────────────────────────────── */
+    .panel { background: var(--s1); border: 1px solid var(--border); border-radius: var(--r); }
+    .panel-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 16px; border-bottom: 1px solid var(--border);
+    }
+    .panel-head h2 { font-size: .92rem; font-weight: 600; }
+    .panel-head small { font-size: .78rem; color: var(--muted); }
+    .panel-body { padding: 12px; }
+
+    /* ── search ───────────────────────────────────────────────── */
+    .search-wrap { position: relative; margin-bottom: 10px; }
+
+    #searchInput {
+      width: 100%;
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 60px 9px 34px;
+      color: var(--text);
+      font-size: .88rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .2s;
+    }
+    #searchInput::placeholder { color: var(--muted); }
+    #searchInput:focus { border-color: var(--accent); }
+
+    .search-ico {
+      position: absolute; left: 10px; top: 50%;
+      transform: translateY(-50%);
+      width: 14px; height: 14px;
+      color: var(--muted); pointer-events: none;
+    }
+    .search-key {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      font-size: .68rem; color: var(--muted);
+      background: var(--s1); border: 1px solid var(--border);
+      border-radius: 4px; padding: 2px 5px;
+    }
+
+    /* ── filter buttons ───────────────────────────────────────── */
+    .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+
+    .fbtn {
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font-size: .76rem;
       font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all .14s;
     }
+    .fbtn:hover { border-color: var(--accent); color: var(--accent); }
+    .fbtn.active { background: var(--accent); border-color: var(--accent); color: #0d1117; }
 
-    button.filter.active {
-      border-color: var(--accent);
-      color: #0369a1;
-      background: rgba(14, 165, 233, 0.08);
-    }
+    /* ── task list ────────────────────────────────────────────── */
+    .task-list { display: flex; flex-direction: column; gap: 6px; max-height: 65vh; overflow-y: auto; padding-right: 2px; }
+    .task-list::-webkit-scrollbar { width: 4px; }
+    .task-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-    .task-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
+    /* task card */
     .task {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 12px;
-      background: #fff;
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: border-color .15s;
+      animation: fadeUp .22s ease both;
+    }
+    .task:hover { border-color: #444c56; }
+
+    .task-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      user-select: none;
     }
 
-    .task-header {
+    .ticon {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .ticon.completed { background: rgba(63,185,80,.15); color: var(--ok); }
+    .ticon.pending   { background: rgba(121,192,255,.15); color: var(--blue); }
+    .ticon.blocked   { background: rgba(248,81,73,.15); color: var(--danger); }
+    .ticon.next      { background: rgba(188,140,255,.15); color: var(--purple); }
+    .ticon.backlog   { background: rgba(227,179,65,.15); color: var(--gold); }
+
+    .t-title { flex: 1; font-size: .87rem; font-weight: 500; min-width: 0; }
+
+    .t-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+    .area-tag {
+      font-size: .7rem;
+      color: var(--muted);
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      max-width: 88px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .chevron { color: var(--muted); font-size: 13px; transition: transform .2s; line-height: 1; }
+    .task.open .chevron { transform: rotate(90deg); }
+
+    .task-body {
+      display: none;
+      padding: 0 12px 12px 44px;
+      font-size: .84rem;
+      color: #8b949e;
+      line-height: 1.65;
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+      margin-top: 0;
+    }
+    .task.open .task-body { display: block; }
+
+    .blocker-tag {
+      margin-top: 8px;
+      padding: 8px 10px;
+      background: rgba(248,81,73,.1);
+      border: 1px solid rgba(248,81,73,.3);
+      border-radius: 6px;
+      color: #ffa198;
+      font-size: .82rem;
+    }
+
+    /* ── sidebar ──────────────────────────────────────────────── */
+    .sidebar { display: grid; gap: 12px; }
+
+    /* area bars */
+    .area-rows { display: flex; flex-direction: column; gap: 9px; }
+    .area-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+    .area-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .area-name { font-size: .78rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .area-frac { font-size: .72rem; color: var(--muted); flex-shrink: 0; }
+    .area-track { background: rgba(255,255,255,.06); border-radius: 3px; height: 5px; overflow: hidden; }
+    .area-fill  { height: 100%; border-radius: 3px; background: var(--ok); transition: width .8s cubic-bezier(.4,0,.2,1); }
+
+    /* vision accordion */
+    .vacc-item { border-bottom: 1px solid var(--border); }
+    .vacc-item:last-child { border-bottom: none; }
+    .vacc-trigger {
       display: flex;
       justify-content: space-between;
-      gap: 10px;
-      align-items: flex-start;
-    }
-
-    .task-title {
-      margin: 0;
-      font-weight: 700;
-      font-size: 0.95rem;
-    }
-
-    .task-area {
-      color: var(--muted);
-      font-size: 0.82rem;
-      margin-top: 2px;
-    }
-
-    .badge {
-      border-radius: 999px;
-      padding: 4px 9px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      white-space: nowrap;
-      border: 1px solid transparent;
-      text-transform: capitalize;
-    }
-
-    .badge.completed { color: #166534; background: #dcfce7; border-color: #bbf7d0; }
-    .badge.pending { color: #1d4ed8; background: #dbeafe; border-color: #bfdbfe; }
-    .badge.blocked { color: #991b1b; background: #fee2e2; border-color: #fecaca; }
-    .badge.next { color: #6d28d9; background: #ede9fe; border-color: #ddd6fe; }
-
-    .task-details {
-      margin: 8px 0 0;
-      color: #334155;
-      font-size: 0.88rem;
-    }
-
-    .task-blocker {
-      margin-top: 8px;
-      font-size: 0.82rem;
-      color: #7f1d1d;
-      background: #fff1f2;
-      border: 1px solid #ffe4e6;
-      border-radius: 10px;
-      padding: 8px 10px;
-    }
-
-    .group-list {
-      display: grid;
-      gap: 10px;
-    }
-
-    .group {
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 10px 12px;
-      background: #fff;
-    }
-
-    .group strong {
-      display: block;
-      font-size: 0.9rem;
-      margin-bottom: 6px;
-    }
-
-    .group ul {
-      margin: 0;
-      padding-left: 18px;
-      color: #334155;
-      font-size: 0.88rem;
-    }
-
-    .error {
-      color: #991b1b;
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      border-radius: 12px;
-      padding: 12px;
-    }
-
-    .empty {
-      color: var(--muted);
-      border: 1px dashed var(--line);
-      border-radius: 12px;
-      padding: 14px;
-      text-align: center;
-      background: #f8fbff;
-    }
-
-    @media (max-width: 980px) {
-      .summary-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .layout {
-        grid-template-columns: 1fr;
-      }
-
-    }
-
-    @media (max-width: 520px) {
-      .summary-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .hero h1 {
-        font-size: 1.35rem;
-      }
-    }
-
-    .nav-bar {
-      display: flex;
-      gap: 10px;
       align-items: center;
-      padding: 10px 0 14px;
-      flex-wrap: wrap;
-    }
-
-    .nav-bar a {
-      color: #0369a1;
-      text-decoration: none;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: .78rem;
       font-weight: 600;
-      font-size: 0.9rem;
-      padding: 6px 14px;
-      border: 1px solid #bae6fd;
-      border-radius: 999px;
-      background: #f0f9ff;
-    }
-
-    .nav-bar a:hover { background: #e0f2fe; }
-
-    .vision-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .vision-item strong {
-      display: block;
-      font-size: 0.78rem;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: .06em;
       color: var(--muted);
-      margin-bottom: 4px;
+      user-select: none;
+    }
+    .vacc-trigger:hover { color: var(--text); }
+    .vacc-trigger .chevron { font-size: 11px; transition: transform .2s; }
+    .vacc-item.open .vacc-trigger .chevron { transform: rotate(90deg); }
+    .vacc-body { display: none; padding: 0 14px 12px; font-size: .83rem; color: #8b949e; line-height: 1.65; }
+    .vacc-item.open .vacc-body { display: block; }
+
+    /* ── misc ─────────────────────────────────────────────────── */
+    .empty-state { text-align: center; padding: 28px; color: var(--muted); font-size: .88rem; }
+    .err-msg { padding: 12px; background: rgba(248,81,73,.1); border: 1px solid rgba(248,81,73,.3); border-radius: 8px; color: #ffa198; font-size: .88rem; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
-    .vision-item p {
-      margin: 0;
-      font-size: 0.88rem;
-      color: #334155;
-      line-height: 1.5;
+    /* ── responsive ───────────────────────────────────────────── */
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+      .stats  { grid-template-columns: repeat(3, minmax(0,1fr)); }
+      .hero   { flex-direction: column; gap: 18px; padding: 24px; }
+    }
+    @media (max-width: 520px) {
+      .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <nav class="nav-bar">
-      <a href="/">← Main Tracker</a>
-      <a href="/wizard">Trip Wizard</a>
-      <a href="/chat">Chat Assistant</a>
-    </nav>
+<div class="wrap">
 
-    <section class="hero">
-      <h1 id="projectTitle">RTS Project Dashboard</h1>
-      <p id="projectGoal">Loading project summary...</p>
-      <div class="meta" id="metaLine">Loading...</div>
-    </section>
+  <!-- nav -->
+  <nav class="nav">
+    <a href="/">← Main Tracker</a>
+    <a href="/wizard">Trip Wizard</a>
+    <a href="/chat">Chat Assistant</a>
+  </nav>
 
-    <section class="summary-grid" id="summaryGrid">
-      <div class="card stat">
-        <p class="stat-label">Total Tasks</p>
-        <div class="stat-value" id="totalCount">-</div>
+  <!-- hero -->
+  <section class="hero">
+    <div class="ring-wrap">
+      <svg width="104" height="104" viewBox="0 0 104 104">
+        <circle class="ring-track" cx="52" cy="52" r="44"/>
+        <circle class="ring-fill" id="ringFill" cx="52" cy="52" r="44"
+          stroke-dasharray="276.5" stroke-dashoffset="276.5"/>
+      </svg>
+      <div class="ring-label">
+        <div class="ring-pct" id="ringPct">0%</div>
+        <div class="ring-sub">complete</div>
       </div>
-      <div class="card stat completed">
-        <p class="stat-label">Completed</p>
-        <div class="stat-value" id="completedCount">-</div>
-      </div>
-      <div class="card stat pending">
-        <p class="stat-label">Pending</p>
-        <div class="stat-value" id="pendingCount">-</div>
-      </div>
-      <div class="card stat blocked">
-        <p class="stat-label">Blocked</p>
-        <div class="stat-value" id="blockedCount">-</div>
-      </div>
-      <div class="card stat next">
-        <p class="stat-label">Next</p>
-        <div class="stat-value" id="nextCount">-</div>
-      </div>
-    </section>
+    </div>
+    <div class="hero-text">
+      <h1 id="heroTitle">RTS Project Dashboard</h1>
+      <p class="hero-goal" id="heroGoal">Loading project summary…</p>
+      <div class="hero-meta" id="heroMeta"></div>
+    </div>
+  </section>
 
-    <section class="layout">
-      <div class="card panel">
-        <h2>Tasks</h2>
-        <div class="toolbar" id="toolbar">
-          <button class="filter active" data-filter="all">All</button>
-          <button class="filter" data-filter="completed">Completed</button>
-          <button class="filter" data-filter="pending">Pending</button>
-          <button class="filter" data-filter="blocked">Blocked</button>
-          <button class="filter" data-filter="next">Next</button>
-        </div>
-        <div id="taskList" class="task-list"></div>
-      </div>
-
-      <div style="display:grid;gap:16px;">
-        <div class="card panel">
-          <h2>Project Vision</h2>
-          <div id="vision-panel" class="vision-list"></div>
-        </div>
-        <div class="card panel">
-          <h2>By Area</h2>
-          <div id="area-groups" class="group-list"></div>
-        </div>
-      </div>
-    </section>
+  <!-- stats -->
+  <div class="stats">
+    <div class="stat s-all lit"  data-f="all">   <div class="stat-label">Total</div>    <div class="stat-value" id="cAll">–</div></div>
+    <div class="stat s-done"     data-f="completed"><div class="stat-label">Done</div>   <div class="stat-value" id="cDone">–</div></div>
+    <div class="stat s-next"     data-f="next">  <div class="stat-label">Next</div>     <div class="stat-value" id="cNext">–</div></div>
+    <div class="stat s-pend"     data-f="pending"><div class="stat-label">Pending</div> <div class="stat-value" id="cPend">–</div></div>
+    <div class="stat s-back"     data-f="backlog"><div class="stat-label">Backlog</div> <div class="stat-value" id="cBack">–</div></div>
+    <div class="stat s-block"    data-f="blocked"><div class="stat-label">Blocked</div> <div class="stat-value" id="cBlock">–</div></div>
   </div>
 
-  <script>
-    const state = { tasks: [], filter: "all" };
+  <!-- main layout -->
+  <div class="layout">
 
-    function escapeHtml(value) {
-      return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
+    <!-- task list panel -->
+    <div class="panel">
+      <div class="panel-head">
+        <h2 id="panelTitle">All Tasks</h2>
+        <small id="panelCount"></small>
+      </div>
+      <div class="panel-body">
+        <!-- search -->
+        <div class="search-wrap">
+          <svg class="search-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+            <circle cx="6.5" cy="6.5" r="4.5"/>
+            <path d="M10.5 10.5L14 14" stroke-linecap="round"/>
+          </svg>
+          <input id="searchInput" type="search" placeholder="Search tasks… ( / )" autocomplete="off" />
+          <span class="search-key">/</span>
+        </div>
+        <!-- filter pills -->
+        <div class="filters">
+          <button class="fbtn active" data-f="all">All</button>
+          <button class="fbtn" data-f="completed">✓ Done</button>
+          <button class="fbtn" data-f="next">↗ Next</button>
+          <button class="fbtn" data-f="pending">● Pending</button>
+          <button class="fbtn" data-f="backlog">≡ Backlog</button>
+          <button class="fbtn" data-f="blocked">✕ Blocked</button>
+        </div>
+        <!-- tasks -->
+        <div id="taskList" class="task-list">
+          <div class="empty-state">Loading tasks…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- sidebar -->
+    <div class="sidebar">
+
+      <!-- area breakdown -->
+      <div class="panel">
+        <div class="panel-head"><h2>By Area</h2></div>
+        <div class="panel-body">
+          <div id="areaRows" class="area-rows"></div>
+        </div>
+      </div>
+
+      <!-- vision accordion -->
+      <div class="panel">
+        <div class="panel-head"><h2>Project Vision</h2></div>
+        <div id="visionAcc"></div>
+      </div>
+
+    </div><!-- /sidebar -->
+  </div><!-- /layout -->
+</div><!-- /wrap -->
+
+<script>
+  const ORDER = { blocked: 0, next: 1, pending: 2, backlog: 3, completed: 4 };
+  const VALID  = Object.keys(ORDER);
+  const ICONS  = { completed: "✓", pending: "●", blocked: "✕", next: "→", backlog: "≡" };
+
+  const $ = id => document.getElementById(id);
+  const state = { tasks: [], filter: "all", q: "" };
+
+  function esc(v) {
+    return String(v ?? "")
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+      .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function norm(s) { return VALID.includes(s) ? s : "pending"; }
+
+  // ── counts ──────────────────────────────────────────────────
+  function getCounts(tasks) {
+    const c = { all: tasks.length, completed: 0, next: 0, pending: 0, backlog: 0, blocked: 0 };
+    for (const t of tasks) {
+      const s = norm(t.status);
+      if (s in c) c[s]++;
+    }
+    return c;
+  }
+
+  // ── ring + stats ─────────────────────────────────────────────
+  function renderStats(tasks) {
+    const c = getCounts(tasks);
+    $("cAll").textContent   = c.all;
+    $("cDone").textContent  = c.completed;
+    $("cNext").textContent  = c.next;
+    $("cPend").textContent  = c.pending;
+    $("cBack").textContent  = c.backlog;
+    $("cBlock").textContent = c.blocked;
+
+    const pct = c.all ? Math.round((c.completed / c.all) * 100) : 0;
+    $("ringPct").textContent = pct + "%";
+
+    const C = 2 * Math.PI * 44; // r=44 → 276.46
+    $("ringFill").style.strokeDasharray  = C;
+    $("ringFill").style.strokeDashoffset = C * (1 - c.completed / (c.all || 1));
+  }
+
+  // ── filter helpers ───────────────────────────────────────────
+  function getVisible() {
+    return state.tasks
+      .filter(t => {
+        const s = norm(t.status);
+        if (state.filter !== "all" && s !== state.filter) return false;
+        if (state.q) {
+          const q = state.q.toLowerCase();
+          return (t.title   || "").toLowerCase().includes(q)
+              || (t.area    || "").toLowerCase().includes(q)
+              || (t.details || "").toLowerCase().includes(q);
+        }
+        return true;
+      })
+      .sort((a, b) => ORDER[norm(a.status)] - ORDER[norm(b.status)]);
+  }
+
+  // ── render tasks ─────────────────────────────────────────────
+  function renderTasks() {
+    const list = $("taskList");
+    const visible = getVisible();
+
+    $("panelCount").textContent = visible.length + " task" + (visible.length !== 1 ? "s" : "");
+
+    if (!visible.length) {
+      list.innerHTML = '<div class="empty-state">No tasks match.</div>';
+      return;
     }
 
-    function normalizeStatus(status) {
-      return ["completed", "pending", "blocked", "next"].includes(status) ? status : "pending";
-    }
+    list.innerHTML = visible.map((task, i) => {
+      const status = norm(task.status);
+      const icon   = ICONS[status] || "●";
+      const delay  = `animation-delay:${(i % 25) * 0.025}s`;
 
-    function counts(tasks) {
-      const result = { total: tasks.length, completed: 0, pending: 0, blocked: 0, next: 0 };
-      for (const task of tasks) {
-        const s = normalizeStatus(task.status);
-        if (result[s] !== undefined) result[s] += 1;
-      }
-      return result;
-    }
+      const blocker = task.blocker
+        ? `<div class="blocker-tag"><strong>Blocker:</strong> ${esc(task.blocker)}</div>`
+        : "";
+      const body = task.details ? esc(task.details) + blocker : blocker || "<em>No details.</em>";
 
-    function renderSummary(tasks) {
-      const c = counts(tasks);
-      document.getElementById("totalCount").textContent = c.total;
-      document.getElementById("completedCount").textContent = c.completed;
-      document.getElementById("pendingCount").textContent = c.pending;
-      document.getElementById("blockedCount").textContent = c.blocked;
-      document.getElementById("nextCount").textContent = c.next;
-    }
-
-    function renderTasks() {
-      const list = document.getElementById("taskList");
-      const tasks = state.filter === "all"
-        ? state.tasks
-        : state.tasks.filter(t => normalizeStatus(t.status) === state.filter);
-
-      if (!tasks.length) {
-        list.innerHTML = '<div class="empty">No tasks in this filter.</div>';
-        return;
-      }
-
-      list.innerHTML = tasks.map(task => {
-        const status = normalizeStatus(task.status);
-        const blocker = task.blocker
-          ? '<div class="task-blocker"><strong>Blocker:</strong> ' + escapeHtml(task.blocker) + '</div>'
-          : "";
-
-        return `
-          <article class="task">
-            <div class="task-header">
-              <div>
-                <p class="task-title">${escapeHtml(task.title)}</p>
-                <div class="task-area">${escapeHtml(task.area || "General")}</div>
-              </div>
-              <span class="badge ${status}">${status}</span>
+      return `
+        <div class="task" style="${delay}" data-i="${i}">
+          <div class="task-head">
+            <div class="ticon ${status}">${icon}</div>
+            <div class="t-title">${esc(task.title)}</div>
+            <div class="t-right">
+              <span class="area-tag" title="${esc(task.area||'General')}">${esc(task.area||"General")}</span>
+              <span class="chevron">›</span>
             </div>
-            <p class="task-details">${escapeHtml(task.details || "")}</p>
-            ${blocker}
-          </article>
-        `;
-      }).join("");
+          </div>
+          <div class="task-body">${body}</div>
+        </div>`;
+    }).join("");
+
+    for (const card of list.querySelectorAll(".task")) {
+      card.querySelector(".task-head").addEventListener("click", () => card.classList.toggle("open"));
     }
+  }
 
-    function renderVision(vision) {
-      const el = document.getElementById("vision-panel");
-      if (!el) return;
-      const fields = [
-        { label: "Goal", key: "statement" },
-        { label: "Customer Journey", key: "cx_journey" },
-        { label: "Wizard Strategy", key: "wizard_strategy" },
-        { label: "End State", key: "end_state" },
-      ];
-      const items = fields.filter(f => vision[f.key]);
-      el.innerHTML = items.length
-        ? items.map(f => `
-            <div class="vision-item">
-              <strong>${escapeHtml(f.label)}</strong>
-              <p>${escapeHtml(vision[f.key])}</p>
-            </div>`).join("")
-        : '<p style="color:var(--muted);font-size:.88rem">No vision data.</p>';
+  // ── area bars ────────────────────────────────────────────────
+  function renderAreas(tasks) {
+    const el = $("areaRows");
+    const map = {};
+    for (const t of tasks) {
+      const a = t.area || "General";
+      if (!map[a]) map[a] = { total: 0, done: 0 };
+      map[a].total++;
+      if (norm(t.status) === "completed") map[a].done++;
     }
+    const rows = Object.entries(map).sort((a, b) => b[1].total - a[1].total);
+    if (!rows.length) { el.innerHTML = '<div class="empty-state">No data.</div>'; return; }
+    el.innerHTML = rows.map(([area, d]) => {
+      const pct = Math.round((d.done / d.total) * 100);
+      return `
+        <div>
+          <div class="area-top">
+            <span class="area-name" title="${esc(area)}">${esc(area)}</span>
+            <span class="area-frac">${d.done}/${d.total}</span>
+          </div>
+          <div class="area-track"><div class="area-fill" style="width:${pct}%"></div></div>
+        </div>`;
+    }).join("");
+  }
 
-    function renderAreaGroups(tasks) {
-      const el = document.getElementById("area-groups");
-      if (!el) return;
-      const areas = {};
-      for (const t of tasks) {
-        const area = t.area || "General";
-        if (!areas[area]) areas[area] = [];
-        areas[area].push(t);
-      }
-      el.innerHTML = Object.entries(areas).sort().map(([area, items]) => `
-        <section class="group">
-          <strong>${escapeHtml(area)} (${items.length})</strong>
-          <ul>${items.map(i => `<li>${escapeHtml(i.title)}</li>`).join("")}</ul>
-        </section>`).join("") || '<p style="color:var(--muted)">No data.</p>';
+  // ── vision accordion ─────────────────────────────────────────
+  function renderVision(vision) {
+    const el = $("visionAcc");
+    const fields = [
+      { label: "Goal",              key: "statement"      },
+      { label: "Customer Journey",  key: "cx_journey"     },
+      { label: "Wizard Strategy",   key: "wizard_strategy"},
+      { label: "End State",         key: "end_state"      },
+    ];
+    const items = fields.filter(f => vision[f.key]);
+    if (!items.length) { el.innerHTML = '<div class="empty-state">No vision data.</div>'; return; }
+    el.innerHTML = items.map(f => `
+      <div class="vacc-item">
+        <div class="vacc-trigger">${esc(f.label)}<span class="chevron">›</span></div>
+        <div class="vacc-body">${esc(vision[f.key])}</div>
+      </div>`).join("");
+
+    for (const item of el.querySelectorAll(".vacc-item")) {
+      item.querySelector(".vacc-trigger").addEventListener("click", () => item.classList.toggle("open"));
     }
+    const first = el.querySelector(".vacc-item");
+    if (first) first.classList.add("open");
+  }
 
-    function bindFilters() {
-      const buttons = Array.from(document.querySelectorAll("button.filter"));
-      for (const btn of buttons) {
-        btn.addEventListener("click", () => {
-          state.filter = btn.dataset.filter || "all";
-          for (const b of buttons) b.classList.remove("active");
-          btn.classList.add("active");
-          renderTasks();
-        });
-      }
+  // ── filter control ────────────────────────────────────────────
+  function setFilter(f) {
+    state.filter = f;
+    // stat cards
+    for (const s of document.querySelectorAll(".stat")) s.classList.toggle("lit", s.dataset.f === f);
+    // filter buttons
+    for (const b of document.querySelectorAll(".fbtn")) b.classList.toggle("active", b.dataset.f === f);
+    // panel title
+    const LABELS = { all:"All Tasks", completed:"Completed", next:"Next Up", pending:"Pending", backlog:"Backlog", blocked:"Blocked" };
+    $("panelTitle").textContent = LABELS[f] || "Tasks";
+    renderTasks();
+  }
+
+  // ── load ──────────────────────────────────────────────────────
+  async function load() {
+    try {
+      const res = await fetch("/api/project/tasks", { headers: { Accept: "application/json" } });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+
+      const vision = data.vision || {};
+      $("heroTitle").textContent = data.project || "RTS Project Dashboard";
+      $("heroGoal").textContent  = vision.statement || data.summary?.goal || "";
+      $("heroMeta").textContent  = "Updated: " + (data.updated_at || "unknown");
+
+      renderStats(state.tasks);
+      renderTasks();
+      renderAreas(state.tasks);
+      renderVision(vision);
+    } catch (err) {
+      $("taskList").innerHTML = `<div class="err-msg">Failed to load: ${esc(err.message)}</div>`;
     }
+  }
 
-    async function loadDashboard() {
-      const taskList = document.getElementById("taskList");
-      taskList.innerHTML = '<div class="empty">Loading tasks...</div>';
+  // ── bindings ──────────────────────────────────────────────────
+  for (const el of document.querySelectorAll(".stat[data-f], .fbtn[data-f]")) {
+    el.addEventListener("click", () => setFilter(el.dataset.f));
+  }
 
-      try {
-        const res = await fetch("/api/project/tasks", { headers: { "Accept": "application/json" } });
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        const data = await res.json();
-        state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+  const searchInput = $("searchInput");
+  searchInput.addEventListener("input", () => { state.q = searchInput.value.trim(); renderTasks(); });
 
-        const vision = data.vision || {};
-        document.getElementById("projectTitle").textContent = data.project || "RTS Project Dashboard";
-        document.getElementById("projectGoal").textContent = vision.statement || data.summary?.goal || "Project task tracking dashboard";
-        document.getElementById("metaLine").textContent = `Updated: ${data.updated_at || "unknown"}`;
-        renderSummary(state.tasks);
-        renderTasks();
-        renderVision(vision);
-        renderAreaGroups(state.tasks);
-      } catch (err) {
-        taskList.innerHTML = `<div class="error">Failed to load tasks: ${escapeHtml(err.message)}</div>`;
-        document.getElementById("vision-panel").innerHTML = "";
-        document.getElementById("area-groups").innerHTML = "";
-      }
+  document.addEventListener("keydown", e => {
+    if (e.key === "/" && document.activeElement !== searchInput) {
+      e.preventDefault(); searchInput.focus();
     }
+    if (e.key === "Escape") {
+      searchInput.value = ""; state.q = ""; renderTasks(); searchInput.blur();
+    }
+  });
 
-    bindFilters();
-    loadDashboard();
-  </script>
+  // refresh on tab return
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+
+  load();
+</script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
-  "updated_at": "2026-02-26",
-  "note": "Session 12: Fixed implicit 'after X PM' in response — _explicit_time flag (has_explicit_timeframe) set before schedule paths; 'after {time}' suffix omitted from all 3 response-builder locations when time was injected (not user-specified); regex fallback strips 'after H:MM AM/PM' from BB-native response_text; 145 tests all green. Session 11: get_route_day_summary() added to schedule_service.py — determines day type (weekday/Sat/Sun), queries active services, returns first/last/trips per direction + frequency label; wired in agent_service.py so 'Route 43 schedule tomorrow' shows overview + direction buttons instead of dead-end 'which stop?'; button cap fixed [:6]→[:8] to match text. Session 10: stop_areas.json from BusStopInventory Area column; routes_serving_area() replaces LIKE query → 16 exact UF routes.",
+  "updated_at": "2026-02-27",
+  "note": "Session 13: resolve_stop_global() added to stop_resolver.py for landmark stop resolution without route constraint ('Rosa Parks' → 0001 direct); ETA prediction caps removed (was [:3] display + [:10] raw, now unlimited); direction buttons suppressed after first/last bus queries (_show_dir_buttons = not wants_first and not wants_last); P1-A source labeling: 'Live tracker:' prefix on real-time, schedule_label() footer on all GTFS responses; P1-B human escalation: _check_escalation() in agent_api.py tracks failure_count per session, appends RTS phone/website after 2+ consecutive failures; 145 tests all green. Session 12: Fixed implicit 'after X PM' in response. Session 11: get_route_day_summary(). Session 10: stop_areas.json + routes_serving_area().",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -405,6 +405,27 @@
       "details": "Session 12: _explicit_time = has_explicit_timeframe(msg_ctx) set before DB and Backend Basics schedule paths. 'after {time}' suffix conditionally omitted at all 3 response-builder locations. Regex fallback strips 'after H:MM AM/PM' from BB-native response_text. Result: 'Next departures for route 43 from... on Feb 27:' instead of '... after 2:41 PM:'."
     },
     {
+      "id": "completed-global-stop-resolution",
+      "title": "Fix: landmark stop names resolve without route (e.g. 'Rosa Parks')",
+      "status": "completed",
+      "area": "Backend",
+      "details": "Session 13: resolve_stop_global() added to stop_resolver.py — LIKE search on all GTFS stops without route constraint. Returns single match, candidates list, or None. Wired in agent_service.py before 'need stop' fallback when route is unknown but stop_name_hint is present. 'Rosa Parks' → 0001, 'Reitz' → 0473, 'Oaks Mall' → disambiguation buttons."
+    },
+    {
+      "id": "completed-eta-cap-removed",
+      "title": "Show all available ETA predictions (removed 3-route cap)",
+      "status": "completed",
+      "area": "Backend",
+      "details": "Session 13: format_realtime_answer() cap removed (was [:3] on display, [:10] on raw predictions). All predictions from Bustime API now shown. Fixes missing routes (e.g. Route 17 Beaty Towers was cut off)."
+    },
+    {
+      "id": "completed-direction-buttons-firstlast",
+      "title": "Suppress direction buttons after first/last bus queries",
+      "status": "completed",
+      "area": "Backend / UX",
+      "details": "Session 13: _show_dir_buttons = not wants_first and not wants_last in agent_service.py. When user asks for first or last bus, the route day summary already answers the question — direction buttons were unnecessary friction. Buttons and 'want full schedule?' prompt only appear for general schedule queries."
+    },
+    {
       "id": "next-release-checklist",
       "title": "Run pre-release validation on Render deployment",
       "status": "next",
@@ -414,7 +435,7 @@
     {
       "id": "improve-source-labeling",
       "title": "P1-A: Label real-time vs static schedule in every response",
-      "status": "backlog",
+      "status": "completed",
       "area": "UX / Trust",
       "priority": 1,
       "details": "Research finding: users trained by Google Maps expect all answers to be real-time. When we return a GTFS schedule time they treat it as an ETA — trust collapses when bus doesn't match. Fix: prefix real-time responses with 'Live tracker shows...' and schedule responses with 'Scheduled at X (static schedule)'. Use existing sources metadata (source_type: realtime vs backend_basics_schedule) to drive the label automatically in response_builder.py."
@@ -422,7 +443,7 @@
     {
       "id": "improve-escalation-exit",
       "title": "P1-B: Add human escalation after 2-3 consecutive failures",
-      "status": "backlog",
+      "status": "completed",
       "area": "UX / Accessibility",
       "priority": 1,
       "details": "Research finding: 2–3 failed disambiguations is the universal chatbot abandonment threshold (CTA study, WorkBot analysis). After 2–3 'need_stop_or_route' / 'clarify_route_vs_stop' responses in a session, append 'Still stuck? Call RTS Customer Service: (352) 334-2600 or visit go-rts.com'. Implementation: session_manager tracks failure_count per session; agent_service checks it and appends escalation note. Equity requirement — elderly and low-literacy riders have no recourse without this."
