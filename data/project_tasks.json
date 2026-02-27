@@ -499,7 +499,7 @@
     {
       "id": "tooluse-1-tool-schema",
       "title": "Tool-Use Refactor: Design tool schema (inputs, outputs, status codes)",
-      "status": "next",
+      "status": "completed",
       "area": "AI Architecture",
       "priority": 1,
       "details": "Define the 5 tools the LLM will call instead of the current rule-code pipeline. Each tool must return an explicit status field — never empty arrays. Tools: (1) search_stops(name_or_landmark) → [{stop_id, stop_name, match_type}] or {status: 'no_match'}. (2) get_realtime_predictions(stop_id) → [{route, minutes, headsign}] or {status: 'no_service' | 'api_unavailable'}. (3) query_schedule(route_id, stop_id_or_name, time?, date?) → [{departure, headsign}] or {status: 'no_trips' | 'stop_not_found' | 'route_not_found'}. (4) get_routes_at_stop(stop_id) → [{route_id, headsign}]. (5) get_route_overview(route_id, date?) → {first, last, frequency_min, directions[]} or {status: 'no_service'}. Document inputs/outputs/status codes before writing any code."
@@ -507,7 +507,7 @@
     {
       "id": "tooluse-2-tool-implementations",
       "title": "Tool-Use Refactor: Implement tool wrapper functions",
-      "status": "pending",
+      "status": "completed",
       "area": "AI Architecture",
       "priority": 1,
       "details": "Create routes/agent_tools.py. Wrap existing services as clean tool-callable functions matching the schema from tooluse-1. Each wrapper: (1) calls the existing service (schedule_service, rts_api, stop_resolver) — no new business logic. (2) Always returns an explicit status so the LLM never sees ambiguous empty results. (3) Handles exceptions internally and returns {status: 'error', message: ...} rather than raising. Keep all existing service code untouched — this is just a translation layer. Depends on: tooluse-1."
@@ -515,7 +515,7 @@
     {
       "id": "tooluse-3-system-prompt",
       "title": "Tool-Use Refactor: Write the system prompt with grounding rules",
-      "status": "pending",
+      "status": "next",
       "area": "AI Architecture",
       "priority": 1,
       "details": "Write the system prompt that defines what the LLM is, what it can do, and what it must never do. Must include: (1) Persona: RTS Gainesville transit assistant. (2) Hard grounding rule: ONLY state departure times and stop names that appear in a tool result from this conversation. Never use training knowledge about bus schedules. (3) No-hallucination rule: if a tool returns no results or an error, say exactly that — do not guess or interpolate. (4) Tool-call-first rule: always call a tool before answering any factual transit question. (5) Language rule: respond in the language the user wrote in (EN/ES). (6) Brevity rule: 3 sentences max, preserve times/routes/stop IDs exactly. Can be written in parallel with tooluse-2."
