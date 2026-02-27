@@ -243,5 +243,82 @@
       ["I don't know", "no stop"],
       ["I don't know", "which stop", "please specify"]
     ]
+  },
+  {
+    "id": "GPT11",
+    "type": "single",
+    "category": "schedule_explicit_time",
+    "description": "Explicit PM threshold must never return earlier PM times",
+    "query": "After 7pm, when is the next route 10 from downtown?",
+    "expected_behavior": "Returns only departures strictly after 7:00 PM, or clearly states no more departures after 7 PM. Must NOT show 4pm, 5pm, or 6pm times.",
+    "pass_signals": ["PM", "after 7", "no more", "7:"],
+    "fail_signals": ["4:", "5:", "6:", "earlier"]
+  },
+  {
+    "id": "GPT12",
+    "type": "multi",
+    "category": "followup_after",
+    "description": "Follow-up should advance from prior realtime ETA list",
+    "turns": [
+      "Next bus at Rosa Parks",
+      "What about after that?"
+    ],
+    "expected_behavior": "Turn 1 shows realtime ETAs. Turn 2 calls get_realtime_predictions again and presents fresh predictions — NOT the same list repeated. The response should feel like an updated snapshot, not a copy of Turn 1.",
+    "pass_signals_per_turn": [
+      ["min", "Route", "route", "AM", "PM"],
+      ["min", "Route", "route", "AM", "PM"]
+    ],
+    "fail_signals_per_turn": [
+      ["I don't know", "cannot"],
+      ["I don't know", "cannot"]
+    ]
+  },
+  {
+    "id": "GPT13",
+    "type": "multi",
+    "category": "spanish_continuation",
+    "description": "Spanish continuation must stay Spanish and feel like updated data",
+    "turns": [
+      "¿Cuándo viene el próximo bus en Rosa Parks?",
+      "¿Y el siguiente?"
+    ],
+    "expected_behavior": "Turn 1 shows Spanish realtime ETAs. Turn 2 calls get_realtime_predictions again and responds IN SPANISH with fresh predictions. Must not switch to English.",
+    "pass_signals_per_turn": [
+      ["min", "Ruta", "ruta", "minutos", "próximo"],
+      ["min", "Ruta", "ruta", "minutos", "siguiente", "después"]
+    ],
+    "fail_signals_per_turn": [
+      ["The next bus", "Route", "I don't"],
+      ["The next bus", "Route", "I don't"]
+    ]
+  },
+  {
+    "id": "GPT14",
+    "type": "single",
+    "category": "reliability",
+    "description": "Graceful degradation when a tool fails — no crash, clear message",
+    "query": "What is the first bus after 5pm on route 10 from downtown?",
+    "expected_behavior": "Returns a departure time after 5:00 PM for route 10 from a downtown stop. If the tool fails transiently, shows a graceful error message. Must NOT return an AM time.",
+    "pass_signals": ["PM", "10", "route", "Route", "5:", "6:", "7:", "8:", "9:"],
+    "fail_signals": ["6:00 AM", "7:00 AM", "8:00 AM", "morning"]
+  },
+  {
+    "id": "GPT15",
+    "type": "multi",
+    "category": "followup_location",
+    "description": "Location switch follow-up must use new stop, not old one",
+    "turns": [
+      "When does route 10 leave downtown today?",
+      "What about from Rosa Parks?"
+    ],
+    "expected_behavior": "Turn 2 queries route 10 from Rosa Parks (new location). The response must reference Rosa Parks, not downtown. The route context (route 10) should carry over.",
+    "pass_signals_per_turn": [
+      ["10", "route", "Route", "downtown", "AM", "PM"],
+      ["Rosa Parks", "10", "route", "Route", "AM", "PM"]
+    ],
+    "fail_signals_per_turn": [
+      ["I don't know", "cannot"],
+      ["downtown", "I don't know"]
+    ]
   }
 ]

@@ -80,7 +80,7 @@ def post_message(endpoint, msg, session_id=None):
         try:
             r = requests.post(endpoint, json=payload, timeout=REQUEST_TIMEOUT)
             elapsed = int((time.perf_counter() - t0) * 1000)
-            if r.status_code in (502, 503) and attempt < MAX_RETRIES:
+            if r.status_code in (500, 502, 503) and attempt < MAX_RETRIES:
                 last_err = f"HTTP {r.status_code} (retrying)"
                 continue
             r.raise_for_status()

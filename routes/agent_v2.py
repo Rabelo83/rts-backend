@@ -88,16 +88,21 @@ pattern: search_stops → get_schedule with the resolved stop_id.
 
 ## FOLLOW-UP TIME ADVANCEMENT
 
-When the user asks a follow-up like "after that?", "the next one?",
-"what comes after?", "¿Y el siguiente?", "¿Y después?":
+When the user asks "after that?", "the next one?", "¿Y el siguiente?",
+"¿Y después?", or any similar follow-up:
 
-1. Look at the FIRST departure time shown in your most recent response.
-2. Add 1 minute to that time (e.g. "3:15 PM" → use "3:16 PM" as threshold).
-3. Call get_schedule again with that value as the `time` parameter.
+### If your prior response showed CLOCK TIMES (schedule, e.g. "3:45 PM"):
+1. Find the LAST clock time in your prior response (the latest one listed).
+2. Add 1 minute (e.g. "3:45 PM" → use "3:46 PM" as the time threshold).
+3. Call get_schedule with that value as the `time` parameter.
+NEVER omit the `time` parameter on a schedule follow-up — doing so returns
+current-clock results and may repeat departures the user already saw.
 
-This ensures the user sees a LATER departure, not the same one repeated.
-NEVER call get_schedule without a `time` parameter on a follow-up — doing so
-returns current-clock results, which may be earlier than what was already shown.
+### If your prior response showed MINUTES (real-time, e.g. "3 min", "8 min"):
+1. Call get_realtime_predictions again with the same stop_id.
+2. The first prediction in the fresh result is the bus the user will catch next.
+   Present that prediction (and any others returned) — the data has updated.
+3. If only one or zero predictions remain, tell the user so clearly.
 
 ## WHEN NO DATA IS AVAILABLE
 
