@@ -48,6 +48,7 @@ ENDPOINTS = {
 
 REQUEST_TIMEOUT = 35        # seconds per request
 INTER_REQUEST_DELAY = 1.5   # seconds between requests (respect rate limit)
+MAX_RETRIES = 2             # retry on transient 502/503 errors
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -64,24 +65,40 @@ def load_scenarios(path, ids_filter=None):
 def post_message(endpoint, msg, session_id=None):
     """
     POST one message to /api/agent/v2.
+    Retries up to MAX_RETRIES times on transient 502/503 errors.
     Returns (response_dict_or_None, elapsed_ms, error_str_or_None).
     """
     payload = {"message": msg}
     if session_id:
         payload["session_id"] = session_id
 
+    last_err = None
     t0 = time.perf_counter()
-    try:
-        r = requests.post(endpoint, json=payload, timeout=REQUEST_TIMEOUT)
-        elapsed = int((time.perf_counter() - t0) * 1000)
-        r.raise_for_status()
-        return r.json(), elapsed, None
-    except requests.Timeout:
-        return None, REQUEST_TIMEOUT * 1000, "timeout"
-    except requests.HTTPError as e:
-        return None, int((time.perf_counter() - t0) * 1000), f"HTTP {r.status_code}: {r.text[:200]}"
-    except Exception as e:
-        return None, int((time.perf_counter() - t0) * 1000), str(e)
+    for attempt in range(MAX_RETRIES + 1):
+        if attempt > 0:
+            time.sleep(3)  # brief pause before retry
+        try:
+            r = requests.post(endpoint, json=payload, timeout=REQUEST_TIMEOUT)
+            elapsed = int((time.perf_counter() - t0) * 1000)
+            if r.status_code in (502, 503) and attempt < MAX_RETRIES:
+                last_err = f"HTTP {r.status_code} (retrying)"
+                continue
+            r.raise_for_status()
+            return r.json(), elapsed, None
+        except requests.Timeout:
+            last_err = "timeout"
+            if attempt < MAX_RETRIES:
+                continue
+            return None, REQUEST_TIMEOUT * 1000, last_err
+        except requests.HTTPError:
+            last_err = f"HTTP {r.status_code}: {r.text[:200]}"
+            break
+        except Exception as e:
+            last_err = str(e)
+            break
+
+    elapsed = int((time.perf_counter() - t0) * 1000)
+    return None, elapsed, last_err
 
 
 def quick_check(text, pass_signals, fail_signals):
@@ -133,7 +150,7 @@ def run_single(endpoint, scenario):
     response_text = (data or {}).get("answer", "")
     meta = (data or {}).get("meta") or {}
     qc = quick_check(response_text, scenario.get("pass_signals"), scenario.get("fail_signals"))
-    icon = {"likely_pass": "✓", "likely_fail": "✗"}.get(qc, "?")
+    icon = {"likely_pass": "OK", "likely_fail": "FAIL"}.get(qc, "?")
     print(f" {icon} {qc} ({elapsed_ms}ms, {meta.get('tool_calls_made', 0)} tool calls)")
 
     return {
@@ -182,7 +199,7 @@ def run_multi(endpoint, scenario):
         ps = ps_per_turn[i] if i < len(ps_per_turn) else []
         fs = fs_per_turn[i] if i < len(fs_per_turn) else []
         qc = quick_check(response_text, ps, fs) if not err else "likely_fail"
-        icon = {"likely_pass": "✓", "likely_fail": "✗"}.get(qc, "?")
+        icon = {"likely_pass": "OK", "likely_fail": "FAIL"}.get(qc, "?")
         print(f" {icon} ({elapsed_ms}ms)")
 
         turn_results.append({
@@ -234,10 +251,10 @@ def main():
     endpoint = ENDPOINTS[args.env]
     scenarios = load_scenarios(args.file, args.ids)
 
-    print(f"\nRTS Agent v2 — Scenario Test Runner")
+    print(f"\nRTS Agent v2 -- Scenario Test Runner")
     print(f"Endpoint  : {endpoint}")
     print(f"Scenarios : {len(scenarios)}")
-    print(f"{'─' * 72}\n")
+    print(f"{'-' * 72}\n")
 
     results = []
     for s in scenarios:
@@ -254,8 +271,8 @@ def main():
     n_fail = sum(1 for r in results if r.get("quick_check") == "likely_fail")
     n_unk  = total - n_pass - n_fail
 
-    print(f"\n{'─' * 72}")
-    print(f"Quick-check summary  (heuristic only — GPT does the real analysis)")
+    print(f"\n{'-' * 72}")
+    print(f"Quick-check summary  (heuristic only - GPT does the real analysis)")
     print(f"  likely_pass : {n_pass}")
     print(f"  likely_fail : {n_fail}")
     print(f"  unknown     : {n_unk}")
@@ -278,8 +295,8 @@ def main():
         json.dump(run_data, f, indent=2, ensure_ascii=False)
 
     print(f"\nResults saved: {out_file}")
-    print(f"\n{'─' * 72}")
-    print(f"NEXT STEPS — GPT Analysis:")
+    print(f"\n{'-' * 72}")
+    print(f"NEXT STEPS -- GPT Analysis:")
     print(f"  1. Open  tests/gpt_analysis_prompt.md  (copy entire content)")
     print(f"  2. Paste it into a fresh ChatGPT conversation")
     print(f"  3. Then paste the contents of:\n       {out_file}")

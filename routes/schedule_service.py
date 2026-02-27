@@ -13,7 +13,9 @@ DEFAULTS_PATH = BASE_DIR / "Backend Basics" / "db" / "answering_defaults.json"
 STOP_AREAS_PATH = BASE_DIR / "data" / "stop_areas.json"
 
 # Map user-facing place names → Area codes in stop_areas.json
+# Includes Spanish equivalents so LLM-extracted Spanish destinations resolve correctly.
 _AREA_ALIASES: dict[str, str] = {
+    # English — UF / campus
     "uf": "UF",
     "university of florida": "UF",
     "university florida": "UF",
@@ -22,12 +24,26 @@ _AREA_ALIASES: dict[str, str] = {
     "gator": "UF",
     "reitz": "UF",
     "the hub": "UF",
+    # Spanish — UF / campus
+    "universidad de florida": "UF",
+    "universidad florida": "UF",
+    "la universidad": "UF",
+    "universidad": "UF",
+    "uf gainesville": "UF",
+    # English — Downtown / CG
     "downtown": "CG",
     "downtown gainesville": "CG",
     "rosa parks": "CG",
     "transit center": "CG",
+    # Spanish — Downtown / CG
+    "centro": "CG",
+    "centro de gainesville": "CG",
+    "centro de la ciudad": "CG",
+    "el centro": "CG",
+    # English — Alachua / AL
     "alachua": "AL",
     "alachua county": "AL",
+    # Other areas
     "lake city": "Lake City",
     "trenton": "Trenton City",
 }
