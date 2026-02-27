@@ -6,6 +6,10 @@
 // ====== CONFIGURATION ======
 const CONFIG = {
   BASE_URL: '',
+  // Dev toggle: append ?agent=v2 to URL to route traffic to the tool-use agent v2
+  AGENT_ENDPOINT: new URLSearchParams(location.search).get('agent') === 'v2'
+    ? '/api/agent/v2/stream'
+    : '/api/agent/stream',
   API_TIMEOUT: 30000, // 30 seconds
   SESSION_TIMEOUT_MS: 5 * 60 * 1000, // 5 minutes
   MAX_HISTORY: 50,
@@ -1262,7 +1266,7 @@ async function sendAgentMessage(message) {
       language: AppState.language,
     };
 
-    const response = await fetchWithTimeout(`${CONFIG.BASE_URL}/api/agent/stream`, {
+    const response = await fetchWithTimeout(`${CONFIG.BASE_URL}${CONFIG.AGENT_ENDPOINT}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -65,6 +65,7 @@ def _check_escalation(session_id: str, prior_ctx: dict, sources: list, lang: str
 
 # This MUST exist in routes/agent_service.py
 from routes.agent_service import handle_agent_message, stream_agent_message
+from routes.agent_v2 import handle_message as handle_message_v2
 
 bp = Blueprint("agent_api", __name__)
 
@@ -360,6 +361,159 @@ def api_agent_stream():
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",   # disable Nginx response buffering
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ── Tool-use agent v2 ─────────────────────────────────────────────────────────
+
+def _v2_session_setup(payload: dict) -> tuple[str, list, dict | None]:
+    """Shared session setup for both v2 endpoints. Returns (session_id, history, session_data)."""
+    msg = (payload.get("message") or "").strip()
+    history = payload.get("history") or payload.get("messages") or []
+    raw_sid = (payload.get("session_id") or payload.get("session") or "").strip()
+    session_id = raw_sid if _UUID_RE.match(raw_sid) else ""
+
+    session_data = None
+    if session_id:
+        session_data = session_manager.get_session(session_id)
+        if session_data:
+            history = session_data.get("history", [])
+        else:
+            session_id = session_manager.create_session()
+    else:
+        session_id = session_manager.create_session()
+
+    return session_id, history, session_data
+
+
+@bp.route("/api/agent/v2", methods=["POST"])
+@limiter.limit(os.getenv("RATE_LIMIT", "30 per hour"))
+def api_agent_v2():
+    """Tool-use agent v2 — JSON (non-streaming) endpoint."""
+    payload = request.get_json(silent=True) or {}
+    msg = (payload.get("message") or "").strip()
+    msg = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', msg)
+
+    if not msg:
+        return jsonify({"error": True, "error_code": ErrorCode.MISSING_PARAMETER,
+                        "error_message": "message parameter is required"}), 400
+    if len(msg) > MAX_MSG_LEN:
+        return jsonify({"error": True, "error_code": ErrorCode.MISSING_PARAMETER,
+                        "error_message": f"Message too long (max {MAX_MSG_LEN} characters)"}), 400
+
+    session_id, history, session_data = _v2_session_setup(payload)
+
+    start = time.perf_counter()
+    try:
+        result = handle_message_v2(msg, history=history, session_ctx=session_data or {})
+    except Exception as exc:
+        return jsonify({
+            "error": True,
+            "error_code": ErrorCode.API_UNAVAILABLE,
+            "error_message": "Agent v2 temporarily unavailable",
+            "details": {"exception": str(exc)} if os.getenv("DEBUG") else {},
+        }), 500
+
+    duration_ms = int((time.perf_counter() - start) * 1000)
+
+    session_manager.add_message(session_id, "user", msg)
+    session_manager.add_message(session_id, "assistant", result.get("answer", ""))
+    _log_chat(msg, result.get("answer", ""))
+
+    meta = result.get("meta") or {}
+    _log_analytics({
+        "ts_utc": datetime.now(timezone.utc).isoformat(),
+        "session_id": session_id,
+        "message": msg,
+        "route": None,
+        "stop_id": None,
+        "destination": None,
+        "intent": f"v2/{meta.get('model', 'unknown')}",
+        "language": meta.get("language"),
+        "needs": None,
+        "prefer_schedule": None,
+        "timeframe": None,
+        "response_time_ms": duration_ms,
+        "success": not meta.get("error"),
+        "source_types": [f"tool:{t}" for t in (meta.get("tool_calls_made") and ["*"] or [])],
+    })
+
+    return jsonify({
+        "answer": result.get("answer", ""),
+        "buttons": result.get("buttons", []),
+        "meta": meta,
+        "session_id": session_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "response_time_ms": duration_ms,
+    })
+
+
+@bp.route("/api/agent/v2/stream", methods=["POST"])
+@limiter.limit(os.getenv("RATE_LIMIT", "30 per hour"))
+def api_agent_v2_stream():
+    """Tool-use agent v2 — SSE streaming endpoint (same wire format as /api/agent/stream)."""
+    payload = request.get_json(silent=True) or {}
+    msg = (payload.get("message") or "").strip()
+    msg = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', msg)
+
+    if not msg:
+        return jsonify({"error": True, "error_message": "message required"}), 400
+    if len(msg) > MAX_MSG_LEN:
+        return jsonify({"error": True, "error_message": f"Message too long (max {MAX_MSG_LEN})"}), 400
+
+    session_id, history, session_data = _v2_session_setup(payload)
+    start = time.perf_counter()
+
+    def generate():
+        try:
+            result = handle_message_v2(msg, history=history, session_ctx=session_data or {})
+        except Exception as exc:
+            yield f"data: {json.dumps({'type': 'error', 'text': 'Agent v2 temporarily unavailable.'})}\n\n"
+            return
+
+        answer = result.get("answer", "")
+        meta = result.get("meta") or {}
+        buttons = result.get("buttons", [])
+
+        # Stream answer as word-level tokens so the frontend typewriter effect works
+        words = answer.split(" ")
+        for i, word in enumerate(words):
+            chunk = word if i == len(words) - 1 else word + " "
+            yield f"data: {json.dumps({'type': 'token', 'text': chunk})}\n\n"
+
+        # Update session and log BEFORE yielding done
+        session_manager.add_message(session_id, "user", msg)
+        session_manager.add_message(session_id, "assistant", answer)
+        _log_chat(msg, answer)
+
+        duration_ms = int((time.perf_counter() - start) * 1000)
+        yield f"data: {json.dumps({'type': 'done', 'answer': answer, 'buttons': buttons, 'meta': meta, 'session_id': session_id})}\n\n"
+
+        _log_analytics({
+            "ts_utc": datetime.now(timezone.utc).isoformat(),
+            "session_id": session_id,
+            "message": msg,
+            "route": None,
+            "stop_id": None,
+            "destination": None,
+            "intent": f"v2/{meta.get('model', 'unknown')}",
+            "language": meta.get("language"),
+            "needs": None,
+            "prefer_schedule": None,
+            "timeframe": None,
+            "response_time_ms": duration_ms,
+            "success": not meta.get("error"),
+            "source_types": [f"tool:{t}" for t in (meta.get("tool_calls_made") and ["*"] or [])],
+        })
+
+    return Response(
+        stream_with_context(generate()),
+        content_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
             "Connection": "keep-alive",
         },
     )

@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
   "updated_at": "2026-02-27",
-  "note": "Session 14: Route context bleeding fix — agent_service clears LLM-inferred route_id when current message has new origin/location but no route number; extract_origin_place() regex hardened with word boundaries (\\b); 12 new tests, 157 total all green. Commit a0646de. Architecture decision: replacing intent-extraction + rule-code pipeline with tool-use LLM agent (see tooluse-* tasks).",
+  "note": "Session 15: tooluse-5 complete — /api/agent/v2 (JSON) + /api/agent/v2/stream (SSE) endpoints added to agent_api.py; shared _v2_session_setup() helper; chat_v2.js dev toggle (?agent=v2 URL param). tooluse-6 (scenario testing) is next.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -531,15 +531,15 @@
     {
       "id": "tooluse-5-api-integration",
       "title": "Tool-Use Refactor: Wire new agent into Flask API",
-      "status": "next",
+      "status": "completed",
       "area": "AI Architecture",
       "priority": 1,
-      "details": "Add /api/agent/v2 POST endpoint in agent_api.py pointing to agent_v2.handle_message(). Keep /api/agent (old pipeline) running in parallel for fallback. Frontend chat.html gets a temporary toggle (ENV var AGENT_VERSION=v2) to switch which endpoint sendAgentMessage() calls. Once v2 is validated, swap /api/agent to point to the new loop and remove the old pipeline. SSE streaming endpoint /api/agent/stream should also support v2 path. Depends on: tooluse-4."
+      "details": "Done in Session 15. Added /api/agent/v2 (JSON) and /api/agent/v2/stream (SSE, same wire format as /api/agent/stream) endpoints in agent_api.py. Both share _v2_session_setup() helper for session management, validation, and analytics logging. chat_v2.js CONFIG.AGENT_ENDPOINT defaults to /api/agent/stream; reading URL param ?agent=v2 switches it to /api/agent/v2/stream without any code change — dev toggle. Old /api/agent and /api/agent/stream untouched."
     },
     {
       "id": "tooluse-6-test-scenarios",
       "title": "Tool-Use Refactor: Test all key conversation scenarios",
-      "status": "pending",
+      "status": "next",
       "area": "AI Architecture / Quality",
       "priority": 1,
       "details": "Run and document these specific scenarios before declaring v2 ready: (1) 'Next bus at Rosa Parks' → ETA list (no route specified). (2) 'What about from Santa Fe college?' (follow-up, route must NOT bleed). (3) 'What routes go to UF?' → route discovery. (4) 'Route 43 schedule tomorrow morning' → first/last with frequency. (5) 'First bus after 5pm on route 43 from downtown' → schedule, not first-of-day. (6) 'The one after that?' → advance past last shown departure. (7) Spanish: '¿Cuándo viene el próximo bus?' → responde en español. (8) Unknown landmark: 'Bus near Walmart on Archer' → graceful no-match or best effort. Each scenario: record exact input/output, mark pass/fail. Depends on: tooluse-5."
