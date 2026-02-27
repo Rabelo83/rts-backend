@@ -1331,20 +1331,7 @@ async function sendAgentMessage(message) {
         AppState.sessionId = finalData.session_id;
         saveState();
       }
-      if (finalData.buttons && Array.isArray(finalData.buttons) && finalData.buttons.length > 0) {
-        appendActionBubble((container) => {
-          finalData.buttons.forEach((btn) => {
-            const button = document.createElement('button');
-            button.className = 'chat-btn';
-            button.textContent = btn.label;
-            button.addEventListener('click', () => {
-              if (inputField) inputField.value = btn.action;
-              sendMessage();
-            });
-            container.appendChild(button);
-          });
-        });
-      }
+      // Buttons are wizard-only — chat is free-form text, no clickable option tiles
     }
 
     AppState.chatHistory.push({ role: 'assistant', content: finalAnswer });
