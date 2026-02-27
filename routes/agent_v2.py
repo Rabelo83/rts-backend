@@ -1,0 +1,229 @@
+"""
+RTS Transit Assistant — Tool-Use Agent  (Tasks: tooluse-3, tooluse-4)
+=====================================================================
+SYSTEM_PROMPT   — grounding rules for the LLM (tooluse-3)
+handle_message  — agent loop: LLM → tools → LLM (tooluse-4, stub here)
+"""
+
+import json
+import os
+import logging
+
+logger = logging.getLogger(__name__)
+
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
+
+from routes.agent_tools import TOOLS, dispatch_tool
+from routes.parsing_helpers import detect_language_simple
+
+_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+_MAX_TOOL_ITERATIONS = 5
+
+
+def _openai_client():
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    kwargs = {
+        "api_key": api_key,
+        "max_retries": int(os.getenv("OPENAI_MAX_RETRIES", "3")),
+        "timeout": float(os.getenv("OPENAI_TIMEOUT", "30")),
+    }
+    base_url = os.getenv("OPENAI_BASE_URL", "").strip()
+    if base_url:
+        kwargs["base_url"] = base_url
+    return OpenAI(**kwargs)
+
+
+# ── SYSTEM PROMPT (tooluse-3) ─────────────────────────────────────────────────
+
+SYSTEM_PROMPT = """\
+You are the Gainesville RTS (Regional Transit System) bus assistant.
+You help riders find real-time bus arrivals and scheduled departure times.
+
+## YOUR ONLY DATA SOURCES ARE YOUR TOOLS
+
+You have 5 tools: search_stops, get_realtime_predictions, get_schedule,
+search_routes, and get_route_overview.
+
+ALWAYS call a tool before stating any fact about bus times, routes, or stops.
+NEVER use your training knowledge about Gainesville bus schedules — it may be
+outdated or wrong.
+
+## HARD RULES — no exceptions
+
+1. TIMES: Only state departure times that appear in a tool result in this
+   conversation. Do not round, estimate, or interpolate.
+2. ROUTES: Only name route numbers that appear in a tool result.
+3. STOPS: Only name stops that appear in a tool result.
+4. NO DATA: If a tool returns status "no_service", "no_trips", "not_found",
+   or "api_unavailable" — tell the user exactly that. Do not guess or suggest
+   alternatives you have not verified with a tool.
+5. CALL FIRST: If you are unsure, call the appropriate tool with your best
+   guess rather than answering from memory.
+
+## MULTI-STEP REASONING
+
+Real-time predictions require a stop_id.
+If the user gives a place name (e.g. "Rosa Parks", "Santa Fe College"):
+  → Call search_stops first.
+  → If it returns status "found", use that stop_id to call get_realtime_predictions.
+  → If it returns status "multiple", present the candidates to the user and ask
+    them to pick one. Do not guess which stop they mean.
+
+Schedule questions that mention a landmark without a stop_id follow the same
+pattern: search_stops → get_schedule with the resolved stop_id.
+
+## RESPONSE FORMAT
+
+- Be brief: 2–3 sentences for simple answers. Lists are fine for multiple times.
+- Preserve exact times, route numbers, and stop IDs from tool results — do not
+  paraphrase or round them (e.g. "6:10 AM", not "about 6am").
+- Respond in the same language the user wrote in (English or Spanish).
+- Do not explain which tools you called or how you work.
+- Do not say "I'll look that up for you" — just call the tool and respond.
+- Do not add travel advice, safety tips, or general bus information beyond what
+  the tool returned.
+
+## WHEN NO DATA IS AVAILABLE
+
+If a tool returns an error or no results, say so clearly and offer the RTS
+customer service contact: call (352) 334-2600 or visit go-rts.com.
+Do not invent a time or route. One wrong time is worse than no answer.
+"""
+
+
+# ── AGENT LOOP (tooluse-4, implemented below) ────────────────────────────────
+
+def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
+    """
+    Entry point for the tool-use agent.
+
+    Args:
+        msg         — current user message
+        history     — full conversation history as [{role, content}, ...]
+        session_ctx — session state dict (language, failure_count, etc.)
+
+    Returns a dict:
+        {
+            "answer":   str,           # text to show the user
+            "buttons":  list[dict],    # optional [{label, action}, ...]
+            "meta":     dict,          # language, tool_calls, etc.
+        }
+    """
+    if OpenAI is None:
+        return {"answer": "AI service is not available right now.", "buttons": [], "meta": {}}
+
+    lang = detect_language_simple(msg)
+
+    # Build OpenAI messages: system + history + current turn
+    messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    for turn in (history or []):
+        role = (turn.get("role") or "").lower()
+        content = turn.get("content") or ""
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": msg})
+
+    client = _openai_client()
+    tool_results: list[dict] = []   # all tool results from this turn (for button generation)
+    tool_calls_made = 0
+
+    for _ in range(_MAX_TOOL_ITERATIONS):
+        try:
+            response = client.chat.completions.create(
+                model=_MODEL,
+                messages=messages,
+                tools=TOOLS,
+                tool_choice="auto",
+                temperature=0,
+            )
+        except Exception as exc:
+            logger.error("agent_v2 LLM call failed: %s", exc)
+            return {
+                "answer": "I'm having trouble connecting right now. Please try again in a moment.",
+                "buttons": [],
+                "meta": {"language": lang, "error": str(exc)},
+            }
+
+        choice = response.choices[0]
+
+        if choice.finish_reason == "tool_calls":
+            tool_calls_made += len(choice.message.tool_calls)
+            # Append the assistant's tool-call message
+            messages.append(choice.message)
+
+            # Execute each requested tool
+            for tc in choice.message.tool_calls:
+                try:
+                    args = json.loads(tc.function.arguments)
+                except json.JSONDecodeError:
+                    args = {}
+                result = dispatch_tool(tc.function.name, args)
+                tool_results.append({"tool": tc.function.name, "result": result})
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": json.dumps(result),
+                })
+        else:
+            # LLM is done — extract final answer
+            answer = (choice.message.content or "").strip()
+            buttons = _build_buttons(tool_results, lang)
+            return {
+                "answer": answer,
+                "buttons": buttons,
+                "meta": {
+                    "language": lang,
+                    "tool_calls_made": tool_calls_made,
+                    "model": _MODEL,
+                },
+            }
+
+    # Safety: max iterations hit — return whatever the LLM last said
+    logger.warning("agent_v2: max tool iterations reached for msg=%r", msg[:80])
+    last_text = next(
+        (m["content"] for m in reversed(messages) if m.get("role") == "assistant" and m.get("content")),
+        "I wasn't able to complete your request. Please call RTS: (352) 334-2600.",
+    )
+    return {
+        "answer": last_text,
+        "buttons": [],
+        "meta": {"language": lang, "tool_calls_made": tool_calls_made, "warning": "max_iterations"},
+    }
+
+
+def _build_buttons(tool_results: list[dict], lang: str) -> list[dict]:
+    """
+    Inspect tool results from this turn and generate frontend buttons where
+    disambiguation is needed (multiple stops, route list, etc.).
+    """
+    buttons: list[dict] = []
+    for tr in tool_results:
+        name = tr["tool"]
+        result = tr["result"]
+        status = result.get("status", "")
+
+        # Stop disambiguation → let user pick one stop
+        if name == "search_stops" and status == "multiple":
+            for c in result.get("candidates", [])[:5]:
+                sid = c.get("stop_id", "")
+                sname = c.get("stop_name", sid)[:40]
+                buttons.append({"label": f"Stop {sid} – {sname}", "action": f"stop {sid}"})
+
+        # Schedule multiple_stops
+        elif name == "get_schedule" and status == "multiple_stops":
+            for c in result.get("candidates", [])[:5]:
+                sid = c.get("stop_id_padded") or c.get("stop_id", "")
+                sname = (c.get("stop_name") or sid)[:40]
+                buttons.append({"label": f"Stop {sid} – {sname}", "action": f"stop {sid}"})
+
+        # Route discovery → let user pick a route
+        elif name == "search_routes" and status == "ok":
+            for r in result.get("routes", [])[:6]:
+                rid = r.get("route_id", "")
+                rname = (r.get("route_long_name") or f"Route {rid}")[:45]
+                buttons.append({"label": f"Route {rid} – {rname}", "action": f"route {rid}"})
+
+    return buttons

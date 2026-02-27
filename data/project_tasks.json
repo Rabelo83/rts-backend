@@ -515,7 +515,7 @@
     {
       "id": "tooluse-3-system-prompt",
       "title": "Tool-Use Refactor: Write the system prompt with grounding rules",
-      "status": "next",
+      "status": "completed",
       "area": "AI Architecture",
       "priority": 1,
       "details": "Write the system prompt that defines what the LLM is, what it can do, and what it must never do. Must include: (1) Persona: RTS Gainesville transit assistant. (2) Hard grounding rule: ONLY state departure times and stop names that appear in a tool result from this conversation. Never use training knowledge about bus schedules. (3) No-hallucination rule: if a tool returns no results or an error, say exactly that — do not guess or interpolate. (4) Tool-call-first rule: always call a tool before answering any factual transit question. (5) Language rule: respond in the language the user wrote in (EN/ES). (6) Brevity rule: 3 sentences max, preserve times/routes/stop IDs exactly. Can be written in parallel with tooluse-2."
@@ -523,7 +523,7 @@
     {
       "id": "tooluse-4-agent-loop",
       "title": "Tool-Use Refactor: Build the tool-use agent orchestration loop",
-      "status": "pending",
+      "status": "completed",
       "area": "AI Architecture",
       "priority": 1,
       "details": "Create routes/agent_v2.py with a single handle_message(msg, history, session_ctx) function. Pattern: (1) Build messages array from history. (2) Call LLM with tools defined. (3) If response has tool_calls: execute each tool, append results to messages, call LLM again. (4) Repeat until no tool_calls (max 5 iterations to prevent loops). (5) Return final text answer + any button suggestions the LLM emits. LLM choice: gpt-4o-mini (already integrated, existing _openai_client() helper reused). Temperature = 0 for all tool-synthesis responses. Depends on: tooluse-2 and tooluse-3."
@@ -531,7 +531,7 @@
     {
       "id": "tooluse-5-api-integration",
       "title": "Tool-Use Refactor: Wire new agent into Flask API",
-      "status": "pending",
+      "status": "next",
       "area": "AI Architecture",
       "priority": 1,
       "details": "Add /api/agent/v2 POST endpoint in agent_api.py pointing to agent_v2.handle_message(). Keep /api/agent (old pipeline) running in parallel for fallback. Frontend chat.html gets a temporary toggle (ENV var AGENT_VERSION=v2) to switch which endpoint sendAgentMessage() calls. Once v2 is validated, swap /api/agent to point to the new loop and remove the old pipeline. SSE streaming endpoint /api/agent/stream should also support v2 path. Depends on: tooluse-4."
