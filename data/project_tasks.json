@@ -545,6 +545,14 @@
       "details": "Done in Session 15. 7/8 PASS against live /api/agent/v2. S1 ETA Rosa Parks ✓. S2 Follow-up no route bleed ✓. S3 Route discovery (16 UF routes) ✓. S4 Route overview first/last ✓. S5 First bus after explicit time (no first-of-day false) ✓. S6 The one after that - advances ✓ (confirmed with route 10; route 43 downtown was correct 'no service'). S7 Spanish response ✓. S8 Unknown landmark graceful ✓. Also: removed button rendering from chat_v2.js — buttons are wizard-only, chat is free-form text."
     },
     {
+      "id": "backlog-route-coincidence-tool",
+      "title": "Add find_route_coincidences tool to v2 agent",
+      "status": "backlog",
+      "area": "AI Architecture / Backend",
+      "priority": 3,
+      "details": "Add a 6th tool: find_route_coincidences(route_ids: list, date?, tolerance_minutes?=5). GTFS JOIN query: stop_times for route A × stop_times for route B at same stop_id, filtered by ABS(departure_time_A - departure_time_B) <= tolerance. Returns list of {stop_name, stop_id, route_A_time, route_B_time, diff_minutes}. Answers 'when are routes 1 and 20 at the same stop?' Currently the agent hallucinates an answer by pattern-matching first/last times from get_route_overview — verified in testing."
+    },
+    {
       "id": "tooluse-7-deploy-validate",
       "title": "Tool-Use Refactor: Deploy to Render and validate in production",
       "status": "next",

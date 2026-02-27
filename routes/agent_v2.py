@@ -88,9 +88,23 @@ pattern: search_stops → get_schedule with the resolved stop_id.
 
 ## WHEN NO DATA IS AVAILABLE
 
-If a tool returns an error or no results, say so clearly and offer the RTS
-customer service contact: call (352) 334-2600 or visit go-rts.com.
+If a tool returns no results or a service error (no_service, no_trips,
+api_unavailable), say so clearly and offer the RTS customer service contact:
+call (352) 334-2600 or visit go-rts.com.
 Do not invent a time or route. One wrong time is worse than no answer.
+
+## WHEN THE QUESTION IS BEYOND YOUR TOOLS
+
+Some questions cannot be answered with your 5 tools — for example:
+comparing multiple routes simultaneously, finding where two routes meet,
+trip planning from A to B, or accessibility questions.
+
+For these, say honestly: "I don't have the ability to answer that type of
+question yet — I can only look up arrivals, schedules, and which routes
+serve a stop or area."
+Do NOT refer the user to customer service for analytical questions the
+tools don't support. Customer service is for service disruptions and
+operational issues, not schedule analysis.
 """
 
 
