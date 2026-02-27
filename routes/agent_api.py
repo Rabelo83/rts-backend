@@ -19,6 +19,50 @@ MAX_MSG_LEN = 1000
 # Allow UUID v4 session IDs only (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
 _UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
 
+# ── Escalation logic ─────────────────────────────────────────────────────────
+# Sources where the bot couldn't resolve the user's request (need more info).
+_FAILURE_SOURCES = {
+    "need_stop_or_route", "need_stop_schedule", "need_stop_after_direction",
+    "need_time_frame", "schedule_stop_not_found", "clarify_route_vs_stop",
+    "clarify_number",
+}
+# Sources where the bot successfully answered the question.
+_SUCCESS_SOURCES = {
+    "realtime", "schedule_next", "schedule_first", "schedule_last",
+    "backend_basics_schedule", "route_day_summary", "route_discovery",
+}
+
+
+def _check_escalation(session_id: str, prior_ctx: dict, sources: list, lang: str) -> str:
+    """
+    Track consecutive unresolved turns per session.
+    After 2+ failures in a row, return an escalation note (phone + website).
+    Resets the counter on any successful answer.
+    Returns an empty string when no escalation is needed.
+    """
+    source_types = {s.get("type") for s in (sources or [])}
+    count = prior_ctx.get("failure_count", 0)
+
+    if source_types & _FAILURE_SOURCES:
+        count += 1
+    elif source_types & _SUCCESS_SOURCES:
+        count = 0
+    # Neutral sources (disambiguation, direction prompts) leave count unchanged.
+
+    session_manager.update_session(session_id, {"failure_count": count})
+
+    if count >= 2:
+        if (lang or "").lower().startswith("es"):
+            return (
+                "\n\n¿Necesitas más ayuda? Llama al servicio al cliente de RTS: "
+                "**(352) 334-2600** o visita go-rts.com."
+            )
+        return (
+            "\n\nStill having trouble? Call RTS Customer Service: "
+            "**(352) 334-2600** or visit go-rts.com."
+        )
+    return ""
+
 # This MUST exist in routes/agent_service.py
 from routes.agent_service import handle_agent_message, stream_agent_message
 
@@ -156,6 +200,7 @@ def api_agent():
         }), 400
 
     # Handle session management
+    session_data = None
     if session_id:
         # Try to get existing session
         session_data = session_manager.get_session(session_id)
@@ -181,6 +226,13 @@ def api_agent():
         }), 500
 
     duration_ms = int((time.perf_counter() - start) * 1000)
+
+    # Escalation: after 2+ consecutive unresolved turns, append human-contact note.
+    _lang = (result.get("meta") or {}).get("language", "en")
+    _prior_ctx = (session_data or {}).get("context", {})
+    _esc = _check_escalation(session_id, _prior_ctx, result.get("sources", []), _lang)
+    if _esc:
+        result["answer"] = result.get("answer", "") + _esc
 
     # Update session with new message
     session_manager.add_message(session_id, "user", msg)
@@ -240,10 +292,11 @@ def api_agent_stream():
     if len(msg) > MAX_MSG_LEN:
         return jsonify({"error": True, "error_message": f"Message too long (max {MAX_MSG_LEN})"}), 400
 
+    stream_session_data = None
     if session_id:
-        session_data = session_manager.get_session(session_id)
-        if session_data:
-            history = session_data.get("history", [])
+        stream_session_data = session_manager.get_session(session_id)
+        if stream_session_data:
+            history = stream_session_data.get("history", [])
         else:
             session_id = session_manager.create_session()
     else:
@@ -262,6 +315,15 @@ def api_agent_stream():
                     full_answer = event.get("answer", "")
                     result_meta = event.get("meta", {})
                     result_sources = event.get("sources", [])
+                    # Escalation check before finalising the session.
+                    _lang = result_meta.get("language", "en")
+                    _prior_ctx = (stream_session_data or {}).get("context", {})
+                    _esc = _check_escalation(session_id, _prior_ctx, result_sources, _lang)
+                    if _esc:
+                        # Stream the escalation note as a final token, then update answer.
+                        yield f"data: {json.dumps({'type': 'token', 'text': _esc})}\n\n"
+                        full_answer += _esc
+                        event["answer"] = full_answer
                     # Update session BEFORE yielding done so the next request sees it
                     session_manager.add_message(session_id, "user", msg)
                     session_manager.add_message(session_id, "assistant", full_answer)
