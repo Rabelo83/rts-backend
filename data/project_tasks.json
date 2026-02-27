@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
   "updated_at": "2026-02-27",
-  "note": "Session 15: tooluse-5 complete — /api/agent/v2 (JSON) + /api/agent/v2/stream (SSE) endpoints added to agent_api.py; shared _v2_session_setup() helper; chat_v2.js dev toggle (?agent=v2 URL param). tooluse-6 (scenario testing) is next.",
+  "note": "Session 15: tooluse-5+6 complete. v2 agent 7/8 scenarios pass. Buttons removed from chat (wizard-only). tooluse-7 (deploy + flip default) is next.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -539,15 +539,15 @@
     {
       "id": "tooluse-6-test-scenarios",
       "title": "Tool-Use Refactor: Test all key conversation scenarios",
-      "status": "next",
+      "status": "completed",
       "area": "AI Architecture / Quality",
       "priority": 1,
-      "details": "Run and document these specific scenarios before declaring v2 ready: (1) 'Next bus at Rosa Parks' → ETA list (no route specified). (2) 'What about from Santa Fe college?' (follow-up, route must NOT bleed). (3) 'What routes go to UF?' → route discovery. (4) 'Route 43 schedule tomorrow morning' → first/last with frequency. (5) 'First bus after 5pm on route 43 from downtown' → schedule, not first-of-day. (6) 'The one after that?' → advance past last shown departure. (7) Spanish: '¿Cuándo viene el próximo bus?' → responde en español. (8) Unknown landmark: 'Bus near Walmart on Archer' → graceful no-match or best effort. Each scenario: record exact input/output, mark pass/fail. Depends on: tooluse-5."
+      "details": "Done in Session 15. 7/8 PASS against live /api/agent/v2. S1 ETA Rosa Parks ✓. S2 Follow-up no route bleed ✓. S3 Route discovery (16 UF routes) ✓. S4 Route overview first/last ✓. S5 First bus after explicit time (no first-of-day false) ✓. S6 The one after that - advances ✓ (confirmed with route 10; route 43 downtown was correct 'no service'). S7 Spanish response ✓. S8 Unknown landmark graceful ✓. Also: removed button rendering from chat_v2.js — buttons are wizard-only, chat is free-form text."
     },
     {
       "id": "tooluse-7-deploy-validate",
       "title": "Tool-Use Refactor: Deploy to Render and validate in production",
-      "status": "pending",
+      "status": "next",
       "area": "AI Architecture / Ops",
       "priority": 1,
       "details": "Push to Render with AGENT_VERSION=v2 env var. Run smoke tests: health endpoint, 3 ETA queries at known stops, 1 schedule query, 1 route discovery, 1 Spanish query. Confirm no hallucinated times in any response. Monitor Render logs for tool call errors or LLM loop termination warnings. Once stable for 24h: flip default to v2, remove old pipeline in a cleanup commit. Update MEMORY.md and project_tasks.json. Depends on: tooluse-6."
