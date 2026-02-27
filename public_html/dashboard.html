@@ -222,7 +222,7 @@
       border-radius: 8px;
       overflow: hidden;
       transition: border-color .15s;
-      animation: fadeUp .22s ease both;
+      animation: fadeUp .18s ease forwards;
     }
     .task:hover { border-color: #444c56; }
 
@@ -332,8 +332,8 @@
     .err-msg { padding: 12px; background: rgba(248,81,73,.1); border: 1px solid rgba(248,81,73,.3); border-radius: 8px; color: #ffa198; font-size: .88rem; }
 
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0); }
+      from { opacity: 0.3; transform: translateY(4px); }
+      to   { opacity: 1;   transform: translateY(0); }
     }
 
     /* ── responsive ───────────────────────────────────────────── */
@@ -519,15 +519,13 @@
     list.innerHTML = visible.map((task, i) => {
       const status = norm(task.status);
       const icon   = ICONS[status] || "●";
-      const delay  = `animation-delay:${(i % 25) * 0.025}s`;
-
       const blocker = task.blocker
         ? `<div class="blocker-tag"><strong>Blocker:</strong> ${esc(task.blocker)}</div>`
         : "";
       const body = task.details ? esc(task.details) + blocker : blocker || "<em>No details.</em>";
 
       return `
-        <div class="task" style="${delay}" data-i="${i}">
+        <div class="task" data-i="${i}">
           <div class="task-head">
             <div class="ticon ${status}">${icon}</div>
             <div class="t-title">${esc(task.title)}</div>
