@@ -169,7 +169,7 @@ def guess_destination_hint(text: str) -> str | None:
 def extract_origin_place(text: str) -> str | None:
     if not text:
         return None
-    m = re.search(r"(from|leaving|at)\s+(.+?)(?:\s+on|\s+at|\s+around|\?|$)", text, re.IGNORECASE)
+    m = re.search(r"\b(from|leaving|at)\b\s+(.+?)(?:\s+on|\s+at\b|\s+around|\?|$)", text, re.IGNORECASE)
     if m:
         cand = m.group(2).strip()
         if re.search(r"\d", cand) or re.search(r"\b(am|pm)\b", cand.lower()):

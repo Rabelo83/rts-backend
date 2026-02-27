@@ -546,6 +546,14 @@ def try_transit_answer(message: str, history=None) -> dict | None:
         destination_hint = llm_destination
     if llm_origin and not origin_hint:
         origin_hint = llm_origin
+
+    # Prevent route context bleeding from LLM history: when the user mentions a
+    # new origin/location in the current message without specifying a route number,
+    # clear the route the LLM inferred from prior responses in the conversation.
+    # e.g. "what about from Santa Fe college?" must NOT inherit Route 10 that
+    # appeared in prior ETA responses at Rosa Parks.
+    if route_id and not extract_route_id_regex(msg) and (extract_origin_place(msg) or llm_origin):
+        route_id = None
     if llm_timeframe and not timeframe_hint:
         timeframe_hint = llm_timeframe
     llm_needs = extracted.get("needs") or []

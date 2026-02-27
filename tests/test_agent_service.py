@@ -22,6 +22,7 @@ from routes.parsing_helpers import (
     _has_strong_context,
     _is_followup_after,
     _extract_last_departure_time,
+    extract_origin_place,
 )
 
 # History helpers stay in the orchestration module
@@ -494,3 +495,84 @@ class TestGreetingDetection:
         from routes.agent_service import try_transit_answer
         result = try_transit_answer("hey", history=self._TRANSIT_HISTORY)
         assert result is None
+
+
+# ──────────────────────────────────────────────
+# extract_origin_place
+# ──────────────────────────────────────────────
+
+class TestExtractOriginPlace:
+    """extract_origin_place should capture 'from X', 'leaving X', 'at X' patterns."""
+
+    def test_from_santa_fe(self):
+        assert extract_origin_place("what about from Santa Fe college?") == "Santa Fe college"
+
+    def test_from_rosa_parks(self):
+        assert extract_origin_place("next bus from Rosa Parks") == "Rosa Parks"
+
+    def test_at_location(self):
+        assert extract_origin_place("next bus at Archer Road") == "Archer Road"
+
+    def test_leaving_location(self):
+        assert extract_origin_place("leaving downtown") == "downtown"
+
+    def test_no_origin_returns_none(self):
+        assert extract_origin_place("what is the schedule for route 43?") is None
+
+    def test_time_not_captured_as_origin(self):
+        # "from 5pm" should not produce an origin — contains digits
+        assert extract_origin_place("next bus from 5pm") is None
+
+    def test_ampm_not_captured_as_origin(self):
+        assert extract_origin_place("after 3pm") is None
+
+    def test_empty_string_returns_none(self):
+        assert extract_origin_place("") is None
+
+
+# ──────────────────────────────────────────────
+# Route-bleeding prevention
+# ──────────────────────────────────────────────
+
+class TestRouteBleedingPrevention:
+    """
+    When user says "what about from Santa Fe college?" after a Rosa Parks ETA
+    that listed Route 10 many times, the LLM may infer route_id='10' from history.
+    The agent must clear that inferred route when the current message has a new
+    origin/location but no explicit route number.
+    """
+
+    # Simulated history: prior ETA response mentioned Route 10 several times
+    _HISTORY = [
+        {"role": "user", "content": "next bus at Rosa Parks"},
+        {
+            "role": "assistant",
+            "content": (
+                "Live tracker:\n"
+                "- Route 10 to Santa Fe: 3 min\n"
+                "- Route 10 to Butler: 12 min\n"
+                "- Route 11 to Archer: 18 min\n"
+                "- Route 10 to Santa Fe: 22 min"
+            ),
+        },
+    ]
+
+    def test_no_route_in_location_followup(self):
+        """extract_route_id_regex must return None for a location-change follow-up."""
+        msg = "what about from Santa Fe college?"
+        assert extract_route_id_regex(msg) is None
+
+    def test_origin_detected_in_location_followup(self):
+        """extract_origin_place must find the new location in the follow-up."""
+        msg = "what about from Santa Fe college?"
+        assert extract_origin_place(msg) is not None
+
+    def test_time_followup_has_no_origin(self):
+        """Time-only follow-ups ('after 7am?') have no origin — bleeding guard must not fire."""
+        msg = "after 7am?"
+        assert extract_origin_place(msg) is None
+
+    def test_explicit_route_followup_has_route_id(self):
+        """If user says 'route 43' in the message, regex finds it — bleeding guard must not fire."""
+        msg = "what about route 43 from downtown?"
+        assert extract_route_id_regex(msg) == "43"
