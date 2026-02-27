@@ -225,6 +225,7 @@
       transition: border-color .15s;
     }
     .task:hover { border-color: #444c56; }
+    .task.jump-hit { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(88,166,255,.25) inset; }
 
     .task-head {
       display: flex;
@@ -255,6 +256,25 @@
     .t-title { flex: 1; font-size: .87rem; font-weight: 500; min-width: 0; color: #e6edf3; }
 
     .t-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+    .task-id {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: .69rem;
+      letter-spacing: .04em;
+      color: var(--accent);
+      background: rgba(88,166,255,.1);
+      border: 1px solid rgba(88,166,255,.28);
+      border-radius: 4px;
+      padding: 2px 6px;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+
+    .task-meta {
+      margin-top: 8px;
+      font-size: .76rem;
+      color: var(--muted);
+    }
 
     .area-tag {
       font-size: .7rem;
@@ -454,6 +474,7 @@
   }
 
   function norm(s) { return VALID.includes(s) ? s : "pending"; }
+  function isTaskCodeQuery(q) { return /^rts-\d{4}$/i.test((q || "").trim()); }
 
   // ── counts ──────────────────────────────────────────────────
   function getCounts(tasks) {
@@ -493,7 +514,9 @@
           const q = state.q.toLowerCase();
           return (t.title   || "").toLowerCase().includes(q)
               || (t.area    || "").toLowerCase().includes(q)
-              || (t.details || "").toLowerCase().includes(q);
+              || (t.details || "").toLowerCase().includes(q)
+              || (t.id || "").toLowerCase().includes(q)
+              || (t.task_code || "").toLowerCase().includes(q);
         }
         return true;
       })
@@ -518,12 +541,14 @@
       const blocker = task.blocker
         ? `<div class="blocker-tag"><strong>Blocker:</strong> ${esc(task.blocker)}</div>`
         : "";
-      const body = task.details ? esc(task.details) + blocker : blocker || "<em>No details.</em>";
+      const meta = `<div class="task-meta"><strong>Ref:</strong> ${esc(task.task_code || "n/a")} | <strong>Slug:</strong> ${esc(task.id || "n/a")}</div>`;
+      const body = (task.details ? esc(task.details) : "<em>No details.</em>") + meta + blocker;
 
       return `
         <div class="task" data-i="${i}">
           <div class="task-head">
             <div class="ticon ${status}">${icon}</div>
+            <span class="task-id">${esc(task.task_code || "NO-CODE")}</span>
             <div class="t-title">${esc(task.title)}</div>
             <div class="t-right">
               <span class="area-tag" title="${esc(task.area||'General')}">${esc(task.area||"General")}</span>
@@ -537,6 +562,23 @@
     for (const card of list.querySelectorAll(".task")) {
       card.querySelector(".task-head").addEventListener("click", () => card.classList.toggle("open"));
     }
+
+    autoOpenTaskCodeHit(list, visible);
+  }
+
+  function autoOpenTaskCodeHit(listEl, visibleTasks) {
+    const q = (state.q || "").trim().toUpperCase();
+    if (!isTaskCodeQuery(q)) return;
+
+    const idx = visibleTasks.findIndex(t => String(t.task_code || "").toUpperCase() === q);
+    if (idx < 0) return;
+
+    const card = listEl.querySelector(`.task[data-i="${idx}"]`);
+    if (!card) return;
+
+    card.classList.add("open", "jump-hit");
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => card.classList.remove("jump-hit"), 1400);
   }
 
   // ── area bars ────────────────────────────────────────────────
