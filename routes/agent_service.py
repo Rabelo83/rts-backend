@@ -89,6 +89,7 @@ from routes.response_builder import (
     format_realtime_answer,
     build_direction_prompt,
     build_exception_note,
+    schedule_label,
 )
 
 # ── Cache configuration ───────────────────────────────────────────────────────
@@ -845,17 +846,27 @@ def try_transit_answer(message: str, history=None) -> dict | None:
 
         # Format deterministic schedule output
         if kind == "first" and data.get("first_departure"):
-            answer = f"First departure for route {data['route']} from {data['stop']} on {data['date']}: {format_time_12h(data['first_departure'])}"
+            answer = tmsg(
+                lang,
+                f"First scheduled departure for route {data['route']} from {data['stop']} on {data['date']}: {format_time_12h(data['first_departure'])}",
+                f"Primera salida programada para la ruta {data['route']} desde {data['stop']} el {data['date']}: {format_time_12h(data['first_departure'])}",
+            )
             if exception_note:
                 answer = f"{answer}\n{exception_note}"
+            answer = f"{answer}\n{schedule_label(lang)}"
             return _with_meta({
                 "answer": answer,
                 "sources": [{"type": "schedule_first"}],
             })
         if kind == "last" and data.get("last_departure"):
-            answer = f"Last departure for route {data['route']} from {data['stop']} on {data['date']}: {format_time_12h(data['last_departure'])}"
+            answer = tmsg(
+                lang,
+                f"Last scheduled departure for route {data['route']} from {data['stop']} on {data['date']}: {format_time_12h(data['last_departure'])}",
+                f"Última salida programada para la ruta {data['route']} desde {data['stop']} el {data['date']}: {format_time_12h(data['last_departure'])}",
+            )
             if exception_note:
                 answer = f"{answer}\n{exception_note}"
+            answer = f"{answer}\n{schedule_label(lang)}"
             return _with_meta({
                 "answer": answer,
                 "sources": [{"type": "schedule_last"}],
@@ -897,13 +908,17 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                     "sources": [{"type": "schedule_no_time"}],
                 })
             _time_suffix = f" after {format_time_12h(data['time'])}" if _explicit_time and data.get("time") else ""
-            lines = [
-                f"Next departures for route {data['route']} from {data['stop']} on {data['date']}{_time_suffix}:"
-            ]
+            _header = tmsg(
+                lang,
+                f"Scheduled departures for route {data['route']} from {data['stop']} on {data['date']}{_time_suffix}:",
+                f"Salidas programadas para la ruta {data['route']} desde {data['stop']} el {data['date']}{_time_suffix}:",
+            )
+            lines = [_header]
             for t, headsign in next_by_dir:
                 lines.append(f"- {format_time_12h(t)} ({headsign})")
             if exception_note:
                 lines.append(exception_note)
+            lines.append(schedule_label(lang))
             return _with_meta({
                 "answer": "\n".join(lines),
                 "sources": [{"type": "schedule_next"}],
@@ -1066,6 +1081,7 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                         "sources": [{"type": "need_direction_schedule"}],
                     })
             # Avoid LLM paraphrasing for schedules to prevent hallucinations.
+            answer_text = f"{answer_text}\n{schedule_label(lang)}"
             return _with_meta({
                 "answer": answer_text,
                 "sources": [{"type": "backend_basics_schedule"}],

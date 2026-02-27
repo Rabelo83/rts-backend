@@ -38,7 +38,17 @@ def format_realtime_answer(lang: str, usable_preds: list[dict]) -> str:
         else:
             lines.append(tmsg(lang, f"Route {rt} (heading to {dest}): {mins} min", f"Ruta {rt} (hacia {dest}): {mins} min"))
 
-    return tmsg(lang, "Real-time ETA:\n- ", "ETA en tiempo real:\n- ") + "\n- ".join(lines)
+    return tmsg(lang, "Live tracker:\n- ", "Rastreador en vivo:\n- ") + "\n- ".join(lines)
+
+
+def schedule_label(lang: str) -> str:
+    """Footer note appended to all static-schedule responses so riders know
+    this is not a live ETA."""
+    return tmsg(
+        lang,
+        "(Static schedule — times may vary. Check the live tracker for real-time updates.)",
+        "(Horario estático — los tiempos pueden variar. Consulta el rastreador en vivo.)",
+    )
 
 
 def build_direction_prompt(options: str, lang: str, ctx_info: dict | None = None) -> str:
