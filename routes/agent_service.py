@@ -722,17 +722,28 @@ def try_transit_answer(message: str, history=None) -> dict | None:
                 _freq = f" ({_d['frequency']})" if _d.get("frequency") else ""
                 _dir_lines.append(f"  • {_d['headsign']}: {_d['first']} – {_d['last']}{_freq}")
             _overview = "\n".join(_dir_lines)
-            _buttons = [
-                {"label": _d["headsign"], "action": f"schedule route {route_id} {_d['headsign']}"}
-                for _d in _dirs[:4]
-            ]
+            # Only offer direction buttons when the user wants a full schedule, not
+            # when they asked for first/last bus (the summary already answered that).
+            _show_dir_buttons = not wants_first and not wants_last
+            _buttons = (
+                [
+                    {"label": _d["headsign"], "action": f"schedule route {route_id} {_d['headsign']}"}
+                    for _d in _dirs[:4]
+                ]
+                if _show_dir_buttons else []
+            )
+            _follow_up = (
+                tmsg(lang, "\n\nWant the full schedule? Tell me your stop, direction, or a time frame.",
+                          "\n\n¿Quieres el horario completo? Dime tu parada, dirección o franja horaria.")
+                if _show_dir_buttons else ""
+            )
             return _with_meta({
                 "answer": tmsg(
                     lang,
-                    f"Route {route_id} ({_summary['route_long_name']}) runs on {_summary['day_label']}:\n{_overview}\n\nWant the full schedule? Tell me your stop, direction, or a time frame.",
-                    f"La ruta {route_id} ({_summary['route_long_name']}) opera el {_summary['day_label']}:\n{_overview}\n\n¿Quieres el horario completo? Dime tu parada, dirección o franja horaria."
+                    f"Route {route_id} ({_summary['route_long_name']}) runs on {_summary['day_label']}:\n{_overview}{_follow_up}",
+                    f"La ruta {route_id} ({_summary['route_long_name']}) opera el {_summary['day_label']}:\n{_overview}{_follow_up}"
                 ),
-                "buttons": _buttons,
+                "buttons": _buttons if _buttons else None,
                 "sources": [{"type": "route_day_summary", "route": route_id, "date": _summary["date_iso"]}],
             })
         elif _summary and not _summary.get("runs_today"):
