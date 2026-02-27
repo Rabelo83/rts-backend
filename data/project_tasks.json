@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
   "updated_at": "2026-02-27",
-  "note": "Session 13: resolve_stop_global() added to stop_resolver.py for landmark stop resolution without route constraint ('Rosa Parks' → 0001 direct); ETA prediction caps removed (was [:3] display + [:10] raw, now unlimited); direction buttons suppressed after first/last bus queries (_show_dir_buttons = not wants_first and not wants_last); P1-A source labeling: 'Live tracker:' prefix on real-time, schedule_label() footer on all GTFS responses; P1-B human escalation: _check_escalation() in agent_api.py tracks failure_count per session, appends RTS phone/website after 2+ consecutive failures; 145 tests all green. Session 12: Fixed implicit 'after X PM' in response. Session 11: get_route_day_summary(). Session 10: stop_areas.json + routes_serving_area().",
+  "note": "Session 14: Route context bleeding fix — agent_service clears LLM-inferred route_id when current message has new origin/location but no route number; extract_origin_place() regex hardened with word boundaries (\\b); 12 new tests, 157 total all green. Commit a0646de. Architecture decision: replacing intent-extraction + rule-code pipeline with tool-use LLM agent (see tooluse-* tasks).",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -495,6 +495,62 @@
       "area": "Ops / Backend",
       "priority": 3,
       "details": "GTFS DB goes stale at semester transitions (UF schedule changes, new routes). Token-protected POST /api/admin/rebuild-gtfs that: downloads latest GTFS zip from go-rts.com, rebuilds rts_gtfs.sqlite, runs smoke-test queries, returns success/error. Requires ADMIN_TOKEN env var. Prevents manual re-deploy every semester."
+    },
+    {
+      "id": "tooluse-1-tool-schema",
+      "title": "Tool-Use Refactor: Design tool schema (inputs, outputs, status codes)",
+      "status": "next",
+      "area": "AI Architecture",
+      "priority": 1,
+      "details": "Define the 5 tools the LLM will call instead of the current rule-code pipeline. Each tool must return an explicit status field — never empty arrays. Tools: (1) search_stops(name_or_landmark) → [{stop_id, stop_name, match_type}] or {status: 'no_match'}. (2) get_realtime_predictions(stop_id) → [{route, minutes, headsign}] or {status: 'no_service' | 'api_unavailable'}. (3) query_schedule(route_id, stop_id_or_name, time?, date?) → [{departure, headsign}] or {status: 'no_trips' | 'stop_not_found' | 'route_not_found'}. (4) get_routes_at_stop(stop_id) → [{route_id, headsign}]. (5) get_route_overview(route_id, date?) → {first, last, frequency_min, directions[]} or {status: 'no_service'}. Document inputs/outputs/status codes before writing any code."
+    },
+    {
+      "id": "tooluse-2-tool-implementations",
+      "title": "Tool-Use Refactor: Implement tool wrapper functions",
+      "status": "pending",
+      "area": "AI Architecture",
+      "priority": 1,
+      "details": "Create routes/agent_tools.py. Wrap existing services as clean tool-callable functions matching the schema from tooluse-1. Each wrapper: (1) calls the existing service (schedule_service, rts_api, stop_resolver) — no new business logic. (2) Always returns an explicit status so the LLM never sees ambiguous empty results. (3) Handles exceptions internally and returns {status: 'error', message: ...} rather than raising. Keep all existing service code untouched — this is just a translation layer. Depends on: tooluse-1."
+    },
+    {
+      "id": "tooluse-3-system-prompt",
+      "title": "Tool-Use Refactor: Write the system prompt with grounding rules",
+      "status": "pending",
+      "area": "AI Architecture",
+      "priority": 1,
+      "details": "Write the system prompt that defines what the LLM is, what it can do, and what it must never do. Must include: (1) Persona: RTS Gainesville transit assistant. (2) Hard grounding rule: ONLY state departure times and stop names that appear in a tool result from this conversation. Never use training knowledge about bus schedules. (3) No-hallucination rule: if a tool returns no results or an error, say exactly that — do not guess or interpolate. (4) Tool-call-first rule: always call a tool before answering any factual transit question. (5) Language rule: respond in the language the user wrote in (EN/ES). (6) Brevity rule: 3 sentences max, preserve times/routes/stop IDs exactly. Can be written in parallel with tooluse-2."
+    },
+    {
+      "id": "tooluse-4-agent-loop",
+      "title": "Tool-Use Refactor: Build the tool-use agent orchestration loop",
+      "status": "pending",
+      "area": "AI Architecture",
+      "priority": 1,
+      "details": "Create routes/agent_v2.py with a single handle_message(msg, history, session_ctx) function. Pattern: (1) Build messages array from history. (2) Call LLM with tools defined. (3) If response has tool_calls: execute each tool, append results to messages, call LLM again. (4) Repeat until no tool_calls (max 5 iterations to prevent loops). (5) Return final text answer + any button suggestions the LLM emits. LLM choice: claude-haiku-4-5 (best instruction-following, cheapest capable model). Temperature = 0 for all tool-synthesis responses. Depends on: tooluse-2 and tooluse-3."
+    },
+    {
+      "id": "tooluse-5-api-integration",
+      "title": "Tool-Use Refactor: Wire new agent into Flask API",
+      "status": "pending",
+      "area": "AI Architecture",
+      "priority": 1,
+      "details": "Add /api/agent/v2 POST endpoint in agent_api.py pointing to agent_v2.handle_message(). Keep /api/agent (old pipeline) running in parallel for fallback. Frontend chat.html gets a temporary toggle (ENV var AGENT_VERSION=v2) to switch which endpoint sendAgentMessage() calls. Once v2 is validated, swap /api/agent to point to the new loop and remove the old pipeline. SSE streaming endpoint /api/agent/stream should also support v2 path. Depends on: tooluse-4."
+    },
+    {
+      "id": "tooluse-6-test-scenarios",
+      "title": "Tool-Use Refactor: Test all key conversation scenarios",
+      "status": "pending",
+      "area": "AI Architecture / Quality",
+      "priority": 1,
+      "details": "Run and document these specific scenarios before declaring v2 ready: (1) 'Next bus at Rosa Parks' → ETA list (no route specified). (2) 'What about from Santa Fe college?' (follow-up, route must NOT bleed). (3) 'What routes go to UF?' → route discovery. (4) 'Route 43 schedule tomorrow morning' → first/last with frequency. (5) 'First bus after 5pm on route 43 from downtown' → schedule, not first-of-day. (6) 'The one after that?' → advance past last shown departure. (7) Spanish: '¿Cuándo viene el próximo bus?' → responde en español. (8) Unknown landmark: 'Bus near Walmart on Archer' → graceful no-match or best effort. Each scenario: record exact input/output, mark pass/fail. Depends on: tooluse-5."
+    },
+    {
+      "id": "tooluse-7-deploy-validate",
+      "title": "Tool-Use Refactor: Deploy to Render and validate in production",
+      "status": "pending",
+      "area": "AI Architecture / Ops",
+      "priority": 1,
+      "details": "Push to Render with AGENT_VERSION=v2 env var. Run smoke tests: health endpoint, 3 ETA queries at known stops, 1 schedule query, 1 route discovery, 1 Spanish query. Confirm no hallucinated times in any response. Monitor Render logs for tool call errors or LLM loop termination warnings. Once stable for 24h: flip default to v2, remove old pipeline in a cleanup commit. Update MEMORY.md and project_tasks.json. Depends on: tooluse-6."
     }
   ]
 }
