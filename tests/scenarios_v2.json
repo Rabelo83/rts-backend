@@ -320,5 +320,64 @@
       ["I don't know", "cannot"],
       ["downtown", "I don't know"]
     ]
+  },
+  {
+    "id": "GPT16",
+    "type": "single",
+    "category": "reliability",
+    "description": "Graceful degradation on infrastructure error — no raw HTML in response",
+    "query": "When is the next bus at Rosa Parks?",
+    "expected_behavior": "Returns valid bus times OR a structured error message. Must never return raw HTML or an unformatted 429/500 page.",
+    "pass_signals": ["min", "AM", "PM", "Route", "route", "temporarily", "try again"],
+    "fail_signals": ["<!doctype html>", "<html", "Too Many Requests", "traceback"]
+  },
+  {
+    "id": "GPT17",
+    "type": "multi",
+    "category": "followup_after",
+    "description": "Follow-up 'what about an hour later?' should advance schedule by roughly 60 min",
+    "turns": [
+      "When does route 10 leave downtown today?",
+      "What about an hour later?"
+    ],
+    "expected_behavior": "Turn 1 returns departure times. Turn 2 returns departure times approximately 60 minutes after the last time shown in Turn 1 — not the same list repeated.",
+    "pass_signals_per_turn": [
+      ["AM", "PM", "route 10", "10", "downtown"],
+      ["AM", "PM", "10"]
+    ],
+    "fail_signals_per_turn": [
+      ["I don't know", "cannot"],
+      ["I don't know", "cannot"]
+    ]
+  },
+  {
+    "id": "GPT18",
+    "type": "single",
+    "category": "spanish",
+    "description": "Spanish schedule query — first bus on route 20 today",
+    "query": "¿Cuál es el primer autobús de la ruta 20 hoy?",
+    "expected_behavior": "Detects Spanish. Calls get_schedule or get_route_overview for route 20. Responds IN SPANISH with the first departure time. English-only response is a FAIL.",
+    "pass_signals": ["AM", "ruta", "Ruta", "20", "primero", "primera", "salida"],
+    "fail_signals": ["The first bus", "Route 20 departs", "I don't know"]
+  },
+  {
+    "id": "GPT19",
+    "type": "single",
+    "category": "schedule_explicit_time",
+    "description": "Last bus BEFORE an explicit time — must not return times after the threshold",
+    "query": "What is the last bus on route 5 before 8pm?",
+    "expected_behavior": "Returns the latest departure strictly before 8:00 PM. Must NOT show 8:00 PM or later times.",
+    "pass_signals": ["PM", "route 5", "Route 5", "5", "last", "before"],
+    "fail_signals": ["8:00 PM", "8:05 PM", "8:10 PM", "8:15 PM", "8:30 PM", "9:"]
+  },
+  {
+    "id": "GPT20",
+    "type": "single",
+    "category": "route_overview",
+    "description": "Route overview for a weekend day — must name Saturday or Sunday",
+    "query": "What is the route 1 schedule for this Saturday?",
+    "expected_behavior": "Calls get_route_overview for route 1 on the upcoming Saturday date. Returns first/last times and frequency. Must explicitly say 'Saturday' and NOT use weekday data.",
+    "pass_signals": ["Saturday", "route 1", "Route 1", "AM", "PM", "first", "last"],
+    "fail_signals": ["I don't know", "cannot", "weekday", "Monday"]
   }
 ]

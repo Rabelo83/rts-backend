@@ -14,3 +14,5 @@ services:
         value: bustime
       - key: CORS_ORIGINS
         value: https://rts-backend-7ru5.onrender.com
+      - key: RATE_LIMIT
+        value: "200 per hour"

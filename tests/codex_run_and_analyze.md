@@ -1,7 +1,9 @@
 # Codex: Run, Analyze, Fix, and Verify RTS Agent v2 Tests
 
-Execute the following steps in order. Do NOT stop after analysis — implement
-the fixes and verify them before reporting back.
+You are an autonomous coding agent. Execute ALL six steps below in order
+using your file-reading and file-writing tools. Do NOT stop after analysis.
+Do NOT describe what you would do — actually open the files and write the
+changes. Only report back after Step 6 is complete.
 
 ---
 
@@ -55,40 +57,45 @@ For each scenario produce:
 
 ---
 
-## Step 4 — Implement all "safe" fixes
+## Step 4 — Implement all "safe" fixes NOW (write to disk)
 
-For each FAIL with `fix_type: "safe"`:
+For each FAIL where you assigned `fix_type: "safe"`:
 
-1. Read the relevant file.
-2. Make the targeted fix — change only what is needed to address the issue.
-3. Do NOT refactor surrounding code or make unrelated improvements.
-4. Save the file.
+1. **Open the file** using your file-read tool.
+2. **Edit the file** using your file-write/patch tool — make only the targeted
+   change, nothing else.
+3. **Confirm** the change was saved by reading the relevant section back.
+
+Do NOT just describe the fix. Do NOT ask for permission. Write the change.
 
 Common safe fix patterns:
-- **Wrong language in response**: Add Spanish alias to `_AREA_ALIASES` in
-  `routes/schedule_service.py` (same pattern as existing entries).
-- **Follow-up returns wrong time**: Adjust the `## FOLLOW-UP TIME ADVANCEMENT`
-  section in the `SYSTEM_PROMPT` string in `routes/agent_v2.py`.
-- **Out-of-scope response references customer service**: Update the
-  `## WHEN THE QUESTION IS BEYOND YOUR TOOLS` section in `SYSTEM_PROMPT`.
-- **Hallucination in a specific category**: Strengthen the relevant grounding
-  rule in `SYSTEM_PROMPT`.
-- **New scenario needed**: Append a correctly formatted object to
-  `tests/scenarios_v2.json`.
+- **Wrong language in response**: Open `routes/schedule_service.py`, find
+  `_AREA_ALIASES`, and add the missing Spanish key → area-code entry.
+  Example: `"universidad de florida": "UF"` (follow the existing dict format).
+- **Follow-up returns wrong time**: Open `routes/agent_v2.py`, find the
+  `## FOLLOW-UP TIME ADVANCEMENT` block inside `SYSTEM_PROMPT`, and edit
+  the relevant sentence. Do not touch any Python code outside the string.
+- **Out-of-scope response references customer service**: Open `routes/agent_v2.py`,
+  find `## WHEN THE QUESTION IS BEYOND YOUR TOOLS` inside `SYSTEM_PROMPT`,
+  and edit only that paragraph.
+- **Hallucination in a specific category**: Open `routes/agent_v2.py`,
+  find the relevant `## HARD RULES` bullet, strengthen the wording.
+- **New scenario needed**: Open `tests/scenarios_v2.json`, append the new
+  scenario object before the closing `]`. Preserve valid JSON.
 
 ---
 
-## Step 5 — Re-run only the failing scenarios
+## Step 5 — Re-run only the failing scenarios (do not skip this step)
 
-After implementing fixes, re-run ONLY the scenarios that failed in Step 1.
-The `--retry-fails` flag automatically reads the most recent results file
-and re-runs any scenario with `quick_check != "likely_pass"` or `status == "error"`:
+After writing all safe fixes in Step 4, immediately run:
 
 ```
 python tests/run_v2_scenarios.py --retry-fails
 ```
 
-Read the new results file and verify each previously-failing scenario now passes.
+This automatically reads the most recent results file and re-runs only the
+scenarios that were not `likely_pass`. Read the new results file and note
+which scenarios now pass vs still fail.
 
 ---
 

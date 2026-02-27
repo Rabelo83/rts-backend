@@ -49,8 +49,9 @@ ENDPOINTS = {
 }
 
 REQUEST_TIMEOUT = 35        # seconds per request
-INTER_REQUEST_DELAY = 1.5   # seconds between requests (respect rate limit)
-MAX_RETRIES = 2             # retry on transient 502/503 errors
+INTER_REQUEST_DELAY = 4.0   # seconds between requests — ~30 req in 2 min, well under 30/hr
+MAX_RETRIES = 2             # retry on transient 500/502/503 errors
+RATE_LIMIT_PAUSE = 70       # seconds to wait after a 429 before retrying once
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -98,12 +99,23 @@ def post_message(endpoint, msg, session_id=None):
 
     last_err = None
     t0 = time.perf_counter()
+    rate_limited = False
     for attempt in range(MAX_RETRIES + 1):
         if attempt > 0:
             time.sleep(3)  # brief pause before retry
         try:
             r = requests.post(endpoint, json=payload, timeout=REQUEST_TIMEOUT)
             elapsed = int((time.perf_counter() - t0) * 1000)
+            if r.status_code == 429:
+                if not rate_limited:
+                    # First 429: pause and retry once
+                    wait = int(r.headers.get("Retry-After", RATE_LIMIT_PAUSE))
+                    print(f"\n  [429] Rate limit hit — pausing {wait}s then retrying...")
+                    time.sleep(wait)
+                    rate_limited = True
+                    continue
+                last_err = "HTTP 429: rate limit exceeded"
+                break
             if r.status_code in (500, 502, 503) and attempt < MAX_RETRIES:
                 last_err = f"HTTP {r.status_code} (retrying)"
                 continue
