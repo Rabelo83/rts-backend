@@ -10,6 +10,7 @@ Usage:
   python tests/run_v2_scenarios.py --env local          # localhost:5000
   python tests/run_v2_scenarios.py --ids S01,S07,M01   # specific scenarios only
   python tests/run_v2_scenarios.py --file my_extra.json # use a different scenarios file
+  python tests/run_v2_scenarios.py --retry-fails        # re-run only scenarios that failed last time
 
 Output:
   tests/results/run_YYYYMMDD_HHMMSS.json
@@ -24,6 +25,7 @@ Next step:
 
 import argparse
 import datetime
+import glob
 import json
 import os
 import sys
@@ -60,6 +62,28 @@ def load_scenarios(path, ids_filter=None):
         ids = {s.strip() for s in ids_filter.split(",")}
         scenarios = [s for s in scenarios if s["id"] in ids]
     return scenarios
+
+
+def get_failing_ids_from_last_run():
+    """
+    Find the most recent results file and return a tuple of:
+      (comma-separated failing IDs string, path to the results file used)
+    Returns (None, None) if no results files exist or all passed.
+    """
+    pattern = os.path.join(RESULTS_DIR, "run_*.json")
+    files = sorted(glob.glob(pattern))
+    if not files:
+        return None, None
+    latest = files[-1]
+    with open(latest, encoding="utf-8") as f:
+        data = json.load(f)
+    failing = [
+        r["id"] for r in data.get("results", [])
+        if r.get("quick_check") != "likely_pass" or r.get("status") == "error"
+    ]
+    if not failing:
+        return None, latest
+    return ",".join(failing), latest
 
 
 def post_message(endpoint, msg, session_id=None):
@@ -246,14 +270,31 @@ def main():
                         help="Comma-separated scenario IDs to run (e.g. S01,S07,M01)")
     parser.add_argument("--file", default=DEFAULT_SCENARIOS_FILE,
                         help=f"Path to scenarios JSON file (default: {DEFAULT_SCENARIOS_FILE})")
+    parser.add_argument("--retry-fails", action="store_true",
+                        help="Re-run only scenarios that failed or errored in the most recent results file")
     args = parser.parse_args()
 
+    ids_filter = args.ids
+    prior_run_file = None
+
+    if args.retry_fails:
+        failing_ids, prior_run_file = get_failing_ids_from_last_run()
+        if prior_run_file is None:
+            print("No previous results file found — running all scenarios.")
+        elif failing_ids is None:
+            print(f"All scenarios passed in {os.path.basename(prior_run_file)} — nothing to retry.")
+            return
+        else:
+            ids_filter = failing_ids
+            print(f"Retrying failures from: {os.path.basename(prior_run_file)}")
+            print(f"Failing IDs: {failing_ids}")
+
     endpoint = ENDPOINTS[args.env]
-    scenarios = load_scenarios(args.file, args.ids)
+    scenarios = load_scenarios(args.file, ids_filter)
 
     print(f"\nRTS Agent v2 -- Scenario Test Runner")
     print(f"Endpoint  : {endpoint}")
-    print(f"Scenarios : {len(scenarios)}")
+    print(f"Scenarios : {len(scenarios)}" + (" (retry-fails mode)" if args.retry_fails else ""))
     print(f"{'-' * 72}\n")
 
     results = []
@@ -288,6 +329,7 @@ def main():
         "env": args.env,
         "timestamp": ts,
         "scenario_count": total,
+        "retry_of": os.path.basename(prior_run_file) if prior_run_file else None,
         "quick_summary": {"likely_pass": n_pass, "likely_fail": n_fail, "unknown": n_unk},
         "results": results,
     }

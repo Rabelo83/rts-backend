@@ -80,10 +80,12 @@ Common safe fix patterns:
 
 ## Step 5 — Re-run only the failing scenarios
 
-After implementing fixes, re-run ONLY the scenarios that were FAIL in Step 3:
+After implementing fixes, re-run ONLY the scenarios that failed in Step 1.
+The `--retry-fails` flag automatically reads the most recent results file
+and re-runs any scenario with `quick_check != "likely_pass"` or `status == "error"`:
 
 ```
-python tests/run_v2_scenarios.py --ids FAIL_ID1,FAIL_ID2,...
+python tests/run_v2_scenarios.py --retry-fails
 ```
 
 Read the new results file and verify each previously-failing scenario now passes.
