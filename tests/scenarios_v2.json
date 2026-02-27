@@ -1,0 +1,247 @@
+[
+  {
+    "id": "S01",
+    "type": "single",
+    "category": "realtime_eta",
+    "description": "Known landmark stop → should resolve stop_id and show real-time ETAs",
+    "query": "When is the next bus at Rosa Parks?",
+    "expected_behavior": "Calls search_stops(Rosa Parks) → gets stop_id 0001 → calls get_realtime_predictions. Response lists upcoming buses with times in minutes or clock format (e.g. '5 min', '3:45 PM'). Should NOT mention customer service or invent times.",
+    "pass_signals": ["min", "AM", "PM", "Route", "route", "bus", "arrive", "departure"],
+    "fail_signals": ["I don't know", "I cannot", "customer service", "call RTS"]
+  },
+  {
+    "id": "S02",
+    "type": "single",
+    "category": "realtime_eta",
+    "description": "Another landmark stop — Reitz Union (UF campus)",
+    "query": "Next bus at Reitz Union",
+    "expected_behavior": "Calls search_stops(Reitz Union) → resolved stop_id → get_realtime_predictions. Returns upcoming ETAs. If no real-time data available, states that clearly without inventing times.",
+    "pass_signals": ["min", "AM", "PM", "Route", "route", "bus", "stop"],
+    "fail_signals": ["I don't know", "I cannot"]
+  },
+  {
+    "id": "S03",
+    "type": "single",
+    "category": "schedule_next",
+    "description": "Schedule query — next departures for route 10 from downtown",
+    "query": "When does route 10 leave downtown today?",
+    "expected_behavior": "Searches for a downtown stop, queries schedule for route 10. Returns a list of departure times in HH:MM AM/PM format. Should call get_schedule with route_id and a resolved stop_id.",
+    "pass_signals": ["AM", "PM", "Route 10", "route 10", "10", "depart", "downtown"],
+    "fail_signals": ["I don't know", "I can't", "error"]
+  },
+  {
+    "id": "S04",
+    "type": "single",
+    "category": "schedule_first",
+    "description": "First bus query — first departure of the day on route 20",
+    "query": "What is the first bus on route 20 today?",
+    "expected_behavior": "Returns the first scheduled departure for route 20 today. Time should be early morning (before 9 AM for most routes). Should call get_route_overview or get_schedule.",
+    "pass_signals": ["AM", "first", "route 20", "Route 20", "20", "depart"],
+    "fail_signals": ["I don't know", "cannot", "no service"]
+  },
+  {
+    "id": "S05",
+    "type": "single",
+    "category": "schedule_last",
+    "description": "Last bus query — last departure of the day on route 5",
+    "query": "What's the last bus on route 5 today?",
+    "expected_behavior": "Returns the last scheduled departure for route 5 today. Should be in afternoon or evening. Should call get_route_overview or get_schedule.",
+    "pass_signals": ["PM", "last", "route 5", "Route 5", "5", "depart"],
+    "fail_signals": ["I don't know", "cannot"]
+  },
+  {
+    "id": "S06",
+    "type": "single",
+    "category": "route_overview",
+    "description": "Route schedule overview — route 43 running tomorrow",
+    "query": "What is the route 43 schedule for tomorrow?",
+    "expected_behavior": "Calls get_route_overview for route 43 on tomorrow's date. Returns first/last departure times and average frequency. Should name the day type (weekday/Saturday/Sunday) and both directions.",
+    "pass_signals": ["AM", "PM", "43", "first", "last", "every", "frequency", "weekday", "Saturday", "Sunday", "direction"],
+    "fail_signals": ["I don't know", "I cannot", "error"]
+  },
+  {
+    "id": "S07",
+    "type": "single",
+    "category": "route_discovery",
+    "description": "Area-based route discovery — routes serving UF campus",
+    "query": "What routes go to UF?",
+    "expected_behavior": "Calls search_routes with 'UF' or 'University of Florida'. Returns multiple route numbers (expect 10+ routes for UF). Should NOT list only one or two routes. Should NOT invent route names.",
+    "pass_signals": ["route", "Route", "1", "10", "20", "UF", "University", "serve"],
+    "fail_signals": ["I don't know", "cannot", "no routes", "customer service"]
+  },
+  {
+    "id": "S08",
+    "type": "single",
+    "category": "route_discovery",
+    "description": "Downtown area route discovery",
+    "query": "Which buses serve downtown Gainesville?",
+    "expected_behavior": "Calls search_routes with 'downtown'. Returns multiple routes. Should list route numbers. Should NOT return an empty or single-route answer.",
+    "pass_signals": ["route", "Route", "downtown", "serve", "bus", "routes"],
+    "fail_signals": ["I don't know", "cannot", "no routes"]
+  },
+  {
+    "id": "S09",
+    "type": "single",
+    "category": "schedule_explicit_time",
+    "description": "First bus AFTER an explicit PM time — must NOT return first-of-day",
+    "query": "What is the first bus after 5pm on route 10 from downtown?",
+    "expected_behavior": "Returns a departure time AFTER 5:00 PM. 'First' + 'after 5pm' means first bus after 5PM, not first bus of the day. Early morning times like 6:00 AM are a FAIL — they indicate the agent misread 'first' as 'first-of-day'.",
+    "pass_signals": ["PM", "5:", "6:", "7:", "8:", "9:", "10:", "after"],
+    "fail_signals": ["6:00 AM", "6:05 AM", "6:10 AM", "6:15 AM", "6:20 AM", "6:30 AM", "7:00 AM", "7:05 AM"]
+  },
+  {
+    "id": "S10",
+    "type": "single",
+    "category": "spanish",
+    "description": "Spanish language ETA query — Rosa Parks stop",
+    "query": "¿Cuándo viene el próximo bus en Rosa Parks?",
+    "expected_behavior": "Detects Spanish. Calls search_stops and get_realtime_predictions. Responds IN SPANISH with upcoming bus times. English-only response is a FAIL.",
+    "pass_signals": ["min", "AM", "PM", "ruta", "bus", "próximo", "siguiente", "llega", "sale", "minutos"],
+    "fail_signals": ["The next bus", "departures from Rosa Parks are", "upcoming buses", "I don't"]
+  },
+  {
+    "id": "S11",
+    "type": "single",
+    "category": "spanish",
+    "description": "Spanish route discovery query — routes to University of Florida",
+    "query": "¿Qué rutas van a la Universidad de Florida?",
+    "expected_behavior": "Detects Spanish. Calls search_routes. Responds IN SPANISH with a list of routes. Should not respond in English.",
+    "pass_signals": ["ruta", "Ruta", "UF", "Universidad", "Florida", "autobús", "van"],
+    "fail_signals": ["Routes that serve", "The following routes", "I don't know"]
+  },
+  {
+    "id": "S12",
+    "type": "single",
+    "category": "out_of_scope",
+    "description": "Analytical question beyond tool capabilities — route coincidence",
+    "query": "When will route 1 and route 20 be at the same bus stop at the same time?",
+    "expected_behavior": "No tool exists for route coincidence analysis. Agent should say it doesn't have the ability to answer that type of question. Should NOT invent a meeting time. Should NOT refer to customer service for this analytical limitation.",
+    "pass_signals": ["don't have the ability", "cannot answer", "not able", "type of question", "only look up"],
+    "fail_signals": ["6:30 AM", "10:06 PM", "call RTS", "customer service", "call (352)", "both routes"]
+  },
+  {
+    "id": "S13",
+    "type": "single",
+    "category": "out_of_scope",
+    "description": "Trip planning request — beyond tool capabilities",
+    "query": "How do I get from the Oaks Mall to the airport?",
+    "expected_behavior": "Agent has no trip planning tool. Should honestly say it can't plan trips and explain it can only look up arrivals, schedules, and routes. Should NOT invent an itinerary or routing instructions.",
+    "pass_signals": ["don't have the ability", "cannot", "not able to", "trip planning", "type of question", "only look up"],
+    "fail_signals": ["take route", "Transfer to", "transfer to", "board the", "get off at", "walk to"]
+  },
+  {
+    "id": "S14",
+    "type": "single",
+    "category": "greeting",
+    "description": "Greeting message — should get a warm response, not a transit data answer",
+    "query": "Hi, how are you?",
+    "expected_behavior": "Friendly greeting response. Should NOT call any transit tools. Should NOT output a bus schedule. May offer to help with transit. tool_calls_made should be 0 or null.",
+    "pass_signals": ["help", "Hello", "Hi", "How can", "assist", "transit", "bus"],
+    "fail_signals": ["next bus is at", "Route 1", "depart", "AM is", "PM is"]
+  },
+  {
+    "id": "S15",
+    "type": "single",
+    "category": "ambiguous_stop",
+    "description": "Place with multiple stops — agent should present candidates, not guess",
+    "query": "What's the next bus at Butler Plaza?",
+    "expected_behavior": "Butler Plaza has multiple stops. Agent calls search_stops, gets multiple candidates, and asks the user to pick one. Should NOT guess which stop. Should present a list of 2+ stop options with stop IDs.",
+    "pass_signals": ["stop", "Stop", "which", "pick", "select", "candidates", "0", "multiple"],
+    "fail_signals": ["I don't know", "no stops found"]
+  },
+  {
+    "id": "M01",
+    "type": "multi",
+    "category": "followup_after",
+    "description": "Multi-turn: ask for departures, then ask 'after that?'",
+    "turns": [
+      "When does route 10 leave downtown today?",
+      "What about after that?"
+    ],
+    "expected_behavior": "Turn 1: returns schedule with departure times. Turn 2: returns a LATER time than Turn 1. If Turn 2 shows the same earliest time as Turn 1, that is a FAIL — the agent did not advance past the shown time.",
+    "pass_signals_per_turn": [
+      ["AM", "PM", "depart", "route 10", "10"],
+      ["AM", "PM", "depart"]
+    ],
+    "fail_signals_per_turn": [
+      ["I don't know", "cannot"],
+      ["I don't know", "no departures", "cannot"]
+    ]
+  },
+  {
+    "id": "M02",
+    "type": "multi",
+    "category": "followup_location",
+    "description": "Multi-turn: ask for route from one stop, then ask from a different stop",
+    "turns": [
+      "When does route 10 leave downtown today?",
+      "What about from Butler Plaza?"
+    ],
+    "expected_behavior": "Turn 2 should query schedule for route 10 from Butler Plaza (new location). Response must reference Butler Plaza. Should NOT continue to show downtown departures.",
+    "pass_signals_per_turn": [
+      ["AM", "PM", "route 10", "10", "downtown"],
+      ["Butler", "Plaza", "10", "AM", "PM"]
+    ],
+    "fail_signals_per_turn": [
+      [],
+      ["downtown", "I don't know"]
+    ]
+  },
+  {
+    "id": "M03",
+    "type": "multi",
+    "category": "context_bleed",
+    "description": "Multi-turn: ask about a route, then ask about a different area — route should NOT bleed",
+    "turns": [
+      "Show me route 20 schedule",
+      "What about Santa Fe College?"
+    ],
+    "expected_behavior": "Turn 2 is about Santa Fe College as a NEW topic, not specifically route 20. Agent should search for stops/routes at Santa Fe College. It should NOT automatically apply route 20 to Santa Fe College without verifying route 20 serves that stop.",
+    "pass_signals_per_turn": [
+      ["route 20", "Route 20", "20", "AM", "PM"],
+      ["Santa Fe", "College", "stop", "route", "Route"]
+    ],
+    "fail_signals_per_turn": [
+      [],
+      ["I don't know"]
+    ]
+  },
+  {
+    "id": "M04",
+    "type": "multi",
+    "category": "spanish_continuation",
+    "description": "Multi-turn: Spanish query followed by Spanish follow-up",
+    "turns": [
+      "¿Cuándo viene el próximo bus en Rosa Parks?",
+      "¿Y el siguiente?"
+    ],
+    "expected_behavior": "Both turns respond IN SPANISH. Turn 2 advances past the time shown in Turn 1. Language must not switch to English on the follow-up.",
+    "pass_signals_per_turn": [
+      ["min", "AM", "PM", "ruta", "próximo", "llega", "minutos"],
+      ["min", "AM", "PM", "siguiente", "después", "próximo", "ruta"]
+    ],
+    "fail_signals_per_turn": [
+      ["The next bus", "Route", "departures"],
+      ["The next bus", "Route", "departures"]
+    ]
+  },
+  {
+    "id": "M05",
+    "type": "multi",
+    "category": "stop_disambiguation",
+    "description": "Multi-turn: ambiguous stop yields candidates, user picks one by stop ID",
+    "turns": [
+      "Next bus at Reitz Union",
+      "Stop 0473"
+    ],
+    "expected_behavior": "Turn 1: resolves Reitz Union — shows ETAs directly if only one stop, or lists candidates if multiple. Turn 2: user selects stop 0473 → agent returns real-time predictions for stop 0473. Stop ID 0473 must appear in Turn 2 response.",
+    "pass_signals_per_turn": [
+      ["0473", "Reitz", "stop", "Stop", "AM", "PM", "min", "route", "Route"],
+      ["0473", "AM", "PM", "min", "route", "Route"]
+    ],
+    "fail_signals_per_turn": [
+      ["I don't know", "no stop"],
+      ["I don't know", "which stop", "please specify"]
+    ]
+  }
+]

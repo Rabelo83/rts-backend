@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
   "updated_at": "2026-02-27",
-  "note": "Session 15: tooluse-5+6 complete. v2 agent 7/8 scenarios pass. Buttons removed from chat (wizard-only). tooluse-7 (deploy + flip default) is next.",
+  "note": "Session 16: GPT-driven testing infrastructure created (scenarios_v2.json, run_v2_scenarios.py, gpt_analysis_prompt.md, gpt_user_simulator_prompt.md). tooluse-7 (deploy + flip default) is next.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -551,6 +551,14 @@
       "area": "AI Architecture / Backend",
       "priority": 3,
       "details": "Add a 6th tool: find_route_coincidences(route_ids: list, date?, tolerance_minutes?=5). GTFS JOIN query: stop_times for route A × stop_times for route B at same stop_id, filtered by ABS(departure_time_A - departure_time_B) <= tolerance. Returns list of {stop_name, stop_id, route_A_time, route_B_time, diff_minutes}. Answers 'when are routes 1 and 20 at the same stop?' Currently the agent hallucinates an answer by pattern-matching first/last times from get_route_overview — verified in testing."
+    },
+    {
+      "id": "tooluse-testing-infrastructure",
+      "title": "GPT-driven scenario testing infrastructure for v2 agent",
+      "status": "completed",
+      "area": "Quality / AI Architecture",
+      "priority": 1,
+      "details": "Session 16: Created 4 files in tests/: (1) scenarios_v2.json — 20 hand-crafted scenarios (15 single + 5 multi-turn) covering realtime, schedule, route discovery, Spanish, out-of-scope, greetings, follow-ups, context bleed. (2) run_v2_scenarios.py — Python runner hits live /api/agent/v2, logs all responses to tests/results/run_YYYYMMDD_HHMMSS.json with quick heuristic check. (3) gpt_analysis_prompt.md — paste-into-ChatGPT prompt that makes GPT act as QA analyst: evaluates each scenario on VERDICT/TOOL_CHECK/HALLUCINATION/ISSUE/SUGGESTED_TASK; outputs verdict JSON + summary + 10 new scenario suggestions. (4) gpt_user_simulator_prompt.md — paste-into-ChatGPT prompt that makes GPT generate 30+ new realistic rider queries + 5 multi-turn chains, formatted to match scenarios_v2.json schema for direct appending. Workflow: run script → paste results into GPT (judge) → paste task suggestions back to Claude (fix) → repeat."
     },
     {
       "id": "tooluse-7-deploy-validate",
