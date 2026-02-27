@@ -410,6 +410,70 @@
       "status": "next",
       "area": "Release",
       "details": "Verify health endpoint, main UI, chat, wizard, schedule flows, and dashboard after deploy."
+    },
+    {
+      "id": "improve-source-labeling",
+      "title": "P1-A: Label real-time vs static schedule in every response",
+      "status": "backlog",
+      "area": "UX / Trust",
+      "priority": 1,
+      "details": "Research finding: users trained by Google Maps expect all answers to be real-time. When we return a GTFS schedule time they treat it as an ETA — trust collapses when bus doesn't match. Fix: prefix real-time responses with 'Live tracker shows...' and schedule responses with 'Scheduled at X (static schedule)'. Use existing sources metadata (source_type: realtime vs backend_basics_schedule) to drive the label automatically in response_builder.py."
+    },
+    {
+      "id": "improve-escalation-exit",
+      "title": "P1-B: Add human escalation after 2-3 consecutive failures",
+      "status": "backlog",
+      "area": "UX / Accessibility",
+      "priority": 1,
+      "details": "Research finding: 2–3 failed disambiguations is the universal chatbot abandonment threshold (CTA study, WorkBot analysis). After 2–3 'need_stop_or_route' / 'clarify_route_vs_stop' responses in a session, append 'Still stuck? Call RTS Customer Service: (352) 334-2600 or visit go-rts.com'. Implementation: session_manager tracks failure_count per session; agent_service checks it and appends escalation note. Equity requirement — elderly and low-literacy riders have no recourse without this."
+    },
+    {
+      "id": "improve-fuzzy-match-confidence",
+      "title": "P1-C: Confirm fuzzy stop matches before using them",
+      "status": "backlog",
+      "area": "Backend / Trust",
+      "priority": 1,
+      "details": "When _gtfs_resolve_stop_name() matches via fuzzy/token search (not exact or stop_id direct), we currently respond with full confidence. If the match is wrong, user gets wrong stop schedule. Fix: add match_type field ('exact', 'fuzzy') to _gtfs_resolve_stop_name() and resolve_stop_global() results. In agent_service.py, when match_type='fuzzy', ask for confirmation: 'I think you mean Stop 0473 – Reitz Union. Is that right? [Yes] [Different stop]' before fetching predictions."
+    },
+    {
+      "id": "improve-landmark-resolution",
+      "title": "P2-D: Landmark-to-stop resolution for arbitrary locations",
+      "status": "backlog",
+      "area": "Backend / NLU",
+      "priority": 2,
+      "details": "Research finding: #1 documented stop-resolution failure across all transit chatbot papers. Users say 'near Walmart on Archer Road' or 'the stop by Publix on University Ave' — not GTFS stop names. stop_areas.json covers zones (UF, Downtown) but not arbitrary landmarks. Options: (A) Expand stop_areas.json with known Gainesville landmarks mapped to specific stop IDs — low cost, limited coverage. (B) Add Google Places / OSM geocoding call to find nearest GTFS stop to a described location — broader coverage, adds external API dependency. Start with option A (curated landmark map), document gap for option B."
+    },
+    {
+      "id": "improve-holiday-warning",
+      "title": "P2-E: Show holiday service warning in schedule responses",
+      "status": "backlog",
+      "area": "Backend",
+      "priority": 2,
+      "details": "build_exception_note() already exists in response_builder.py and build_exception_note() is defined. Wire it into the schedule response path: query calendar_dates for the requested date; if a service exception applies, prepend 'Note: Holiday or special service may apply — verify at go-rts.com/alerts'. The exception_info dict from GTFS calendar_dates needs to be passed through to the response builder."
+    },
+    {
+      "id": "improve-humanize-brevity",
+      "title": "P2-F: Enforce brevity in HUMANIZE_ENABLED responses",
+      "status": "backlog",
+      "area": "UX / Accessibility",
+      "priority": 2,
+      "details": "Research strongly recommends ≤3 sentences for mobile and elderly users. Current humanize system prompt does not constrain length. Add explicit instruction: 'Keep responses under 3 sentences. Be direct. Do not explain reasoning. Preserve all times, stop IDs, and route numbers exactly.' Apply only when HUMANIZE_ENABLED=true."
+    },
+    {
+      "id": "improve-spanish-testing",
+      "title": "P3-H: Spanish code-switching test suite",
+      "status": "backlog",
+      "area": "QA / Multilingual",
+      "priority": 3,
+      "details": "Gainesville Spanish speakers mix English and Spanish: '¿Cuándo viene el bus 43 al downtown?' Current lang detection handles clean Spanish/English but mixed code-switching is untested. Collect 20–30 real mixed-language transit queries representative of Gainesville riders. Add to test suite as regression tests. Also validate that tmsg(lang, ...) correctly detects language for mixed inputs."
+    },
+    {
+      "id": "improve-gtfs-autorefresh",
+      "title": "P3-I: GTFS auto-refresh admin endpoint",
+      "status": "backlog",
+      "area": "Ops / Backend",
+      "priority": 3,
+      "details": "GTFS DB goes stale at semester transitions (UF schedule changes, new routes). Token-protected POST /api/admin/rebuild-gtfs that: downloads latest GTFS zip from go-rts.com, rebuilds rts_gtfs.sqlite, runs smoke-test queries, returns success/error. Requires ADMIN_TOKEN env var. Prevents manual re-deploy every semester."
     }
   ]
 }
