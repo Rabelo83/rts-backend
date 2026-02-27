@@ -526,7 +526,7 @@
       "status": "pending",
       "area": "AI Architecture",
       "priority": 1,
-      "details": "Create routes/agent_v2.py with a single handle_message(msg, history, session_ctx) function. Pattern: (1) Build messages array from history. (2) Call LLM with tools defined. (3) If response has tool_calls: execute each tool, append results to messages, call LLM again. (4) Repeat until no tool_calls (max 5 iterations to prevent loops). (5) Return final text answer + any button suggestions the LLM emits. LLM choice: claude-haiku-4-5 (best instruction-following, cheapest capable model). Temperature = 0 for all tool-synthesis responses. Depends on: tooluse-2 and tooluse-3."
+      "details": "Create routes/agent_v2.py with a single handle_message(msg, history, session_ctx) function. Pattern: (1) Build messages array from history. (2) Call LLM with tools defined. (3) If response has tool_calls: execute each tool, append results to messages, call LLM again. (4) Repeat until no tool_calls (max 5 iterations to prevent loops). (5) Return final text answer + any button suggestions the LLM emits. LLM choice: gpt-4o-mini (already integrated, existing _openai_client() helper reused). Temperature = 0 for all tool-synthesis responses. Depends on: tooluse-2 and tooluse-3."
     },
     {
       "id": "tooluse-5-api-integration",
