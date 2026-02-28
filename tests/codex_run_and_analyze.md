@@ -5,15 +5,35 @@ using your file-reading and file-writing tools. Do NOT stop after analysis.
 Do NOT describe what you would do — actually open the files and write the
 changes. Only report back after Step 6 is complete.
 
+> **Important:** The scenario runner now talks to the Flask app via its
+> built-in test client, so you do **not** need to start a separate server or
+> open any network ports.
+
+---
+
+## Step 0 — Set environment variables
+
+Before running the tests:
+
+- `OPENAI_API_KEY` can point to a real key, but a placeholder
+  (`export OPENAI_API_KEY=dummy`) is also acceptable. When no valid key is
+  available the agent automatically falls back to the legacy rule-based
+  orchestration, which is sufficient for regression tests.
+- `BUS_API_KEY` is optional. If absent, realtime prediction scenarios will
+  return `api_unavailable`, but the suite will still provide useful coverage.
+- Leave `RTPIDATAFEED=bustime` unless you intentionally need another feed.
+
 ---
 
 ## Step 1 — Run the full test suite
 
 ```
-python tests/run_v2_scenarios.py
+python tests/run_v2_scenarios.py --env local
 ```
 
-Note the path of the saved results file (e.g. `tests/results/run_YYYYMMDD_HHMMSS.json`).
+The script automatically creates a Flask test client and issues HTTP requests
+against `/api/agent/v2` internally. Note the path of the saved results file
+(e.g. `tests/results/run_YYYYMMDD_HHMMSS.json`).
 
 ---
 
@@ -90,7 +110,7 @@ Common safe fix patterns:
 After writing all safe fixes in Step 4, immediately run:
 
 ```
-python tests/run_v2_scenarios.py --retry-fails
+python tests/run_v2_scenarios.py --env local --retry-fails
 ```
 
 This automatically reads the most recent results file and re-runs only the
@@ -100,8 +120,6 @@ which scenarios now pass vs still fail.
 ---
 
 ## Step 6 — Report
-
-Print a final report in this format:
 
 ```
 === RTS Agent v2 — Fix Report ===
@@ -124,13 +142,3 @@ New scenarios added to scenarios_v2.json:
 
 Next: paste the "needs Claude review" items into the VS Code Claude chat.
 ```
-
----
-
-## Important constraints
-
-- Only edit files you have read first.
-- Only change what is directly needed to fix the identified issue.
-- Do not rename, restructure, or refactor working code.
-- Do not add features beyond what is needed to fix the failing scenario.
-- If you are unsure whether a fix is safe, put it in "needs Claude review".

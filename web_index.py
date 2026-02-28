@@ -22,7 +22,8 @@ if os.path.isdir("/data"):
 else:
     INDEX_PATH = os.getenv("WEB_INDEX_PATH", "/tmp/web_index.json")
 
-client = OpenAI()
+_OPENAI_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+client = OpenAI(api_key=_OPENAI_KEY) if _OPENAI_KEY else None
 
 # In-memory cache (populated by load_index)
 _index_entries: List[Dict[str, Any]] = []
@@ -63,6 +64,9 @@ def _chunk(text: str, url: str, max_chars: int = 1600, overlap: int = 150) -> Li
     return out
 
 def _embed_texts(texts: List[str]) -> List[List[float]]:
+    if client is None:
+        # Offline/test environment: return zero embeddings to keep shapes consistent.
+        return [[0.0] * 3 for _ in texts]
     res = client.embeddings.create(model=EMBED_MODEL, input=texts)
     return [d.embedding for d in res.data]
 

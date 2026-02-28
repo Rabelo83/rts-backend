@@ -55,11 +55,11 @@ def _check_escalation(session_id: str, prior_ctx: dict, sources: list, lang: str
         if (lang or "").lower().startswith("es"):
             return (
                 "\n\n¿Necesitas más ayuda? Llama al servicio al cliente de RTS: "
-                "**(352) 334-2600** o visita go-rts.com."
+                "**(352) 334-2600** (lun–vie 8 AM–5 PM) o visita go-rts.com."
             )
         return (
             "\n\nStill having trouble? Call RTS Customer Service: "
-            "**(352) 334-2600** or visit go-rts.com."
+            "**(352) 334-2600** (Mon–Fri 8 AM–5 PM) or visit go-rts.com."
         )
     return ""
 

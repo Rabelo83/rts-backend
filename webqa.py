@@ -142,8 +142,11 @@ def answer(question: str, max_chars_per_doc: int = 1800) -> tuple[str, list[str]
     """
     Returns a natural-language answer using snippets from am2ar/go-rts.
     """
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        return ("Web QA is disabled because OPENAI_API_KEY is not configured.", [])
     from openai import OpenAI
-    _client_kwargs: dict = {"api_key": os.getenv("OPENAI_API_KEY", "")}
+    _client_kwargs: dict = {"api_key": api_key}
     _base_url = os.getenv("OPENAI_BASE_URL", "").strip()
     if _base_url:
         _client_kwargs["base_url"] = _base_url

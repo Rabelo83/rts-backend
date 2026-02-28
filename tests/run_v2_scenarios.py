@@ -40,12 +40,16 @@ except ImportError:
     sys.exit(1)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(SCRIPT_DIR)
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
 DEFAULT_SCENARIOS_FILE = os.path.join(SCRIPT_DIR, "scenarios_v2.json")
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "results")
+_LOCAL_ENDPOINT = "local:testclient"
 
 ENDPOINTS = {
     "prod": "https://rts-backend-7ru5.onrender.com/api/agent/v2",
-    "local": "http://localhost:5000/api/agent/v2",
+    "local": _LOCAL_ENDPOINT,
 }
 
 REQUEST_TIMEOUT = 35        # seconds per request
@@ -53,6 +57,16 @@ INTER_REQUEST_DELAY = 4.0   # seconds between requests — ~30 req in 2 min, wel
 MAX_RETRIES = 2             # retry on transient 500/502/503 errors
 RATE_LIMIT_PAUSE = 70       # seconds to wait after a 429 before retrying once
 
+_LOCAL_CLIENT = None
+
+
+def _get_local_client():
+    global _LOCAL_CLIENT
+    if _LOCAL_CLIENT is None:
+        from app import create_app
+
+        _LOCAL_CLIENT = create_app().test_client()
+    return _LOCAL_CLIENT
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -96,6 +110,22 @@ def post_message(endpoint, msg, session_id=None):
     payload = {"message": msg}
     if session_id:
         payload["session_id"] = session_id
+
+    if endpoint == _LOCAL_ENDPOINT:
+        client = _get_local_client()
+        t0 = time.perf_counter()
+        try:
+            resp = client.post("/api/agent/v2", json=payload)
+        except Exception as exc:
+            elapsed = int((time.perf_counter() - t0) * 1000)
+            return None, elapsed, f"local client error: {exc}"
+        elapsed = int((time.perf_counter() - t0) * 1000)
+        if resp.status_code >= 400:
+            return None, elapsed, f"HTTP {resp.status_code}: {resp.data[:200]!r}"
+        data = resp.get_json(silent=True)
+        if data is None:
+            return None, elapsed, "local client returned invalid JSON"
+        return data, elapsed, None
 
     last_err = None
     t0 = time.perf_counter()

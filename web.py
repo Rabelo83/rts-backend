@@ -2,10 +2,13 @@ import os
 from openai import OpenAI
 import web_index
 
-client = OpenAI()
+_OPENAI_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+client = OpenAI(api_key=_OPENAI_KEY) if _OPENAI_KEY else None
 CHAT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 def answer(question: str, k: int = 5) -> tuple[str, list[str]]:
+    if client is None:
+        return ("The OpenAI client is not configured in this environment.", [])
     hits = web_index.search(question, k=k)
     if not hits:
         return ("I don’t have a local index yet. Please run the ingest endpoint first.", [])

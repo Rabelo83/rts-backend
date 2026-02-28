@@ -16,6 +16,11 @@ try:
 except ImportError:
     OpenAI = None
 
+try:
+    from routes.agent_service import handle_agent_message as legacy_agent_handler
+except Exception:
+    legacy_agent_handler = None
+
 from routes.agent_tools import TOOLS, dispatch_tool
 from routes.parsing_helpers import detect_language_simple
 
@@ -34,6 +39,17 @@ def _openai_client():
     if base_url:
         kwargs["base_url"] = base_url
     return OpenAI(**kwargs)
+
+
+def _openai_enabled() -> bool:
+    if OpenAI is None:
+        return False
+    key = os.getenv("OPENAI_API_KEY", "").strip()
+    if not key:
+        return False
+    if os.getenv("OPENAI_OFFLINE", "").lower() in ("1", "true", "yes"):
+        return False
+    return True
 
 
 # ── SYSTEM PROMPT (tooluse-3) ─────────────────────────────────────────────────
@@ -108,7 +124,7 @@ current-clock results and may repeat departures the user already saw.
 
 If a tool returns no results or a service error (no_service, no_trips,
 api_unavailable), say so clearly and offer the RTS customer service contact:
-call (352) 334-2600 or visit go-rts.com.
+call (352) 334-2600 (Mon–Fri 8 AM–5 PM) or visit go-rts.com.
 Do not invent a time or route. One wrong time is worse than no answer.
 
 ## WHEN THE QUESTION IS BEYOND YOUR TOOLS
@@ -144,10 +160,16 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
             "meta":     dict,          # language, tool_calls, etc.
         }
     """
-    if OpenAI is None:
-        return {"answer": "AI service is not available right now.", "buttons": [], "meta": {}}
-
     lang = detect_language_simple(msg)
+
+    if not _openai_enabled():
+        if legacy_agent_handler:
+            legacy = legacy_agent_handler(msg, history)
+            meta = legacy.setdefault("meta", {})
+            meta.setdefault("agent_mode", "legacy_fallback")
+            meta.setdefault("language", lang)
+            return legacy
+        return {"answer": "AI service is not available right now.", "buttons": [], "meta": {"language": lang}}
 
     # Build OpenAI messages: system + history + current turn
     messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -217,7 +239,7 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
     logger.warning("agent_v2: max tool iterations reached for msg=%r", msg[:80])
     last_text = next(
         (m["content"] for m in reversed(messages) if m.get("role") == "assistant" and m.get("content")),
-        "I wasn't able to complete your request. Please call RTS: (352) 334-2600.",
+        "I wasn't able to complete your request. Please call RTS: (352) 334-2600 (Mon–Fri 8 AM–5 PM).",
     )
     return {
         "answer": last_text,

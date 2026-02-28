@@ -24,6 +24,17 @@ from routes.parsing_helpers import detect_language_simple, digits_only, normaliz
 
 logger = logging.getLogger(__name__)
 
+
+def _openai_enabled() -> bool:
+    if OpenAI is None:
+        return False
+    key = os.getenv("OPENAI_API_KEY", "").strip()
+    if not key:
+        return False
+    if os.getenv("OPENAI_OFFLINE", "").lower() in ("1", "true", "yes"):
+        return False
+    return True
+
 # ── Structured-output schema ─────────────────────────────────────────────────
 # All required fields, strict types. Null values use anyOf to stay spec-compliant.
 _INTENT_SCHEMA = {
@@ -197,9 +208,10 @@ _SYSTEM_HYBRID = (
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def llm_extract_intent(message: str, history_summary: str | None = None) -> dict:
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if not api_key or OpenAI is None:
+    if not _openai_enabled():
         return _fallback_intent(message)
+
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
 
     model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
@@ -240,9 +252,10 @@ def llm_extract_intent_hybrid(message: str, history: list = None) -> dict:
     Option 3 (Hybrid): Use LLM for extraction with full context,
     then use deterministic database queries for execution.
     """
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if not api_key or OpenAI is None:
+    if not _openai_enabled():
         return _fallback_intent(message)
+
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
 
     model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
     history = history or []
@@ -286,9 +299,9 @@ def humanize_answer(text: str, lang: str) -> str:
         return text
     if os.getenv('HUMANIZE_ENABLED', 'false').lower() == 'false':
         return text
-    api_key = os.getenv('OPENAI_API_KEY', '').strip()
-    if OpenAI is None or not api_key:
+    if not _openai_enabled():
         return text
+    api_key = os.getenv('OPENAI_API_KEY', '').strip()
     try:
         client = _openai_client(api_key)
         model = os.getenv('HUMANIZE_MODEL', 'gpt-4o-mini')

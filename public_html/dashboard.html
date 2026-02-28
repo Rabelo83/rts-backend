@@ -361,6 +361,23 @@
     @media (max-width: 520px) {
       .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
     }
+
+    /* ── quick links ──────────────────────────────────────────── */
+    .qlink {
+      display: block;
+      padding: 7px 11px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-size: .82rem;
+      font-weight: 500;
+      color: var(--muted);
+      background: var(--s2);
+      transition: border-color .15s, color .15s;
+    }
+    .qlink:hover { border-color: var(--accent); color: var(--accent); }
+    .qlink-v2 { border-color: rgba(188,140,255,.35); color: var(--purple); }
+    .qlink-v2:hover { border-color: var(--purple); }
+    .qlink-api { font-family: monospace; font-size: .78rem; }
   </style>
 </head>
 <body>
@@ -453,6 +470,20 @@
       <div class="panel">
         <div class="panel-head"><h2>Project Vision</h2></div>
         <div id="visionAcc"></div>
+      </div>
+
+      <!-- quick links -->
+      <div class="panel">
+        <div class="panel-head"><h2>Quick Links</h2></div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:6px;">
+          <a class="qlink" href="/" target="_blank">← Main Tracker</a>
+          <a class="qlink" href="/chat" target="_blank">Chat Assistant (v1)</a>
+          <a class="qlink qlink-v2" href="/chat?agent=v2" target="_blank">Chat Assistant (v2 tool-use) ✦</a>
+          <a class="qlink" href="/wizard" target="_blank">Trip Wizard</a>
+          <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
+          <a class="qlink qlink-api" href="/api/health" target="_blank">/api/health</a>
+          <a class="qlink qlink-api" href="#" onclick="return false;" title="POST only">/api/agent/v2</a>
+        </div>
       </div>
 
     </div><!-- /sidebar -->

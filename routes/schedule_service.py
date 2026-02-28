@@ -81,7 +81,7 @@ def load_defaults():
 
 def parse_date(text):
     text = (text or "").lower()
-    today = date.today()
+    today = datetime.now(TZ).date()
 
     iso = re.search(r"\b(20\d{2})-(\d{2})-(\d{2})\b", text)
     if iso:
@@ -723,9 +723,9 @@ def get_route_day_summary(route_id: str, date_str: str | None = None) -> dict | 
             try:
                 target = date.fromisoformat(date_str)
             except ValueError:
-                target = date.today()
+                target = datetime.now(TZ).date()
         else:
-            target = date.today()
+            target = datetime.now(TZ).date()
 
         date_iso = target.isoformat()
         date_compact = target.strftime("%Y%m%d")
