@@ -1,6 +1,6 @@
 # RTS Project Task Tracker
 
-Last updated: 2026-02-27
+Last updated: 2026-02-28
 
 This file is a project task tracker for the RTS backend/web assistant project. It captures:
 - what has already been completed to reach the current state
@@ -28,10 +28,14 @@ Note: The initial list below was inferred from the current repository contents a
 - [x] Dashboard dark-mode redesign with progress ring, search, collapsible tasks
 - [x] Human escalation after 2 consecutive unresolved turns
 - [x] Real-time vs static schedule labeling in all responses
+- [x] Fixed `get_route_day_summary` SQL bug — `stop_sequence = 1` hardcode replaced with `MIN(stop_sequence)` CTE; routes whose GTFS trips don't start at sequence 1 were incorrectly reported as having no service (`routes/schedule_service.py`)
+- [x] Added `## INTERPRETING get_route_overview RESULTS` to system prompt — LLM now understands first/last times are from origin stop, not from a named terminus like Rosa Parks (`routes/agent_v2.py`)
+- [x] Added `## HANDLING DISAMBIGUATION RESPONSES` to system prompt — LLM preserves all original query params (time, date, route, kind) after a disambiguation exchange; handles "it doesn't matter" and user corrections without calling wrong tools (`routes/agent_v2.py`)
+- [x] Updated `## WHEN THE QUESTION IS BEYOND YOUR TOOLS` — added "latest/last bus running today system-wide" as explicit out-of-scope example; reformatted as bullet list for clarity (`routes/agent_v2.py`)
 
 ## Pending
 
-- [ ] Fix S12/S13: out-of-scope questions redirecting to ETA prompt instead of "can't help"
+- [ ] Fix S12/S13: out-of-scope questions redirecting to ETA prompt instead of "can't help" (re-run tests to confirm if BEYOND YOUR TOOLS update resolved it)
 - [ ] Investigate M01/M02/M04/GPT13/GPT15: multi-turn scenarios returning empty responses in test runner
 - [ ] Decide whether `/dashboard` and task API should require auth
 - [ ] Improve production logging/monitoring/alerts
@@ -45,8 +49,8 @@ Note: The initial list below was inferred from the current repository contents a
 
 ## Next Steps (Recommended)
 
-1. Fix S12/S13 out-of-scope system prompt (safe Claude fix).
-2. Debug multi-turn empty responses in test runner.
-3. Run full test suite after fixes; target 28+/30.
-4. Decide access control for `/dashboard` (public vs. protected).
-5. Plan GTFS data refresh workflow (schedule data expires May 2026).
+1. Re-run full test suite (`python tests/run_v2_scenarios.py --env local`) — target 28+/30. Fixes this session may have resolved S12/S13.
+2. Debug multi-turn empty responses in test runner (M01/M02/M04/GPT13/GPT15).
+3. Decide access control for `/dashboard` (public vs. protected).
+4. Plan GTFS data refresh workflow (schedule data expires May 2026).
+5. Update `data/project_tasks.json` to sync completed items to dashboard.

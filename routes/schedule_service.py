@@ -751,7 +751,9 @@ def get_route_day_summary(route_id: str, date_str: str | None = None) -> dict | 
         if not rte:
             return None
 
-        # Query first/last departure per headsign using same active_services CTE as the rest of the code
+        # Query first/last departure per headsign using same active_services CTE as the rest of the code.
+        # trip_first_seq finds the minimum stop_sequence for each trip so that routes
+        # where stop_sequence doesn't start at 1 (e.g. starts at 0 or 2) are handled correctly.
         sql = """
         WITH base_services AS (
           SELECT c.service_id FROM calendar c
@@ -772,15 +774,22 @@ def get_route_day_summary(route_id: str, date_str: str | None = None) -> dict | 
           SELECT service_id FROM base_services
           UNION  SELECT service_id FROM exception_add
           EXCEPT SELECT service_id FROM exception_remove
+        ),
+        trip_first_seq AS (
+          SELECT trip_id, MIN(stop_sequence) AS min_seq
+          FROM stop_times
+          GROUP BY trip_id
         )
         SELECT t.trip_headsign,
                MIN(st.departure_time) AS first_dep,
                MAX(st.departure_time) AS last_dep,
                COUNT(DISTINCT t.trip_id) AS trips
         FROM trips t
-        JOIN routes r       ON r.route_id  = t.route_id
-        JOIN active_services a ON a.service_id = t.service_id
-        JOIN stop_times st  ON st.trip_id = t.trip_id AND st.stop_sequence = 1
+        JOIN routes r          ON r.route_id   = t.route_id
+        JOIN active_services a ON a.service_id  = t.service_id
+        JOIN trip_first_seq tfs ON tfs.trip_id  = t.trip_id
+        JOIN stop_times st     ON st.trip_id    = t.trip_id
+                               AND st.stop_sequence = tfs.min_seq
         WHERE r.route_short_name = :route
         GROUP BY t.trip_headsign
         ORDER BY first_dep

@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
-  "updated_at": "2026-02-27",
-  "note": "Session 16: GPT-driven testing infrastructure created (scenarios_v2.json, run_v2_scenarios.py, gpt_analysis_prompt.md, gpt_user_simulator_prompt.md). tooluse-7 (deploy + flip default) is next.",
+  "updated_at": "2026-02-28",
+  "note": "Session 17: Four system prompt fixes + SQL bug fix in get_route_day_summary. Targets: wrong stop attribution on route_overview results, cross-route 'latest bus' hallucinations, disambiguation context loss, and false no-service for routes with non-standard stop_sequence.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -567,6 +567,41 @@
       "area": "AI Architecture / Ops",
       "priority": 1,
       "details": "Push to Render with AGENT_VERSION=v2 env var. Run smoke tests: health endpoint, 3 ETA queries at known stops, 1 schedule query, 1 route discovery, 1 Spanish query. Confirm no hallucinated times in any response. Monitor Render logs for tool call errors or LLM loop termination warnings. Once stable for 24h: flip default to v2, remove old pipeline in a cleanup commit. Update MEMORY.md and project_tasks.json. Depends on: tooluse-6."
+    },
+    {
+      "id": "fix-stop-sequence-sql",
+      "title": "Fix: get_route_day_summary returned false no-service for some routes",
+      "status": "completed",
+      "area": "Backend",
+      "details": "Session 17: SQL query in get_route_day_summary used `stop_sequence = 1` (hardcoded) to find each trip's first stop. GTFS routes whose trips don't start at sequence 1 returned zero rows and were reported as runs_today=False. Fixed by adding trip_first_seq CTE using MIN(stop_sequence) per trip — now works for any starting sequence value. Likely caused 'no trips for Route 75 today' when Route 75 was verifiably running."
+    },
+    {
+      "id": "fix-route-overview-attribution",
+      "title": "Fix: Agent incorrectly attributed route_overview times to named stops",
+      "status": "completed",
+      "area": "AI / System Prompt",
+      "details": "Session 17: get_route_overview returns first/last departure from each trip's origin stop (stop_sequence=1), not from named terminal stops like Rosa Parks. LLM was saying 'departs from Rosa Parks at 11:13 PM' for a Route 1 trip whose headsign was 'To Rosa Parks' (meaning Rosa Parks is the destination). Added ## INTERPRETING get_route_overview RESULTS section to SYSTEM_PROMPT in agent_v2.py."
+    },
+    {
+      "id": "fix-cross-route-comparison",
+      "title": "Fix: 'Latest bus running today' cross-route comparison now correctly out-of-scope",
+      "status": "completed",
+      "area": "AI / System Prompt",
+      "details": "Session 17: 'What is the latest/last bus running today?' requires comparing all routes simultaneously — the per-route tools cannot answer it. Added this as an explicit example in ## WHEN THE QUESTION IS BEYOND YOUR TOOLS. Agent now honestly says it can't answer instead of hallucinating per-route results and inventing 'no trips' for routes it didn't verify."
+    },
+    {
+      "id": "fix-disambiguation-context-loss",
+      "title": "Fix: Agent forgot time/date params after disambiguation exchange",
+      "status": "completed",
+      "area": "AI / System Prompt",
+      "details": "Session 17: When user said 'it doesn't matter' after being shown multiple stop options, LLM forgot time specified in original query (e.g. 'noon') and called get_schedule with current time. Also: when user corrected the wrong time ('I said noon, not 8pm'), agent called search_routes instead of retrying get_schedule. Added ## HANDLING DISAMBIGUATION RESPONSES section: pick first candidate, preserve all original params (time/date/route/kind), do NOT call wrong tools on corrections."
+    },
+    {
+      "id": "pending-rerun-tests",
+      "title": "Re-run full scenario test suite after session-17 fixes",
+      "status": "pending",
+      "area": "Quality",
+      "details": "Run `python tests/run_v2_scenarios.py --env local` to validate session 17 fixes. Target 28+/30 pass. S12/S13 may now pass (BEYOND YOUR TOOLS updated). M01/M02/M04/GPT13/GPT15 multi-turn empty responses still need investigation."
     }
   ]
 }
