@@ -8,6 +8,10 @@ handle_message  — agent loop: LLM → tools → LLM (tooluse-4, stub here)
 import json
 import os
 import logging
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+_TZ = ZoneInfo("America/New_York")
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +176,14 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
         return {"answer": "AI service is not available right now.", "buttons": [], "meta": {"language": lang}}
 
     # Build OpenAI messages: system + history + current turn
-    messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    now_et = datetime.now(_TZ)
+    date_header = (
+        f"TODAY is {now_et.strftime('%A, %B %d, %Y')} (Eastern Time). "
+        f"Use this to resolve relative dates: today, tomorrow/mañana, "
+        f"day after tomorrow/pasado mañana, day names (Monday/lunes, etc.). "
+        f"Always pass dates to tools as day names or ISO format (YYYY-MM-DD), never as vague words the tool won't recognize.\n\n"
+    )
+    messages: list[dict] = [{"role": "system", "content": date_header + SYSTEM_PROMPT}]
     for turn in (history or []):
         role = (turn.get("role") or "").lower()
         content = turn.get("content") or ""
