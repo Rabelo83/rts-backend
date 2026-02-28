@@ -92,13 +92,13 @@ def parse_date(text):
         return date(int(mdY.group(3)), int(mdY.group(1)), int(mdY.group(2)))
 
     weekdays = {
-        "monday": 0,
-        "tuesday": 1,
-        "wednesday": 2,
-        "thursday": 3,
-        "friday": 4,
-        "saturday": 5,
-        "sunday": 6,
+        "monday": 0,    "lunes": 0,
+        "tuesday": 1,   "martes": 1,
+        "wednesday": 2, "miércoles": 2, "miercoles": 2,
+        "thursday": 3,  "jueves": 3,
+        "friday": 4,    "viernes": 4,
+        "saturday": 5,  "sábado": 5, "sabado": 5,
+        "sunday": 6,    "domingo": 6,
     }
     for name, idx in weekdays.items():
         if name in text:
@@ -121,9 +121,11 @@ def parse_date(text):
         days_ahead = (5 - today.weekday()) % 7
         return today + timedelta(days=days_ahead)
 
-    if "today" in text:
+    if "today" in text or "hoy" in text:
         return today
-    if "tomorrow" in text:
+    if "day after tomorrow" in text or "pasado mañana" in text or "pasado manana" in text:
+        return today + timedelta(days=2)
+    if "tomorrow" in text or "mañana" in text or "manana" in text:
         return today + timedelta(days=1)
     return today
 
