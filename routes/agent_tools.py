@@ -290,6 +290,19 @@ from routes.parsing_helpers import format_time_12h
 logger = logging.getLogger(__name__)
 
 
+def _normalize_route_id(route_id: str | None) -> str | None:
+    """
+    Strip natural-language prefixes the LLM may add.
+    'Route 1' → '1', 'route 43' → '43', '  75  ' → '75'.
+    GTFS route_short_name values are bare numbers (e.g. '1', '43', '75').
+    """
+    if not route_id:
+        return route_id
+    import re
+    rid = re.sub(r"(?i)^\s*route\s*", "", route_id).strip()
+    return rid or route_id.strip()
+
+
 def _fmt_date(iso: str) -> str:
     """'2026-02-27' → 'Feb 27'"""
     try:
@@ -425,6 +438,7 @@ def _tool_get_schedule(
     date: str | None = None,
 ) -> dict:
     """Get scheduled departures from GTFS. Works with or without route_id."""
+    route_id = _normalize_route_id(route_id)
     # Build a natural-language text string the existing parsers can handle
     text_parts = []
     if time:
@@ -583,6 +597,7 @@ def _tool_search_routes(destination: str) -> dict:
 
 def _tool_get_route_overview(route_id: str, date: str | None = None) -> dict:
     """Get first/last bus + frequency summary for a route on a date."""
+    route_id = _normalize_route_id(route_id) or route_id
     date_str = None
     if date:
         # Reuse parse_date to turn "tomorrow", "monday", etc. into a date object
