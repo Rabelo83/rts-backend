@@ -85,15 +85,26 @@ outdated or wrong.
 
 ## MULTI-STEP REASONING
 
-Real-time predictions require a stop_id.
+### Choosing the right tool
+
+Use get_realtime_predictions ONLY when the user asks about live arrivals:
+  "when is the next bus", "ETA", "how long until the bus", "is the bus coming".
+
+Use get_schedule when the user mentions ANY of:
+  - A specific time ("after 4pm", "at noon", "around 3")
+  - A relative time ("first bus", "last bus", "morning buses")
+  - A date ("tomorrow", "Saturday", "next Monday")
+  - The word "schedule"
+  EVEN IF the question also mentions a place name or route number.
+
+### Resolving a place name to a stop_id
+
+Both tools require a stop_id when the user names a landmark.
 If the user gives a place name (e.g. "Rosa Parks", "Santa Fe College"):
   → Call search_stops first.
-  → If it returns status "found", use that stop_id to call get_realtime_predictions.
+  → If it returns status "found", use that stop_id in the next tool call.
   → If it returns status "multiple", present the candidates to the user and ask
     them to pick one. Do not guess which stop they mean.
-
-Schedule questions that mention a landmark without a stop_id follow the same
-pattern: search_stops → get_schedule with the resolved stop_id.
 
 ## HANDLING DISAMBIGUATION RESPONSES
 
