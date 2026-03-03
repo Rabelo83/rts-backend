@@ -517,3 +517,14 @@ def api_agent_v2_stream():
             "Connection": "keep-alive",
         },
     )
+
+
+@agent_api.route("/api/agent/v2/debug-tool", methods=["POST"])
+def api_agent_v2_debug_tool():
+    """Temp debug: call a tool directly and return its result."""
+    from routes.agent_tools import dispatch_tool
+    payload = request.get_json(silent=True) or {}
+    tool_name = payload.get("tool", "")
+    tool_args = payload.get("args", {})
+    result = dispatch_tool(tool_name, tool_args)
+    return jsonify(result)
