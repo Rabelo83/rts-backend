@@ -604,6 +604,13 @@
       "details": "Run `python tests/run_v2_scenarios.py --env local` to validate session 17 fixes. Target 28+/30 pass. S12/S13 may now pass (BEYOND YOUR TOOLS updated). M01/M02/M04/GPT13/GPT15 multi-turn empty responses still need investigation."
     },
     {
+      "id": "fix-system-prompt-6gaps",
+      "title": "Fix 6 system prompt gaps found via tool schema audit",
+      "status": "completed",
+      "area": "AI / System Prompt",
+      "details": "Session 18 (commit 4fce616): (1) kind=first/last is day-level — 'first bus after 4pm' must use kind=next+time, not kind=first; (2) get_realtime_predictions returns ALL routes — added rule to filter displayed results to user's specified route; (3) skip search_stops when user gives a numeric stop ID; reuse resolved stop_ids within conversation; (4) date format must be single-word day name or ISO — never 'next Monday'; (5) no_trips auto-calls get_route_overview to show when route does run instead of dead-ending to customer service; (6) direction filter improved: two-step headsign exclusion (stop name + downtown hub equivalence: Rosa Parks = Downtown Station = RTS Transfer Center); ask user if ambiguous."
+    },
+    {
       "id": "fix-time-param-omission",
       "title": "Fix: LLM omitted `time` param on get_schedule causing 'no departures' false negatives",
       "status": "completed",
