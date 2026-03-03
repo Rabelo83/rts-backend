@@ -292,6 +292,40 @@ from routes.parsing_helpers import format_time_12h
 logger = logging.getLogger(__name__)
 
 
+# Keywords that identify the Gainesville downtown transit hub.
+# Headsigns containing any of these are "inbound" when departing from the hub.
+_DOWNTOWN_HUB_KEYWORDS = frozenset([
+    "rosa parks", "downtown station", "rts transfer",
+    "transfer center", "downtown transfer", "rts downtown",
+    "transit center",
+])
+
+
+def _filter_inbound_departures(departures: list, stop_name: str) -> list:
+    """
+    When a user is departing FROM a stop, remove headsigns that head back
+    toward that same stop or its hub aliases.
+
+    Works for:
+      - Any stop: exclude headsigns containing the departure stop's name.
+      - Downtown hub stops: also exclude headsigns containing any hub keyword.
+    """
+    stop_lower = (stop_name or "").lower()
+    is_hub = any(kw in stop_lower for kw in _DOWNTOWN_HUB_KEYWORDS)
+
+    filtered = []
+    for dep in departures:
+        headsign_lower = (dep.get("headsign") or "").lower()
+        # Always exclude headsigns that contain the exact stop name
+        if stop_lower and stop_lower in headsign_lower:
+            continue
+        # For downtown hub departures, also exclude other hub-pointing headsigns
+        if is_hub and any(kw in headsign_lower for kw in _DOWNTOWN_HUB_KEYWORDS):
+            continue
+        filtered.append(dep)
+    return filtered or departures  # fallback: never return empty
+
+
 def _normalize_route_id(route_id: str | None) -> str | None:
     """
     Strip natural-language prefixes the LLM may add.
@@ -563,15 +597,15 @@ def _tool_get_schedule(
             "after": format_time_12h(data.get("time", "")),
             "message": f"No scheduled departures found after {format_time_12h(data.get('time', ''))}.",
         }
+    stop_name = data.get("stop", "")
+    departures = [{"time": format_time_12h(t), "headsign": hs} for t, hs in rows]
+    departures = _filter_inbound_departures(departures, stop_name)
     return {
         "status": "ok",
         "route": route_id,
-        "stop": data.get("stop"),
+        "stop": stop_name,
         "date": _fmt_date(data.get("date", "")),
-        "departures": [
-            {"time": format_time_12h(t), "headsign": hs}
-            for t, hs in rows
-        ],
+        "departures": departures,
     }
 
 
