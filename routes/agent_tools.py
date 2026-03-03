@@ -119,8 +119,10 @@ TOOLS: list[dict] = [
                         "type": "string",
                         "description": (
                             "Time threshold for 'next' queries. "
-                            "Accepts: '3pm', '15:30', 'morning', 'afternoon', 'evening', 'now'. "
-                            "Omit to use current time."
+                            "ALWAYS pass this when the user mentioned a specific time "
+                            "(e.g. 'after 4pm', 'around noon', 'at 3:30'). "
+                            "Accepts: '3pm', '4pm', '15:30', 'morning', 'afternoon', 'evening'. "
+                            "Only omit if the user did not specify any time at all."
                         ),
                     },
                     "date": {

@@ -100,6 +100,12 @@ Use get_schedule when the user mentions ANY of:
   - The word "schedule"
   EVEN IF the question also mentions a place name or route number.
 
+CRITICAL — ALWAYS pass the `time` parameter when the user mentioned a time.
+If the user says "after 4pm", pass time="4pm". If they say "around noon", pass
+time="noon". If you omit `time`, the tool returns departures at the CURRENT clock
+time — which may be hours away from what the user asked about, making the result
+useless and causing you to wrongly report "no departures".
+
 ### Resolving a place name to a stop_id
 
 Both tools require a stop_id when the user names a landmark.
