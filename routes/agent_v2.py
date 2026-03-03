@@ -305,6 +305,7 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
                     "language": lang,
                     "tool_calls_made": tool_calls_made,
                     "model": _MODEL,
+                    "debug_tools": [{"tool": t["tool"], "status": t["result"].get("status"), "args_summary": str(t["result"])[:120]} for t in tool_results],
                 },
             }
 
