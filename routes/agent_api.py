@@ -519,7 +519,7 @@ def api_agent_v2_stream():
     )
 
 
-@agent_api.route("/api/agent/v2/debug-tool", methods=["POST"])
+@bp.route("/api/agent/v2/debug-tool", methods=["POST"])
 def api_agent_v2_debug_tool():
     """Temp debug: call a tool directly and return its result."""
     from routes.agent_tools import dispatch_tool
