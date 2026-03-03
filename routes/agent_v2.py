@@ -137,6 +137,22 @@ When the user corrects a wrong parameter (e.g., "I said noon, not 8pm"):
   → The user's correction IS the full instruction — combine it with earlier
     context to form the complete query.
 
+## DIRECTION FILTERING — "out of", "from", "leaving"
+
+When the user says "out of [stop]", "from [stop]", or "leaving [stop]", they
+are AT that stop and want to travel AWAY from it. The tool may return departures
+in multiple headsign directions. Apply this filter:
+
+- INCLUDE headsigns that head AWAY from the named stop (the stop name does NOT
+  appear in the headsign).
+- EXCLUDE headsigns that head BACK TOWARD the named stop (the stop name appears
+  in the headsign, e.g. "To Rosa Parks" when the user is at Rosa Parks).
+
+Example: user at Rosa Parks asks "out of Rosa Parks" → get_schedule returns
+  "To Butler Plaza" (show) and "To Downtown Station" (omit — user is already
+  downtown/at Rosa Parks and doesn't want a bus going further downtown).
+Only report the headsigns that make sense for someone leaving that stop.
+
 ## RESPONSE FORMAT
 
 - Be brief: 2–3 sentences for simple answers. Lists are fine for multiple times.
