@@ -602,6 +602,13 @@
       "status": "pending",
       "area": "Quality",
       "details": "Run `python tests/run_v2_scenarios.py --env local` to validate session 17 fixes. Target 28+/30 pass. S12/S13 may now pass (BEYOND YOUR TOOLS updated). M01/M02/M04/GPT13/GPT15 multi-turn empty responses still need investigation."
+    },
+    {
+      "id": "fix-time-param-omission",
+      "title": "Fix: LLM omitted `time` param on get_schedule causing 'no departures' false negatives",
+      "status": "completed",
+      "area": "AI / Tool Schema",
+      "details": "Session 18: Root cause of 'route 1 after 4pm from rosa parks' returning no departures. Tool description said 'Omit to use current time' — LLM skipped the time param, tool returned current-clock departures (e.g. 10:42 AM), LLM compared those to user's '4pm' window and concluded no trips. Proved by exact match of 'hallucinated' times to dispatch_tool output with no time arg. Fix: (1) agent_tools.py time param description now says 'ALWAYS pass this when user mentioned a specific time'; (2) agent_v2.py SYSTEM_PROMPT CRITICAL rule added explaining that omitting time defaults to current clock and will produce wrong results. Commit a3dbd33."
     }
   ]
 }
