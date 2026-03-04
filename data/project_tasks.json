@@ -611,6 +611,14 @@
       "details": "Session 18 (commit 4fce616): (1) kind=first/last is day-level — 'first bus after 4pm' must use kind=next+time, not kind=first; (2) get_realtime_predictions returns ALL routes — added rule to filter displayed results to user's specified route; (3) skip search_stops when user gives a numeric stop ID; reuse resolved stop_ids within conversation; (4) date format must be single-word day name or ISO — never 'next Monday'; (5) no_trips auto-calls get_route_overview to show when route does run instead of dead-ending to customer service; (6) direction filter improved: two-step headsign exclusion (stop name + downtown hub equivalence: Rosa Parks = Downtown Station = RTS Transfer Center); ask user if ambiguous."
     },
     {
+      "id": "fix-direction-filtering",
+      "title": "Fix: direction filtering for 'out of [stop]' queries — needs new approach",
+      "status": "pending",
+      "area": "AI / Backend",
+      "priority": "high",
+      "details": "Problem: 'first bus 1 out of Rosa Parks after 4pm' returns BOTH headsigns — 'To Downtown Station' (4:01 PM) AND 'To Butler Plaza' (4:06 PM). User expects only 'To Butler Plaza' since Rosa Parks IS the downtown hub. What was tried and failed: (A) System prompt rules (Step 1: exclude headsigns containing stop name, Step 2: downtown hub equivalence Rosa Parks=Downtown Station=RTS Transfer Center) — LLM ignores it reliably. (B) filter_inbound boolean parameter on get_schedule schema — LLM still decides, same reliability problem. Current state: automatic Python-level _filter_inbound_departures() added to agent_tools.py (commit 426e68b) — applies on all hub stops without LLM involvement, but NOT yet validated. Approach to investigate: (1) Verify if automatic hub filter actually works on prod — run test query. (2) If not, look at GTFS direction_id field per trip — Route 1 at Rosa Parks direction_id=0 vs direction_id=1 may deterministically identify outbound vs inbound without string matching. (3) Consider adding direction as a separate field in the tool result so the LLM can reason about it more reliably. (4) Consider always returning the stop's full name in results so headsign comparison is exact."
+    },
+    {
       "id": "fix-time-param-omission",
       "title": "Fix: LLM omitted `time` param on get_schedule causing 'no departures' false negatives",
       "status": "completed",
