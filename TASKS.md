@@ -52,8 +52,8 @@ Note: The initial list below was inferred from the current repository contents a
 
 - [x] `cost-1` Build `routes/agent_gpt_v3.py` — GPT-4o-mini with same clean system prompt as v3
 - [x] `cost-2` Wire `/api/agent/v4` in Flask; add `?agent=v4` frontend toggle; dashboard link added
-- [ ] `cost-3` Run full test suite against prod_v4 — target 28+/30
-- [ ] `cost-4` Decision: flip default to v4 (GPT) or keep v3 (Claude) based on score
+- [x] `cost-3` Ran full test suite against prod_v4 — GPT-4o-mini scored 28/30 (hallucinates departure times on edge cases)
+- [x] `cost-4` **Decision: keep v3 (Claude Haiku) as default.** GPT-4o-mini hallucinates departure times from tool results — unacceptable for a transit assistant. v4 remains available at `?agent=v4` for reference.
 
 ## Pending (Carry-over)
 
