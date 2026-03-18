@@ -13,7 +13,7 @@ Key improvements:
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 _TZ = ZoneInfo("America/New_York")
@@ -198,15 +198,22 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
             "meta": {"language": lang, "error": "anthropic_unavailable"},
         }
 
-    # Build system with today's date + service type injected
+    # Build system with today's date + 7-day service schedule injected
     now_et = datetime.now(_TZ)
-    service_label = get_active_service_label(now_et.date())
+    today = now_et.date()
+    service_lines = []
+    for i in range(7):
+        d = today + timedelta(days=i)
+        label = get_active_service_label(d)
+        day_name = "Today" if i == 0 else ("Tomorrow" if i == 1 else d.strftime("%A"))
+        service_lines.append(f"  {day_name} ({d.strftime('%b %d')}): {label}")
+    service_block = "\n".join(service_lines)
     date_header = (
         f"TODAY is {now_et.strftime('%A, %B %d, %Y')} (Eastern Time). "
         "Use this to resolve relative dates like today, tomorrow, and day names.\n"
-        f"TODAY's RTS service type: {service_label}. "
-        "Use this to answer questions like 'are we on reduced service?' — "
-        "answer directly from this fact, do not call a tool.\n\n"
+        f"RTS service schedule for the next 7 days:\n{service_block}\n"
+        "Answer questions about service type (reduced, normal, Saturday, etc.) "
+        "directly from this table — do not call a tool.\n\n"
     )
     system = date_header + SYSTEM_PROMPT
 
