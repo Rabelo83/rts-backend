@@ -705,6 +705,10 @@ def _tool_get_route_overview(route_id: str, date: str | None = None) -> dict:
             "message": f"Route {route_id} does not run on {summary['day_label']}.",
         }
 
+    # Add first/last by service type so agent can answer
+    # "first bus on weekdays vs Saturday vs Sunday" without multiple calls
+    service_schedule = _sched.get_route_first_last_by_service_type(route_id)
+
     return {
         "status": "ok",
         "route": route_id,
@@ -712,4 +716,5 @@ def _tool_get_route_overview(route_id: str, date: str | None = None) -> dict:
         "date": _fmt_date(summary["date_iso"]),
         "day_label": summary["day_label"],
         "directions": summary["directions"],
+        "schedule_by_service_type": service_schedule,
     }

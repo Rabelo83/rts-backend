@@ -233,6 +233,66 @@ def get_active_service_label(date_et: date | None = None) -> str:
         conn.close()
 
 
+def get_route_first_last_by_service_type(route_id: str) -> dict:
+    """Return first and last departure per service type for a route.
+
+    Queries stop_times at the first stop of each trip (MIN stop_sequence),
+    grouped by service_id. Returns a dict like:
+        {
+          "Weekday":         {"first": "6:00 AM", "last": "10:30 PM"},
+          "Saturday":        {"first": "7:00 AM", "last": "9:00 PM"},
+          "Sunday":          {"first": "10:10 AM", "last": "6:30 PM"},
+          "Reduced Service": {"first": "7:30 AM", "last": "8:00 PM"},
+        }
+    Keys only appear when the route has trips for that service type.
+    """
+    from routes.parsing_helpers import format_time_12h
+
+    conn = connect_db()
+    if conn is None:
+        return {}
+    try:
+        rows = conn.execute(
+            """
+            WITH first_stop AS (
+                SELECT trip_id, MIN(stop_sequence) AS min_seq
+                FROM stop_times
+                GROUP BY trip_id
+            )
+            SELECT
+                t.service_id,
+                MIN(st.departure_time) AS first_dep,
+                MAX(st.departure_time) AS last_dep
+            FROM trips t
+            JOIN routes r   ON r.route_id  = t.route_id
+            JOIN first_stop fs ON fs.trip_id = t.trip_id
+            JOIN stop_times st ON st.trip_id = t.trip_id
+                               AND st.stop_sequence = fs.min_seq
+            WHERE r.route_short_name = ?
+            GROUP BY t.service_id
+            """,
+            (route_id,),
+        ).fetchall()
+
+        _label = {
+            "Weekday": "Weekday", "Mon-Thur": "Weekday",
+            "Reduced_Service": "Reduced Service",
+            "Saturday": "Saturday", "Sunday": "Sunday",
+        }
+        result = {}
+        for row in rows:
+            label = _label.get(row["service_id"], row["service_id"])
+            # Keep the earliest first / latest last if multiple service_ids map to same label
+            if label not in result:
+                result[label] = {
+                    "first": format_time_12h(row["first_dep"]),
+                    "last":  format_time_12h(row["last_dep"]),
+                }
+        return result
+    finally:
+        conn.close()
+
+
 def get_service_exceptions(conn, date_compact: str) -> dict:
     rows = conn.execute(
         "SELECT service_id, exception_type FROM calendar_dates WHERE date = ?",
