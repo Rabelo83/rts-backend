@@ -46,10 +46,19 @@ Note: The initial list below was inferred from the current repository contents a
 - [x] `claude-7` Run full test suite against v3 endpoint — **30/30 passing** (S12 fixed with prompt clarification)
 - [x] `claude-8` Deploy to Render — pushed to main (2026-03-18); ANTHROPIC_API_KEY set in Render dashboard; smoke test v3 at /api/agent/v3
 
+## 🔄 Active — Session 19 cont: Cost Comparison (v4 GPT-4o-mini + clean prompt)
+
+**Goal:** Verify GPT-4o-mini scores 28+/30 with the new clean prompt. If so, switch default to v4 and save ~$200/mo at 1k users vs Claude Haiku.
+
+- [x] `cost-1` Build `routes/agent_gpt_v3.py` — GPT-4o-mini with same clean system prompt as v3
+- [x] `cost-2` Wire `/api/agent/v4` in Flask; add `?agent=v4` frontend toggle; dashboard link added
+- [ ] `cost-3` Run full test suite against prod_v4 — target 28+/30
+- [ ] `cost-4` Decision: flip default to v4 (GPT) or keep v3 (Claude) based on score
+
 ## Pending (Carry-over)
 
-- [ ] Fix S12/S13: out-of-scope questions redirecting to ETA prompt (may be resolved by system prompt rewrite)
-- [ ] Investigate M01/M02/M04/GPT13/GPT15: multi-turn scenarios returning empty responses in test runner
+- [x] Fix S12/S13 — resolved via system prompt strengthening (2026-03-18)
+- [ ] Decide whether `/dashboard` and task API should require auth
 - [ ] Decide whether `/dashboard` and task API should require auth
 - [ ] Improve production logging/monitoring/alerts
 - [ ] GTFS/schedule data refresh — **manual process** (owner provides updated files directly when needed)

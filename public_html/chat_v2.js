@@ -6,10 +6,13 @@
 // ====== CONFIGURATION ======
 const CONFIG = {
   BASE_URL: '',
-  // v3 (Claude) is the default. Append ?agent=v2 to fall back to GPT-4o-mini v2.
-  AGENT_ENDPOINT: new URLSearchParams(location.search).get('agent') === 'v2'
-    ? '/api/agent/v2/stream'
-    : '/api/agent/v3/stream',
+  // v3 (Claude) is the default. Use ?agent=v2/v4 to test other versions.
+  AGENT_ENDPOINT: (() => {
+    const a = new URLSearchParams(location.search).get('agent');
+    if (a === 'v2') return '/api/agent/v2/stream';
+    if (a === 'v4') return '/api/agent/v4/stream';
+    return '/api/agent/v3/stream';
+  })(),
   API_TIMEOUT: 30000, // 30 seconds
   SESSION_TIMEOUT_MS: 5 * 60 * 1000, // 5 minutes
   MAX_HISTORY: 50,
