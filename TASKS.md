@@ -1,6 +1,6 @@
 # RTS Project Task Tracker
 
-Last updated: 2026-03-18
+Last updated: 2026-03-18 (session cont.)
 
 This file is a project task tracker for the RTS backend/web assistant project. It captures:
 - what has already been completed to reach the current state
@@ -55,14 +55,24 @@ Note: The initial list below was inferred from the current repository contents a
 - [x] `cost-3` Ran full test suite against prod_v4 — GPT-4o-mini scored 28/30 (hallucinates departure times on edge cases)
 - [x] `cost-4` **Decision: keep v3 (Claude Haiku) as default.** GPT-4o-mini hallucinates departure times from tool results — unacceptable for a transit assistant. v4 remains available at `?agent=v4` for reference.
 
+## ✅ Session 19 cont. — Post-deploy Fixes & UI Redesign
+
+- [x] Fixed `routes_serving_destination` silent empty result (wrong column key `route_short_name` → `route_id`)
+- [x] Fixed agent hallucinating place name spellings ("Jonsonville" → system prompt rule)
+- [x] Fixed S12/S13 — out-of-scope prompt rules strengthened (2026-03-18)
+- [x] Injected active GTFS service type into agent context (`get_active_service_label()`) — agent can now answer "are we on reduced service today?" directly
+- [x] Chat UI complete redesign — dark glassmorphism, Inter font, animated orbs, frosted-glass panel, bubble animations
+- [x] Fixed CSS bubble class mismatch (`.bubble.user` / `.bubble.bot` to match JS) + added `renderMarkdown()` to JS
+- [x] Fixed context loss in streaming endpoints — `session_manager.add_message()` moved before token streaming to prevent history loss on client disconnect
+- [x] Added `## CONTEXT RETENTION` system prompt rule — agent scans history for most recent route/stop on ambiguous follow-ups
+
 ## Pending (Carry-over)
 
-- [x] Fix S12/S13 — resolved via system prompt strengthening (2026-03-18)
-- [ ] Decide whether `/dashboard` and task API should require auth
 - [ ] Decide whether `/dashboard` and task API should require auth
 - [ ] Improve production logging/monitoring/alerts
 - [ ] GTFS/schedule data refresh — **manual process** (owner provides updated files directly when needed)
 - [ ] Add route coincidence tool (where/when two routes share a stop)
+- [ ] Consider persistent session storage (SQLite) to survive Render restarts — currently in-memory only
 
 ## Blocked
 
@@ -70,7 +80,6 @@ Note: The initial list below was inferred from the current repository contents a
 
 ## Next Steps
 
-1. Start Session 19: implement `claude-1` through `claude-3` (SDK + new agent + clean system prompt).
-2. Validate direction filtering fix via GTFS `direction_id` field (`claude-4`).
-3. Wire and test end-to-end (`claude-5` through `claude-7`).
-4. Deploy and flip default to v3 (`claude-8`).
+1. Monitor production for remaining context issues after streaming fix.
+2. Decide on session persistence (SQLite vs in-memory) for Render restart resilience.
+3. Plan route coincidence tool if/when needed.

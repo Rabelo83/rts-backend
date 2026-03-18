@@ -136,3 +136,21 @@ How to use:
 - Summary: Built GPT-4o-mini v4 agent (`routes/agent_gpt_v3.py`) using same clean system prompt as Claude v3. Goal: verify if GPT-4o-mini can match Claude's 30/30 score at ~5x lower cost (~$45/mo vs ~$240/mo at 1k users). Reuses existing OPENAI_API_KEY. Wired as `/api/agent/v4`, dashboard and frontend updated.
 - Files/Areas: `routes/agent_gpt_v3.py` (new), `routes/agent_api.py`, `public_html/chat_v2.js`, `public_html/dashboard.html`
 - Notes / Follow-up: GPT-4o-mini scored 28/30 but hallucinates departure times from tool results (GPT19: returned 8:30 PM when tool said 7:52 PM). Decision: keep Claude Haiku v3 as default. v4 remains at `?agent=v4` for reference. Also added `kind="before"` to get_schedule tool (last departure before a time cutoff) and code-level guardrail redirecting kind=last+time → kind=before.
+
+### 2026-03-18
+- Type: `feature`
+- Summary: Complete chat UI redesign — dark glassmorphism "wow effect". Rewrote `public_html/chat.html` from scratch with dark navy background (#070d1a), animated CSS gradient orbs, CSS grid overlay, frosted-glass chat panel (backdrop-filter: blur(28px)), Inter font, message bubble entrance animations, typing indicator, pill-shaped starter question chips, spring-animation send button, custom dark scrollbar. All JS IDs preserved for `chat_v2.js` compatibility.
+- Files/Areas: `public_html/chat.html`
+- Notes / Follow-up: CSS class fix included — `.bubble.user` / `.bubble.bot` match what `appendBubble()` in JS creates. `renderMarkdown()` added to JS to render `**bold**` and `*italic*` as HTML instead of raw asterisks. Input bar fixed to sit at bottom of panel card (not bottom of page).
+
+### 2026-03-18
+- Type: `fix`
+- Summary: Injected active GTFS service type into agent context. Added `get_active_service_label()` to `schedule_service.py` — queries `calendar` and `calendar_dates` tables to determine today's service (Reduced Service, Regular Weekday, Saturday Schedule, etc.). Injected into the date header passed to both `agent_claude.py` and `agent_gpt_v3.py` so the agent can answer "are we on reduced service today?" directly without calling a tool.
+- Files/Areas: `routes/schedule_service.py`, `routes/agent_claude.py`, `routes/agent_gpt_v3.py`
+- Notes / Follow-up: GTFS `calendar_dates.txt` exception_type=2 records are used to identify reduced/holiday service days.
+
+### 2026-03-18
+- Type: `fix`
+- Summary: Fixed conversation context loss bug in streaming endpoints. In `/api/agent/v3/stream` and `/api/agent/v2/stream`, `session_manager.add_message()` was called *after* streaming tokens were yielded. If the client disconnected mid-stream (network hiccup), the session history was never saved and the next message had no conversation context — producing "I don't have information about a previous query" failures. Fixed by moving `add_message()` calls to *before* token streaming begins.
+- Files/Areas: `routes/agent_api.py`
+- Notes / Follow-up: Also added `## CONTEXT RETENTION` rule to the Claude system prompt: when the user sends a follow-up ("what's the last bus today?") without repeating route/stop, agent must scan conversation history and reuse the most recently discussed route and stop rather than claiming it lacks context.
