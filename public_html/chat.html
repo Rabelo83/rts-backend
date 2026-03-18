@@ -284,89 +284,54 @@
     }
 
     /* ── Message bubbles ─────────────────────────────────────── */
-    .chat-msg {
-      display: flex;
-      align-items: flex-end;
-      gap: 8px;
-      animation: msg-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
-    }
-
-    @keyframes msg-in {
-      from { opacity: 0; transform: translateY(12px) scale(0.97); }
-      to   { opacity: 1; transform: translateY(0) scale(1); }
-    }
-
-    .chat-msg.user { flex-direction: row-reverse; }
-
-    .msg-avatar {
-      width: 30px;
-      height: 30px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    .msg-avatar.bot {
-      background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 100%);
-      border: 1px solid rgba(59,130,246,0.3);
-    }
-
-    .msg-avatar.user-av {
-      background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
-      border: 1px solid rgba(96,165,250,0.3);
-    }
-
-    .msg-bubble {
-      max-width: min(72%, 580px);
+    /* JS creates: div.bubble.user | div.bubble.bot | div.bubble.bot.loading */
+    .bubble {
+      max-width: min(76%, 600px);
       padding: 11px 15px;
       border-radius: var(--radius-msg);
       font-size: 0.90rem;
-      line-height: 1.55;
+      line-height: 1.6;
       word-break: break-word;
-      position: relative;
+      animation: msg-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+      margin-bottom: 2px;
     }
 
-    /* Bot bubble */
-    .chat-msg.bot .msg-bubble {
-      background: var(--bot-bg);
-      border: 1px solid var(--bot-border);
-      color: #e2e8f0;
-      border-bottom-left-radius: 6px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+    @keyframes msg-in {
+      from { opacity: 0; transform: translateY(10px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
     }
 
-    /* User bubble */
-    .chat-msg.user .msg-bubble {
+    /* User bubble — right-aligned blue gradient */
+    .bubble.user {
+      align-self: flex-end;
       background: var(--user-bg);
       color: #fff;
-      border-bottom-right-radius: 6px;
+      border-bottom-right-radius: 5px;
       box-shadow: 0 4px 16px rgba(37,99,235,0.4);
     }
 
-    /* System / session-cleared message */
-    .chat-msg.system {
-      justify-content: center;
+    /* Bot bubble — left-aligned glass dark */
+    .bubble.bot {
+      align-self: flex-start;
+      background: var(--bot-bg);
+      border: 1px solid var(--bot-border);
+      color: #e2e8f0;
+      border-bottom-left-radius: 5px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.2);
     }
 
-    .chat-msg.system .msg-bubble {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.07);
-      color: var(--text-muted);
-      font-size: 0.78rem;
-      padding: 6px 14px;
-      border-radius: 20px;
-      text-align: center;
-      font-style: italic;
+    /* Action button container bubble */
+    .bubble.bot.bubble-actions {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      padding: 0 0 4px;
     }
 
-    /* Bold/links inside bubbles */
-    .msg-bubble strong { color: #fff; font-weight: 600; }
-    .chat-msg.bot .msg-bubble a { color: #93c5fd; }
-    .chat-msg.bot .msg-bubble code {
+    /* Bold/links/code inside bot bubbles */
+    .bubble.bot strong { color: #fff; font-weight: 600; }
+    .bubble.bot a { color: #93c5fd; }
+    .bubble.bot code {
       background: rgba(255,255,255,0.08);
       padding: 1px 5px;
       border-radius: 4px;
@@ -374,7 +339,7 @@
     }
 
     /* ── Typing indicator ────────────────────────────────────── */
-    .typing-indicator .msg-bubble {
+    .bubble.loading {
       padding: 12px 16px;
     }
 
@@ -579,8 +544,7 @@
       .chat-brand-text p { display: none; }
       .live-badge { display: none; }
       #chat-messages { padding: 16px 12px 10px; }
-      .msg-bubble { font-size: 0.88rem; padding: 10px 13px; }
-      .msg-avatar { display: none; }
+      .bubble { font-size: 0.88rem; padding: 10px 13px; max-width: 88%; }
     }
   </style>
 </head>
@@ -648,6 +612,6 @@
     </div>
   </main>
 
-  <script src="/static/chat_v2.js?v=5" defer></script>
+  <script src="/static/chat_v2.js?v=6" defer></script>
 </body>
 </html>

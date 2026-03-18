@@ -328,6 +328,19 @@ function el(id) {
   return document.getElementById(id);
 }
 
+function renderMarkdown(text) {
+  // Escape HTML first to prevent XSS
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  return escaped
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>');
+}
+
 function appendBubble(text, who = 'user', options = {}) {
   const wrap = el('chat-messages');
   const bubble = document.createElement('div');
@@ -336,6 +349,8 @@ function appendBubble(text, who = 'user', options = {}) {
   if (options.loading) {
     bubble.classList.add('loading');
     bubble.innerHTML = `<span class="typing-dots"><span></span><span></span><span></span></span>`;
+  } else if (who === 'bot') {
+    bubble.innerHTML = renderMarkdown(text);
   } else {
     bubble.textContent = text;
   }
@@ -1308,7 +1323,7 @@ async function sendAgentMessage(message) {
             tokenReceived = true;
           }
           streamedText += event.text;
-          botBubble.textContent = streamedText;
+          botBubble.innerHTML = renderMarkdown(streamedText);
           scrollDown();
         } else if (event.type === 'done') {
           finalData = event;
@@ -1323,9 +1338,9 @@ async function sendAgentMessage(message) {
     const finalAnswer = (finalData && finalData.answer) || streamedText || 'No response.';
     if (!tokenReceived) {
       botBubble.classList.remove('loading');
-      botBubble.textContent = finalAnswer;
+      botBubble.innerHTML = renderMarkdown(finalAnswer);
     } else {
-      botBubble.textContent = finalAnswer; // sync in case of rounding
+      botBubble.innerHTML = renderMarkdown(finalAnswer); // sync in case of rounding
     }
     scrollDown();
 
