@@ -6,10 +6,10 @@
 // ====== CONFIGURATION ======
 const CONFIG = {
   BASE_URL: '',
-  // Dev toggle: append ?agent=v2 to URL to route traffic to the tool-use agent v2
+  // v3 (Claude) is the default. Append ?agent=v2 to fall back to GPT-4o-mini v2.
   AGENT_ENDPOINT: new URLSearchParams(location.search).get('agent') === 'v2'
     ? '/api/agent/v2/stream'
-    : '/api/agent/stream',
+    : '/api/agent/v3/stream',
   API_TIMEOUT: 30000, // 30 seconds
   SESSION_TIMEOUT_MS: 5 * 60 * 1000, // 5 minutes
   MAX_HISTORY: 50,
