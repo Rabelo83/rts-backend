@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
-  "updated_at": "2026-02-28",
-  "note": "Session 17: Four system prompt fixes + SQL bug fix in get_route_day_summary. Targets: wrong stop attribution on route_overview results, cross-route 'latest bus' hallucinations, disambiguation context loss, and false no-service for routes with non-standard stop_sequence.",
+  "updated_at": "2026-03-18",
+  "note": "Session 19: Decision to migrate agent from GPT-4o-mini to Claude API. System prompt reached 276 lines with contradictions; direction filtering at hub stops remained unresolved after 2 sessions; rate limiting hit production. New plan: agent_claude.py, clean system prompt <100 lines, direction filtering via GTFS direction_id at code level.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -624,6 +624,70 @@
       "status": "completed",
       "area": "AI / Tool Schema",
       "details": "Session 18: Root cause of 'route 1 after 4pm from rosa parks' returning no departures. Tool description said 'Omit to use current time' — LLM skipped the time param, tool returned current-clock departures (e.g. 10:42 AM), LLM compared those to user's '4pm' window and concluded no trips. Proved by exact match of 'hallucinated' times to dispatch_tool output with no time arg. Fix: (1) agent_tools.py time param description now says 'ALWAYS pass this when user mentioned a specific time'; (2) agent_v2.py SYSTEM_PROMPT CRITICAL rule added explaining that omitting time defaults to current clock and will produce wrong results. Commit a3dbd33."
+    },
+    {
+      "id": "claude-1-sdk-setup",
+      "title": "Session 19: Add Anthropic SDK dependency",
+      "status": "pending",
+      "area": "AI Architecture",
+      "priority": 1,
+      "details": "Add 'anthropic' to requirements.txt. Add ANTHROPIC_API_KEY to render.yaml env vars and local .env. Verify import works in Python environment."
+    },
+    {
+      "id": "claude-2-agent-rewrite",
+      "title": "Session 19: Create routes/agent_claude.py — new agent using Claude tool-use API",
+      "status": "pending",
+      "area": "AI Architecture",
+      "priority": 1,
+      "details": "Build new agent loop using anthropic Python SDK. Same tool dispatch pattern as agent_v2.py but calling Claude instead of OpenAI. Reuse all 5 tools from agent_tools.py unchanged. Max 5 tool-call iterations. Temperature=0. Support streaming via SSE."
+    },
+    {
+      "id": "claude-3-system-prompt",
+      "title": "Session 19: Rewrite system prompt — clean, <100 lines, no contradictions",
+      "status": "pending",
+      "area": "AI Architecture",
+      "priority": 1,
+      "details": "Start from scratch. Current prompt is 276 lines with conflicting rules (e.g. kind=first ignores time vs always pass time). New prompt: persona, hard no-hallucination rule, tool-call-first rule, tool selection decision tree (clear, no overlapping conditions), language rule (EN/ES), brevity rule. All direction filtering to be handled in code, NOT in prompt."
+    },
+    {
+      "id": "claude-4-direction-fix",
+      "title": "Session 19: Fix direction filtering using GTFS direction_id (code-level)",
+      "status": "pending",
+      "area": "AI Architecture / Backend",
+      "priority": 1,
+      "details": "Prompt-based direction filtering failed across 2 sessions. Fix in agent_tools.py using GTFS direction_id field. When user says 'out of [stop]', filter schedule results to only outbound direction_id trips. No prompt rules needed — deterministic code filter. Validate on Rosa Parks / Route 1 test case."
+    },
+    {
+      "id": "claude-5-rate-limit-fallback",
+      "title": "Session 19: Add graceful degradation when Claude API is unavailable",
+      "status": "pending",
+      "area": "AI Architecture / Ops",
+      "priority": 1,
+      "details": "Handle API errors (rate limit, timeout, network) gracefully. On failure: respond with 'I can look up schedule info for you — what route and stop?' — falls back to schedule-only mode. Do not expose raw API errors to the user."
+    },
+    {
+      "id": "claude-6-wire-flask",
+      "title": "Session 19: Wire agent_claude.py into Flask at /api/agent/v3",
+      "status": "pending",
+      "area": "AI Architecture",
+      "priority": 1,
+      "details": "Add /api/agent/v3 (JSON) and /api/agent/v3/stream (SSE) endpoints in agent_api.py. Frontend toggle: ?agent=v3 URL param. Keep v2 endpoints untouched during transition."
+    },
+    {
+      "id": "claude-7-test-validate",
+      "title": "Session 19: Run full test suite against v3 endpoint — target 28+/30",
+      "status": "pending",
+      "area": "Quality",
+      "priority": 1,
+      "details": "Run python tests/run_v2_scenarios.py --env local --agent v3. Validate direction filtering fix (Rosa Parks). Validate multi-turn follow-ups. Validate Spanish responses. Target ≥28/30 pass before deploy."
+    },
+    {
+      "id": "claude-8-deploy",
+      "title": "Session 19: Deploy to Render and flip default to v3",
+      "status": "pending",
+      "area": "Ops / AI Architecture",
+      "priority": 1,
+      "details": "Add ANTHROPIC_API_KEY to Render env vars. Push to main. Smoke test: health endpoint, 3 ETA queries, 1 schedule query, 1 Spanish query, 1 direction-filtered query (Rosa Parks out). Once stable 24h: flip default endpoint from v2 to v3. Update README with v3 URL."
     }
   ]
 }

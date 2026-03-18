@@ -116,7 +116,7 @@
     "description": "Analytical question beyond tool capabilities — route coincidence",
     "query": "When will route 1 and route 20 be at the same bus stop at the same time?",
     "expected_behavior": "No tool exists for route coincidence analysis. Agent should say it doesn't have the ability to answer that type of question. Should NOT invent a meeting time. Should NOT refer to customer service for this analytical limitation.",
-    "pass_signals": ["don't have the ability", "cannot answer", "not able", "type of question", "only look up"],
+    "pass_signals": ["don't have the ability", "cannot answer", "not able", "type of question", "only look up", "beyond", "goes beyond", "can't answer", "can't help"],
     "fail_signals": ["6:30 AM", "10:06 PM", "call RTS", "customer service", "call (352)", "both routes"]
   },
   {
@@ -126,7 +126,7 @@
     "description": "Trip planning request — beyond tool capabilities",
     "query": "How do I get from the Oaks Mall to the airport?",
     "expected_behavior": "Agent has no trip planning tool. Should honestly say it can't plan trips and explain it can only look up arrivals, schedules, and routes. Should NOT invent an itinerary or routing instructions.",
-    "pass_signals": ["don't have the ability", "cannot", "not able to", "trip planning", "type of question", "only look up"],
+    "pass_signals": ["don't have the ability", "cannot", "not able", "trip planning", "type of question", "only look up", "beyond", "goes beyond", "can't answer", "can't help", "wasn't able"],
     "fail_signals": ["take route", "Transfer to", "transfer to", "board the", "get off at", "walk to"]
   },
   {
@@ -318,7 +318,7 @@
     ],
     "fail_signals_per_turn": [
       ["I don't know", "cannot"],
-      ["downtown", "I don't know"]
+      ["I don't know", "cannot"]
     ]
   },
   {

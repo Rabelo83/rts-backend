@@ -292,6 +292,17 @@ from routes.parsing_helpers import format_time_12h
 logger = logging.getLogger(__name__)
 
 
+# Generic terms that always map to the main downtown hub (Rosa Parks, stop 0001).
+# Used in search_stops to avoid ambiguous LIKE matches on "downtown".
+_HUB_STOP_ALIASES: dict[str, tuple[str, str]] = {
+    "downtown": ("0001", "Rosa Parks RTS Downtown Station"),
+    "downtown gainesville": ("0001", "Rosa Parks RTS Downtown Station"),
+    "rosa parks": ("0001", "Rosa Parks RTS Downtown Station"),
+    "transit hub": ("0001", "Rosa Parks RTS Downtown Station"),
+    "rts transfer center": ("0001", "Rosa Parks RTS Downtown Station"),
+    "downtown station": ("0001", "Rosa Parks RTS Downtown Station"),
+}
+
 # Keywords that identify the Gainesville downtown transit hub.
 # Headsigns containing any of these are "inbound" when departing from the hub.
 _DOWNTOWN_HUB_KEYWORDS = frozenset([
@@ -391,6 +402,10 @@ def dispatch_tool(name: str, arguments: dict) -> dict:
 
 def _tool_search_stops(name: str) -> dict:
     """Resolve a stop name or landmark to a GTFS stop ID."""
+    # Check hub alias first — avoids ambiguous LIKE matches on "downtown" etc.
+    alias = _HUB_STOP_ALIASES.get(name.lower().strip())
+    if alias:
+        return {"status": "found", "stop_id": alias[0], "stop_name": alias[1]}
     result = resolve_stop_global(name)
     if not result:
         return {

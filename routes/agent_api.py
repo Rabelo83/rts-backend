@@ -66,6 +66,7 @@ def _check_escalation(session_id: str, prior_ctx: dict, sources: list, lang: str
 # This MUST exist in routes/agent_service.py
 from routes.agent_service import handle_agent_message, stream_agent_message
 from routes.agent_v2 import handle_message as handle_message_v2
+from routes.agent_claude import handle_message as handle_message_v3
 
 bp = Blueprint("agent_api", __name__)
 
@@ -506,6 +507,130 @@ def api_agent_v2_stream():
             "response_time_ms": duration_ms,
             "success": not meta.get("error"),
             "source_types": [f"tool:{t}" for t in (meta.get("tool_calls_made") and ["*"] or [])],
+        })
+
+    return Response(
+        stream_with_context(generate()),
+        content_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ── Claude agent v3 ───────────────────────────────────────────────────────────
+
+@bp.route("/api/agent/v3", methods=["POST"])
+@limiter.limit(os.getenv("RATE_LIMIT", "200 per hour"))
+def api_agent_v3():
+    """Claude tool-use agent v3 — JSON (non-streaming) endpoint."""
+    payload = request.get_json(silent=True) or {}
+    msg = (payload.get("message") or "").strip()
+    msg = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', msg)
+
+    if not msg:
+        return jsonify({"error": True, "error_code": ErrorCode.MISSING_PARAMETER,
+                        "error_message": "message parameter is required"}), 400
+    if len(msg) > MAX_MSG_LEN:
+        return jsonify({"error": True, "error_code": ErrorCode.MISSING_PARAMETER,
+                        "error_message": f"Message too long (max {MAX_MSG_LEN} characters)"}), 400
+
+    session_id, history, session_data = _v2_session_setup(payload)
+
+    start = time.perf_counter()
+    try:
+        result = handle_message_v3(msg, history=history, session_ctx=session_data or {})
+    except Exception as exc:
+        return jsonify({
+            "error": True,
+            "error_code": ErrorCode.API_UNAVAILABLE,
+            "error_message": "Agent v3 temporarily unavailable",
+            "details": {"exception": str(exc)} if os.getenv("DEBUG") else {},
+        }), 500
+
+    duration_ms = int((time.perf_counter() - start) * 1000)
+
+    session_manager.add_message(session_id, "user", msg)
+    session_manager.add_message(session_id, "assistant", result.get("answer", ""))
+    _log_chat(msg, result.get("answer", ""))
+
+    meta = result.get("meta") or {}
+    _log_analytics({
+        "ts_utc": datetime.now(timezone.utc).isoformat(),
+        "session_id": session_id,
+        "message": msg,
+        "route": None, "stop_id": None, "destination": None,
+        "intent": f"v3/{meta.get('model', 'claude')}",
+        "language": meta.get("language"),
+        "needs": None, "prefer_schedule": None, "timeframe": None,
+        "response_time_ms": duration_ms,
+        "success": not meta.get("error"),
+        "source_types": [f"tool:{t['tool']}" for t in meta.get("debug_tools") or []],
+    })
+
+    return jsonify({
+        "answer": result.get("answer", ""),
+        "buttons": result.get("buttons", []),
+        "meta": meta,
+        "session_id": session_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "response_time_ms": duration_ms,
+    })
+
+
+@bp.route("/api/agent/v3/stream", methods=["POST"])
+@limiter.limit(os.getenv("RATE_LIMIT", "200 per hour"))
+def api_agent_v3_stream():
+    """Claude tool-use agent v3 — SSE streaming endpoint."""
+    payload = request.get_json(silent=True) or {}
+    msg = (payload.get("message") or "").strip()
+    msg = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', msg)
+
+    if not msg:
+        return jsonify({"error": True, "error_message": "message required"}), 400
+    if len(msg) > MAX_MSG_LEN:
+        return jsonify({"error": True, "error_message": f"Message too long (max {MAX_MSG_LEN})"}), 400
+
+    session_id, history, session_data = _v2_session_setup(payload)
+    start = time.perf_counter()
+
+    def generate():
+        try:
+            result = handle_message_v3(msg, history=history, session_ctx=session_data or {})
+        except Exception:
+            yield f"data: {json.dumps({'type': 'error', 'text': 'Agent v3 temporarily unavailable.'})}\n\n"
+            return
+
+        answer = result.get("answer", "")
+        meta = result.get("meta") or {}
+        buttons = result.get("buttons", [])
+
+        # Stream answer as word-level tokens for frontend typewriter effect
+        words = answer.split(" ")
+        for i, word in enumerate(words):
+            chunk = word if i == len(words) - 1 else word + " "
+            yield f"data: {json.dumps({'type': 'token', 'text': chunk})}\n\n"
+
+        session_manager.add_message(session_id, "user", msg)
+        session_manager.add_message(session_id, "assistant", answer)
+        _log_chat(msg, answer)
+
+        duration_ms = int((time.perf_counter() - start) * 1000)
+        yield f"data: {json.dumps({'type': 'done', 'answer': answer, 'buttons': buttons, 'meta': meta, 'session_id': session_id})}\n\n"
+
+        _log_analytics({
+            "ts_utc": datetime.now(timezone.utc).isoformat(),
+            "session_id": session_id,
+            "message": msg,
+            "route": None, "stop_id": None, "destination": None,
+            "intent": f"v3/{meta.get('model', 'claude')}",
+            "language": meta.get("language"),
+            "needs": None, "prefer_schedule": None, "timeframe": None,
+            "response_time_ms": duration_ms,
+            "success": not meta.get("error"),
+            "source_types": [f"tool:{t['tool']}" for t in meta.get("debug_tools") or []],
         })
 
     return Response(

@@ -1,6 +1,6 @@
 # RTS Project Task Tracker
 
-Last updated: 2026-02-28
+Last updated: 2026-03-18
 
 This file is a project task tracker for the RTS backend/web assistant project. It captures:
 - what has already been completed to reach the current state
@@ -33,24 +33,35 @@ Note: The initial list below was inferred from the current repository contents a
 - [x] Added `## HANDLING DISAMBIGUATION RESPONSES` to system prompt — LLM preserves all original query params (time, date, route, kind) after a disambiguation exchange; handles "it doesn't matter" and user corrections without calling wrong tools (`routes/agent_v2.py`)
 - [x] Updated `## WHEN THE QUESTION IS BEYOND YOUR TOOLS` — added "latest/last bus running today system-wide" as explicit out-of-scope example; reformatted as bullet list for clarity (`routes/agent_v2.py`)
 
-## Pending
+## 🔄 Active — Session 19: Option B — Migrate Agent to Claude API
 
-- [ ] Fix S12/S13: out-of-scope questions redirecting to ETA prompt instead of "can't help" (re-run tests to confirm if BEYOND YOUR TOOLS update resolved it)
+**Decision (2026-03-18):** After 18 sessions of prompt-patching on GPT-4o-mini, the system prompt has grown to 276 lines with contradictions, direction filtering is unresolved, and rate limiting hits production hard. Decision: rebuild the agent layer using the Anthropic Claude API (claude-haiku-4-5 or claude-sonnet-4-6) with a clean system prompt rewrite.
+
+- [x] `claude-1` Add `anthropic` SDK to `requirements.txt` (v0.85.0 installed)
+- [x] `claude-2` Create `routes/agent_claude.py` — new agent loop using Claude tool-use API
+- [x] `claude-3` Rewrite system prompt — clean, concise (<100 lines), no contradictions
+- [x] `claude-4` Direction filtering validated — existing `_filter_inbound_departures()` in `agent_tools.py` works correctly with Claude. Root cause of prior failures was GPT misusing `kind="first"` instead of `kind="next"` for "after Xpm" queries, bypassing the filter. Claude uses the correct kind, filter runs, only outbound headsigns returned.
+- [x] `claude-5` Rate limit / API error graceful degradation — rate_limit returns go-rts.com + phone, other errors return retry message
+- [x] `claude-6` Wire new agent into Flask at `/api/agent/v3`; add frontend toggle `?agent=v3`
+- [ ] `claude-7` Run full test suite against v3 endpoint — target 28+/30
+- [ ] `claude-8` Deploy to Render; smoke test; make v3 the default
+
+## Pending (Carry-over)
+
+- [ ] Fix S12/S13: out-of-scope questions redirecting to ETA prompt (may be resolved by system prompt rewrite)
 - [ ] Investigate M01/M02/M04/GPT13/GPT15: multi-turn scenarios returning empty responses in test runner
 - [ ] Decide whether `/dashboard` and task API should require auth
 - [ ] Improve production logging/monitoring/alerts
-- [ ] Document and automate GTFS/schedule data refresh workflow
+- [ ] GTFS/schedule data refresh — **manual process** (owner provides updated files directly when needed)
 - [ ] Add route coincidence tool (where/when two routes share a stop)
 
 ## Blocked
 
 - [ ] Realtime prediction reliability is limited by RTS/BusTime external API availability
-- [ ] Codex web sandbox: no network/pip/socket — can only do file read/write/git; Codex CLI locally would unlock full test loop
 
-## Next Steps (Recommended)
+## Next Steps
 
-1. Re-run full test suite (`python tests/run_v2_scenarios.py --env local`) — target 28+/30. Fixes this session may have resolved S12/S13.
-2. Debug multi-turn empty responses in test runner (M01/M02/M04/GPT13/GPT15).
-3. Decide access control for `/dashboard` (public vs. protected).
-4. Plan GTFS data refresh workflow (schedule data expires May 2026).
-5. Update `data/project_tasks.json` to sync completed items to dashboard.
+1. Start Session 19: implement `claude-1` through `claude-3` (SDK + new agent + clean system prompt).
+2. Validate direction filtering fix via GTFS `direction_id` field (`claude-4`).
+3. Wire and test end-to-end (`claude-5` through `claude-7`).
+4. Deploy and flip default to v3 (`claude-8`).

@@ -43,14 +43,27 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(SCRIPT_DIR)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
+
+# Load .env.local if present (local dev keys — never committed)
+_env_local = os.path.join(REPO_ROOT, ".env.local")
+if os.path.exists(_env_local):
+    with open(_env_local, encoding="utf-8") as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
 DEFAULT_SCENARIOS_FILE = os.path.join(SCRIPT_DIR, "scenarios_v2.json")
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "results")
 _LOCAL_ENDPOINT = "local:testclient"
 
 ENDPOINTS = {
-    "prod": "https://rts-backend-7ru5.onrender.com/api/agent/v2",
-    "local": _LOCAL_ENDPOINT,
+    "prod":   "https://rts-backend-7ru5.onrender.com/api/agent/v2",
+    "prod_v3":"https://rts-backend-7ru5.onrender.com/api/agent/v3",
+    "local":  _LOCAL_ENDPOINT,
 }
+# Agent version used for local test client (v2 or v3)
+_LOCAL_AGENT_VERSION = "v2"
 
 REQUEST_TIMEOUT = 35        # seconds per request
 INTER_REQUEST_DELAY = 4.0   # seconds between requests — ~30 req in 2 min, well under 30/hr
@@ -115,7 +128,7 @@ def post_message(endpoint, msg, session_id=None):
         client = _get_local_client()
         t0 = time.perf_counter()
         try:
-            resp = client.post("/api/agent/v2", json=payload)
+            resp = client.post(f"/api/agent/{_LOCAL_AGENT_VERSION}", json=payload)
         except Exception as exc:
             elapsed = int((time.perf_counter() - t0) * 1000)
             return None, elapsed, f"local client error: {exc}"
@@ -306,8 +319,10 @@ def run_multi(endpoint, scenario):
 
 def main():
     parser = argparse.ArgumentParser(description="RTS Agent v2 Scenario Test Runner")
-    parser.add_argument("--env", choices=["prod", "local"], default="prod",
+    parser.add_argument("--env", choices=["prod", "prod_v3", "local"], default="prod",
                         help="Target environment (default: prod)")
+    parser.add_argument("--agent", choices=["v2", "v3"], default="v2",
+                        help="Agent version for local env (default: v2)")
     parser.add_argument("--ids", default=None,
                         help="Comma-separated scenario IDs to run (e.g. S01,S07,M01)")
     parser.add_argument("--file", default=DEFAULT_SCENARIOS_FILE,
@@ -316,6 +331,8 @@ def main():
                         help="Re-run only scenarios that failed or errored in the most recent results file")
     args = parser.parse_args()
 
+    global _LOCAL_AGENT_VERSION
+    _LOCAL_AGENT_VERSION = args.agent
     ids_filter = args.ids
     prior_run_file = None
 
