@@ -108,6 +108,11 @@ Before answering any factual transit question, call the right tool:
 Only use kind="first" / kind="last" when user asks for the first or last bus
 of the day with NO specific time qualifier.
 
+"Last bus before 8 PM" → call kind="next" with time ~2 hours before the
+cutoff (e.g. time="6pm"). The latest departure returned that is strictly
+before the cutoff is the answer. Do NOT use kind="last" for this — it
+returns the last bus of the entire day, ignoring the time cutoff.
+
 ALWAYS pass time= when the user mentioned a specific time.
 Omitting it returns current-clock results — likely wrong for the user.
 

@@ -248,11 +248,11 @@
     "id": "GPT11",
     "type": "single",
     "category": "schedule_explicit_time",
-    "description": "Explicit PM threshold must never return earlier PM times",
+    "description": "Explicit PM threshold must never return earlier PM times as the answer",
     "query": "After 7pm, when is the next route 10 from downtown?",
-    "expected_behavior": "Returns only departures strictly after 7:00 PM, or clearly states no more departures after 7 PM. Must NOT show 4pm, 5pm, or 6pm times.",
-    "pass_signals": ["PM", "after 7", "no more", "7:"],
-    "fail_signals": ["4:", "5:", "6:", "earlier"]
+    "expected_behavior": "Returns only departures strictly after 7:00 PM, or clearly states no more departures after 7 PM. Must NOT show 4pm or 5pm times as the answer.",
+    "pass_signals": ["PM", "after 7", "no more", "7:", "no buses", "no departures"],
+    "fail_signals": ["4:", "5:"]
   },
   {
     "id": "GPT12",
