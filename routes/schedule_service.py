@@ -648,7 +648,7 @@ def routes_serving_destination(destination: str, limit: int = 12) -> list[dict]:
             """,
             (pattern, limit),
         ).fetchall()
-        return [{"route_id": r["route_short_name"], "route_long_name": r["route_long_name"]} for r in rows]
+        return [{"route_id": r["route_id"], "route_long_name": r["route_long_name"]} for r in rows]
     except Exception:
         return []
     finally:
