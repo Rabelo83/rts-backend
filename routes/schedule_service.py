@@ -178,6 +178,61 @@ def connect_db():
     return conn
 
 
+def get_active_service_label(date_et: date | None = None) -> str:
+    """Return a human-readable label for today's active GTFS service type.
+
+    Returns one of: 'Reduced Service', 'Regular Weekday', 'Saturday', 'Sunday',
+    'No Service', or a comma-joined list when multiple are active.
+    Used to inject service context into the agent system prompt.
+    """
+    if date_et is None:
+        date_et = datetime.now(TZ).date()
+    date_compact = date_et.strftime("%Y%m%d")
+    date_iso = date_et.isoformat()
+    day_of_week = date_et.weekday()  # 0=Mon, 6=Sun
+    dow_map = {0: "monday", 1: "tuesday", 2: "wednesday", 3: "thursday",
+               4: "friday", 5: "saturday", 6: "sunday"}
+    dow_col = dow_map[day_of_week]
+
+    conn = connect_db()
+    if conn is None:
+        return "Unknown"
+    try:
+        rows = conn.execute(
+            f"""
+            SELECT service_id FROM calendar
+            WHERE :dc BETWEEN start_date AND end_date
+              AND {dow_col} = 1
+            """,
+            {"dc": date_compact},
+        ).fetchall()
+        base = {r["service_id"] for r in rows}
+
+        exc = conn.execute(
+            "SELECT service_id, exception_type FROM calendar_dates WHERE date = ?",
+            (date_compact,),
+        ).fetchall()
+        for r in exc:
+            if r["exception_type"] == "1" or r["exception_type"] == 1:
+                base.add(r["service_id"])
+            elif r["exception_type"] == "2" or r["exception_type"] == 2:
+                base.discard(r["service_id"])
+
+        if not base:
+            return "No Service"
+        if "Reduced_Service" in base:
+            return "Reduced Service"
+        if "Weekday" in base or "Mon-Thur" in base:
+            return "Regular Weekday"
+        if "Saturday" in base:
+            return "Saturday Schedule"
+        if "Sunday" in base:
+            return "Sunday Schedule"
+        return ", ".join(sorted(base))
+    finally:
+        conn.close()
+
+
 def get_service_exceptions(conn, date_compact: str) -> dict:
     rows = conn.execute(
         "SELECT service_id, exception_type FROM calendar_dates WHERE date = ?",

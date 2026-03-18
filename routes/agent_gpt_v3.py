@@ -29,6 +29,7 @@ _MAX_TOOL_ITERATIONS = 5
 
 # ── Shared system prompt (identical to agent_claude.py) ────────────────────────
 from routes.agent_claude import SYSTEM_PROMPT
+from routes.schedule_service import get_active_service_label
 
 # ── Availability check ─────────────────────────────────────────────────────────
 
@@ -62,11 +63,15 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
             "meta": {"language": lang, "error": "openai_unavailable"},
         }
 
-    # Inject today's date
+    # Inject today's date + service type
     now_et = datetime.now(_TZ)
+    service_label = get_active_service_label(now_et.date())
     date_header = (
         f"TODAY is {now_et.strftime('%A, %B %d, %Y')} (Eastern Time). "
-        "Use this to resolve relative dates like today, tomorrow, and day names.\n\n"
+        "Use this to resolve relative dates like today, tomorrow, and day names.\n"
+        f"TODAY's RTS service type: {service_label}. "
+        "Use this to answer questions like 'are we on reduced service?' — "
+        "answer directly from this fact, do not call a tool.\n\n"
     )
     system = date_header + SYSTEM_PROMPT
 
