@@ -105,9 +105,17 @@ Before answering any factual transit question, call the right tool:
 - kind="last"   → last departure of the ENTIRE day (ignores time param).
 - kind="before" → last departure strictly BEFORE a given time. REQUIRES time=.
 
-"First bus after 4 PM" → kind="next", time="4pm"
-"Last bus before 8 PM" → kind="before", time="8pm"
-Only use kind="first" / kind="last" when there is NO specific time qualifier.
+Decision table — pick EXACTLY one:
+| User says...                        | kind     | time   |
+|-------------------------------------|----------|--------|
+| "first bus after 4 PM"              | "next"   | "4pm"  |
+| "next bus after 7 PM"               | "next"   | "7pm"  |
+| "last bus before 8 PM"              | "before" | "8pm"  |
+| "last bus of the day" (no cutoff)   | "last"   | omit   |
+| "first bus of the day" (no cutoff)  | "first"  | omit   |
+
+NEVER use kind="last" when the user specifies a time cutoff like "before 8 PM".
+kind="last" ignores the time entirely and returns the last bus of the whole day.
 
 ALWAYS pass time= when the user mentioned a specific time.
 Omitting it returns current-clock results — likely wrong for the user.
