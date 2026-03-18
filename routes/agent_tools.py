@@ -490,6 +490,10 @@ def _tool_get_schedule(
     date: str | None = None,
 ) -> dict:
     """Get scheduled departures from GTFS. Works with or without route_id."""
+    # Guardrail: kind="last" with a time param means the caller wanted "before X"
+    # (kind="last" ignores time entirely). Redirect automatically.
+    if kind == "last" and time:
+        kind = "before"
     route_id = _normalize_route_id(route_id)
     # Build a natural-language text string the existing parsers can handle
     text_parts = []
