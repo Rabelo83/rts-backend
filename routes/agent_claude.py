@@ -213,7 +213,10 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
         "Use this to resolve relative dates like today, tomorrow, and day names.\n"
         f"RTS service schedule for the next 7 days:\n{service_block}\n"
         "Answer questions about service type (reduced, normal, Saturday, etc.) "
-        "directly from this table — do not call a tool.\n\n"
+        "directly from this table — do not call a tool.\n"
+        "When returning a schedule for a date that is NOT 'Regular Weekday', "
+        "add a brief note at the end, e.g. '(Note: tomorrow is Reduced Service — "
+        "fewer trips than a normal weekday.)'\n\n"
     )
     system = date_header + SYSTEM_PROMPT
 
