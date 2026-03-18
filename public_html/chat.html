@@ -224,28 +224,26 @@
       flex: 1;
       min-height: 0;
       display: flex;
-      align-items: stretch;
+      align-items: center;
       justify-content: center;
-      padding: 20px 16px 0;
+      padding: 20px 16px;
     }
 
     /* ── Chat panel card ─────────────────────────────────────── */
     #chat-panel {
       width: 100%;
       max-width: 800px;
-      flex: 1;
-      min-height: 0;
+      height: min(720px, 100%);
       display: flex;
       flex-direction: column;
       background: var(--surface);
       backdrop-filter: blur(28px);
       -webkit-backdrop-filter: blur(28px);
       border: 1px solid var(--border);
-      border-bottom: none;
-      border-radius: var(--radius-card) var(--radius-card) 0 0;
+      border-radius: var(--radius-card);
       box-shadow:
         0 0 0 1px rgba(59,130,246,0.05),
-        0 -4px 24px rgba(0,0,0,0.3),
+        0 8px 32px rgba(0,0,0,0.4),
         0 32px 80px rgba(0,0,0,0.5),
         inset 0 1px 0 rgba(255,255,255,0.06);
       overflow: hidden;
@@ -576,8 +574,8 @@
 
     /* ── Responsive ──────────────────────────────────────────── */
     @media (max-width: 600px) {
-      .chat-main { padding: 12px 8px 0; }
-      #chat-panel { border-radius: 20px 20px 0 0; }
+      .chat-main { padding: 10px 8px; }
+      #chat-panel { border-radius: 20px; height: min(680px, 100%); }
       .chat-brand-text p { display: none; }
       .live-badge { display: none; }
       #chat-messages { padding: 16px 12px 10px; }
