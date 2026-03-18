@@ -67,6 +67,7 @@ def _check_escalation(session_id: str, prior_ctx: dict, sources: list, lang: str
 from routes.agent_service import handle_agent_message, stream_agent_message
 from routes.agent_v2 import handle_message as handle_message_v2
 from routes.agent_claude import handle_message as handle_message_v3
+from routes.agent_gpt_v3 import handle_message as handle_message_v4
 
 bp = Blueprint("agent_api", __name__)
 
@@ -642,3 +643,50 @@ def api_agent_v3_stream():
             "Connection": "keep-alive",
         },
     )
+
+
+# ── GPT-4o-mini agent v4 (clean prompt, cost test) ────────────────────────────
+
+@bp.route("/api/agent/v4", methods=["POST"])
+@limiter.limit(os.getenv("RATE_LIMIT", "200 per hour"))
+def api_agent_v4():
+    """GPT-4o-mini agent v4 — same clean prompt as v3, lower cost."""
+    payload = request.get_json(silent=True) or {}
+    msg = (payload.get("message") or "").strip()
+    msg = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', msg)
+
+    if not msg:
+        return jsonify({"error": True, "error_code": ErrorCode.MISSING_PARAMETER,
+                        "error_message": "message parameter is required"}), 400
+    if len(msg) > MAX_MSG_LEN:
+        return jsonify({"error": True, "error_code": ErrorCode.MISSING_PARAMETER,
+                        "error_message": f"Message too long (max {MAX_MSG_LEN} characters)"}), 400
+
+    session_id, history, session_data = _v2_session_setup(payload)
+
+    start = time.perf_counter()
+    try:
+        result = handle_message_v4(msg, history=history, session_ctx=session_data or {})
+    except Exception as exc:
+        return jsonify({
+            "error": True,
+            "error_code": ErrorCode.API_UNAVAILABLE,
+            "error_message": "Agent v4 temporarily unavailable",
+            "details": {"exception": str(exc)} if os.getenv("DEBUG") else {},
+        }), 500
+
+    duration_ms = int((time.perf_counter() - start) * 1000)
+
+    session_manager.add_message(session_id, "user", msg)
+    session_manager.add_message(session_id, "assistant", result.get("answer", ""))
+    _log_chat(msg, result.get("answer", ""))
+
+    meta = result.get("meta") or {}
+    return jsonify({
+        "answer": result.get("answer", ""),
+        "buttons": result.get("buttons", []),
+        "meta": meta,
+        "session_id": session_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "response_time_ms": duration_ms,
+    })

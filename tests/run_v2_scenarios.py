@@ -60,6 +60,7 @@ _LOCAL_ENDPOINT = "local:testclient"
 ENDPOINTS = {
     "prod":   "https://rts-backend-7ru5.onrender.com/api/agent/v2",
     "prod_v3":"https://rts-backend-7ru5.onrender.com/api/agent/v3",
+    "prod_v4":"https://rts-backend-7ru5.onrender.com/api/agent/v4",
     "local":  _LOCAL_ENDPOINT,
 }
 # Agent version used for local test client (v2 or v3)
@@ -319,9 +320,9 @@ def run_multi(endpoint, scenario):
 
 def main():
     parser = argparse.ArgumentParser(description="RTS Agent v2 Scenario Test Runner")
-    parser.add_argument("--env", choices=["prod", "prod_v3", "local"], default="prod",
+    parser.add_argument("--env", choices=["prod", "prod_v3", "prod_v4", "local"], default="prod",
                         help="Target environment (default: prod)")
-    parser.add_argument("--agent", choices=["v2", "v3"], default="v2",
+    parser.add_argument("--agent", choices=["v2", "v3", "v4"], default="v2",
                         help="Agent version for local env (default: v2)")
     parser.add_argument("--ids", default=None,
                         help="Comma-separated scenario IDs to run (e.g. S01,S07,M01)")
