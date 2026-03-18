@@ -479,16 +479,16 @@ def api_agent_v2_stream():
         meta = result.get("meta") or {}
         buttons = result.get("buttons", [])
 
+        # Persist session BEFORE streaming — prevents context loss if client disconnects
+        session_manager.add_message(session_id, "user", msg)
+        session_manager.add_message(session_id, "assistant", answer)
+        _log_chat(msg, answer)
+
         # Stream answer as word-level tokens so the frontend typewriter effect works
         words = answer.split(" ")
         for i, word in enumerate(words):
             chunk = word if i == len(words) - 1 else word + " "
             yield f"data: {json.dumps({'type': 'token', 'text': chunk})}\n\n"
-
-        # Update session and log BEFORE yielding done
-        session_manager.add_message(session_id, "user", msg)
-        session_manager.add_message(session_id, "assistant", answer)
-        _log_chat(msg, answer)
 
         duration_ms = int((time.perf_counter() - start) * 1000)
         yield f"data: {json.dumps({'type': 'done', 'answer': answer, 'buttons': buttons, 'meta': meta, 'session_id': session_id})}\n\n"
@@ -608,15 +608,17 @@ def api_agent_v3_stream():
         meta = result.get("meta") or {}
         buttons = result.get("buttons", [])
 
+        # Persist session BEFORE streaming — if client disconnects mid-stream,
+        # the history is still saved and the next request won't lose context.
+        session_manager.add_message(session_id, "user", msg)
+        session_manager.add_message(session_id, "assistant", answer)
+        _log_chat(msg, answer)
+
         # Stream answer as word-level tokens for frontend typewriter effect
         words = answer.split(" ")
         for i, word in enumerate(words):
             chunk = word if i == len(words) - 1 else word + " "
             yield f"data: {json.dumps({'type': 'token', 'text': chunk})}\n\n"
-
-        session_manager.add_message(session_id, "user", msg)
-        session_manager.add_message(session_id, "assistant", answer)
-        _log_chat(msg, answer)
 
         duration_ms = int((time.perf_counter() - start) * 1000)
         yield f"data: {json.dumps({'type': 'done', 'answer': answer, 'buttons': buttons, 'meta': meta, 'session_id': session_id})}\n\n"
