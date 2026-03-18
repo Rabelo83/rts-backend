@@ -373,6 +373,65 @@ def next_departures_per_headsign(conn, route_short_name, stop_id_padded, date_is
         },
     ).fetchall()
 
+def last_departures_before(conn, route_short_name, stop_id_padded, date_iso, date_compact, time_str):
+    """Return the last departure per headsign strictly before time_str."""
+    sql = """
+    WITH base_services AS (
+      SELECT c.service_id
+      FROM calendar c
+      WHERE :date_compact BETWEEN c.start_date AND c.end_date
+        AND (
+          (c.monday = 1 AND strftime('%w', :date_iso) = '1') OR
+          (c.tuesday = 1 AND strftime('%w', :date_iso) = '2') OR
+          (c.wednesday = 1 AND strftime('%w', :date_iso) = '3') OR
+          (c.thursday = 1 AND strftime('%w', :date_iso) = '4') OR
+          (c.friday = 1 AND strftime('%w', :date_iso) = '5') OR
+          (c.saturday = 1 AND strftime('%w', :date_iso) = '6') OR
+          (c.sunday = 1 AND strftime('%w', :date_iso) = '0')
+        )
+    ),
+    exception_add AS (
+      SELECT service_id FROM calendar_dates
+      WHERE date = :date_compact AND exception_type = 1
+    ),
+    exception_remove AS (
+      SELECT service_id FROM calendar_dates
+      WHERE date = :date_compact AND exception_type = 2
+    ),
+    active_services AS (
+      SELECT service_id FROM base_services
+      UNION SELECT service_id FROM exception_add
+      EXCEPT SELECT service_id FROM exception_remove
+    ),
+    ranked AS (
+      SELECT st.departure_time, t.trip_headsign,
+             ROW_NUMBER() OVER (PARTITION BY t.trip_headsign ORDER BY st.departure_time DESC) AS rn
+      FROM stops s
+      JOIN stop_times st ON st.stop_id = s.stop_id
+      JOIN trips t ON t.trip_id = st.trip_id
+      JOIN routes r ON r.route_id = t.route_id
+      JOIN active_services a ON a.service_id = t.service_id
+      WHERE r.route_short_name = :route
+        AND s.stop_id_padded = :stop_id
+        AND st.departure_time < :time
+    )
+    SELECT departure_time, trip_headsign
+    FROM ranked
+    WHERE rn = 1
+    ORDER BY departure_time DESC;
+    """
+    return conn.execute(
+        sql,
+        {
+            "date_iso": date_iso,
+            "date_compact": date_compact,
+            "route": route_short_name,
+            "stop_id": stop_id_padded,
+            "time": time_str,
+        },
+    ).fetchall()
+
+
 def next_departures_all_routes(conn, stop_id_padded, date_iso, date_compact, time_str):
     sql = """
     WITH base_services AS (
@@ -547,6 +606,21 @@ def get_schedule(route, text, stop_id=None, stop_name=None, kind="next", debug=F
                     "time": None,
                     "kind": "last",
                 }
+            return out
+        if kind == "before":
+            # Last departure strictly before q_time
+            if not q_time:
+                return {"error": "time_required_for_kind_before"}
+            rows = last_departures_before(conn, route, stop["stop_id_padded"], date_iso, date_compact, q_time)
+            out = {
+                "route": route,
+                "stop": stop["stop_name"],
+                "date": date_iso,
+                "time": q_time,
+                "before_by_direction": [(r["departure_time"], r["trip_headsign"]) for r in rows],
+            }
+            if exception_info:
+                out["exception"] = exception_info
             return out
 
         if not q_time:

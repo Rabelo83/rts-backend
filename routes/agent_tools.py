@@ -108,11 +108,12 @@ TOOLS: list[dict] = [
                     },
                     "kind": {
                         "type": "string",
-                        "enum": ["next", "first", "last"],
+                        "enum": ["next", "first", "last", "before"],
                         "description": (
                             "'next' = next departures after a given time (default). "
                             "'first' = first departure of the day. "
-                            "'last' = last departure of the day."
+                            "'last' = last departure of the day. "
+                            "'before' = last departure strictly before a given time (requires time=)."
                         ),
                     },
                     "time": {
@@ -599,6 +600,29 @@ def _tool_get_schedule(
             "stop": data.get("stop"),
             "date": _fmt_date(data.get("date", "")),
             "last_departure": format_time_12h(last),
+        }
+
+    # kind == "before"
+    before_rows = data.get("before_by_direction")
+    if before_rows is not None:
+        stop_name = data.get("stop", "")
+        if not before_rows:
+            return {
+                "status": "no_trips",
+                "route": route_id,
+                "stop": stop_name,
+                "date": _fmt_date(data.get("date", "")),
+                "before": format_time_12h(data.get("time", "")),
+                "message": f"No scheduled departures found before {format_time_12h(data.get('time', ''))}.",
+            }
+        departures = [{"time": format_time_12h(t), "headsign": hs} for t, hs in before_rows]
+        return {
+            "status": "ok_before",
+            "route": route_id,
+            "stop": stop_name,
+            "date": _fmt_date(data.get("date", "")),
+            "before": format_time_12h(data.get("time", "")),
+            "departures": departures,
         }
 
     # kind == "next"

@@ -100,18 +100,14 @@ Before answering any factual transit question, call the right tool:
   If already resolved in this conversation, reuse the stop_id — do not search again.
 
 ## get_schedule PARAMETERS
-- kind="next"  → next departures after a time threshold. DEFAULT.
-- kind="first" → first departure of the ENTIRE day (ignores time param).
-- kind="last"  → last departure of the ENTIRE day (ignores time param).
+- kind="next"   → next departures after a time threshold. DEFAULT.
+- kind="first"  → first departure of the ENTIRE day (ignores time param).
+- kind="last"   → last departure of the ENTIRE day (ignores time param).
+- kind="before" → last departure strictly BEFORE a given time. REQUIRES time=.
 
-"First bus after 4 PM" means kind="next" with time="4pm" — NOT kind="first".
-Only use kind="first" / kind="last" when user asks for the first or last bus
-of the day with NO specific time qualifier.
-
-"Last bus before 8 PM" → call kind="next" with time ~2 hours before the
-cutoff (e.g. time="6pm"). The latest departure returned that is strictly
-before the cutoff is the answer. Do NOT use kind="last" for this — it
-returns the last bus of the entire day, ignoring the time cutoff.
+"First bus after 4 PM" → kind="next", time="4pm"
+"Last bus before 8 PM" → kind="before", time="8pm"
+Only use kind="first" / kind="last" when there is NO specific time qualifier.
 
 ALWAYS pass time= when the user mentioned a specific time.
 Omitting it returns current-clock results — likely wrong for the user.
