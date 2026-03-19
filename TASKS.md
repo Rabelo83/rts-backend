@@ -1,6 +1,6 @@
 # RTS Project Task Tracker
 
-Last updated: 2026-03-18 (session cont.)
+Last updated: 2026-03-19
 
 This file is a project task tracker for the RTS backend/web assistant project. It captures:
 - what has already been completed to reach the current state
@@ -66,12 +66,53 @@ Note: The initial list below was inferred from the current repository contents a
 - [x] Fixed context loss in streaming endpoints — `session_manager.add_message()` moved before token streaming to prevent history loss on client disconnect
 - [x] Added `## CONTEXT RETENTION` system prompt rule — agent scans history for most recent route/stop on ambiguous follow-ups
 
+## ✅ Session 19 cont. — 2026-03-19: Pre-Presentation Polish
+
+- [x] Added `get_route_stops` tool — agent can now list ordered stops for a route by direction/headsign (`routes/schedule_service.py`, `routes/agent_tools.py`, `routes/agent_claude.py`)
+- [x] Extended service injection to 7-day table — agent can answer "is tomorrow reduced service?" and multi-day service questions without calling a tool
+- [x] Added `get_route_first_last_by_service_type()` — `get_route_overview` now returns first/last per Weekday/Saturday/Sunday/Reduced in `schedule_by_service_type` key
+- [x] Added ROUTE OVERVIEW RESPONSES prompt rule — agent always shows full service-type breakdown, not just today
+- [x] Added TENSE + ETA prompt rule — past tense for elapsed times, `(~N min)` ETA appended when < 90 min away
+- [x] Added CONTEXT RETENTION prompt rule — agent scans history for most recent route/stop on ambiguous follow-ups
+- [x] Fixed S12/S14 false-positive test signals — `"both routes"` and `"depart"` were too broad
+- [x] Fixed hallucination bug — agent invented Route 15 schedule at stop 221 (which Route 15 never serves). Root cause: `get_realtime_predictions` has no route filter; agent was ignoring its result and fabricating from training knowledge. Fix: new `route_not_at_stop` status returned by `get_schedule` when route+stop has zero GTFS trips; new ROUTE + STOP COMBINATION RULE in prompt forces `get_schedule` (with both `route_id` + `stop_id`) whenever user specifies both. (`routes/agent_tools.py`, `routes/agent_claude.py`)
+- [x] Added ROUTE STOPS RESPONSES prompt rule — stop lists rendered as numbered list with stop ID in parentheses
+- [x] Automated GPT analysis — `tests/auto_analyze.py` calls GPT-4o-mini API directly after test run; saves verdicts to `tests/analysis/`; no more manual ChatGPT copy-paste
+- [x] Updated `gpt_analysis_prompt.md` — added `get_route_stops` + `route_not_at_stop`; bumped tool count to 7
+- [x] Updated `codex_run_and_analyze.md` — points to v3 agent, documents `auto_analyze.py` shortcut
+
+## 🗺️ Testing & Quality Roadmap (Planned)
+
+Three levels of improvement, in priority order:
+
+### Level 1 — Inline LLM-as-Judge (High priority)
+Replace fragile `pass_signals`/`fail_signals` keyword arrays with a real model verdict per scenario.
+After each agent response, call GPT-4o-mini: *"Did the agent correctly answer: '{expected_behavior}'? PASS or FAIL + one sentence why."*
+- [ ] Rewrite scoring in `run_v2_scenarios.py` to call GPT inline per scenario
+- [ ] Remove `pass_signals`/`fail_signals` from `scenarios_v2.json` (or keep as hints only)
+- [ ] Collapse `run_v2_scenarios.py` + `auto_analyze.py` into a single `run_and_judge.py` command
+- [ ] Benefit: eliminates all false-positive signal failures; verdict quality improves significantly
+
+### Level 2 — Production Feedback Loop (Medium priority)
+Replay real user queries as regression tests instead of relying only on hand-written scenarios.
+- [ ] Log every real user query to `data/analytics.sqlite` (anonymized — no PII)
+- [ ] Build `tests/replay_from_logs.py` — queries the last N real conversations, replays them, flags errors/hallucinations
+- [ ] Run weekly or after any GTFS data refresh
+- [ ] Benefit: catches bugs that hand-written scenarios never anticipated
+
+### Level 3 — Adversarial Scenario Generation (Low priority / quarterly)
+Use GPT to auto-generate new edge-case scenarios from live GTFS data.
+- [ ] Build `tests/generate_scenarios.py` — feeds route list + stop list to GPT, asks for 50 tricky test cases
+- [ ] Auto-append to `scenarios_v2.json` after human review
+- [ ] Focus areas: wrong stop IDs, route+stop mismatches, late-night edge cases, Spanish multi-turn
+- [ ] Benefit: keeps test suite growing without manual effort
+
 ## Pending (Carry-over)
 
 - [ ] Decide whether `/dashboard` and task API should require auth
-- [ ] Improve production logging/monitoring/alerts
 - [ ] GTFS/schedule data refresh — **manual process** (owner provides updated files directly when needed)
-- [ ] Add route coincidence tool (where/when two routes share a stop)
+- [ ] Add route coincidence tool (where/when two routes share a stop) — deferred
+- [ ] Trip planning tool (multi-leg A→B routing) — deferred; requires significant new tooling
 - [ ] Consider persistent session storage (SQLite) to survive Render restarts — currently in-memory only
 
 ## Blocked
@@ -80,6 +121,6 @@ Note: The initial list below was inferred from the current repository contents a
 
 ## Next Steps
 
-1. Monitor production for remaining context issues after streaming fix.
-2. Decide on session persistence (SQLite vs in-memory) for Render restart resilience.
-3. Plan route coincidence tool if/when needed.
+1. Level 1 testing upgrade: inline LLM-as-judge in `run_v2_scenarios.py` (eliminates false positives permanently).
+2. Production logging: wire real user queries into `analytics.sqlite` for replay testing.
+3. Session persistence decision: SQLite vs in-memory for Render restart resilience.

@@ -154,3 +154,41 @@ How to use:
 - Summary: Fixed conversation context loss bug in streaming endpoints. In `/api/agent/v3/stream` and `/api/agent/v2/stream`, `session_manager.add_message()` was called *after* streaming tokens were yielded. If the client disconnected mid-stream (network hiccup), the session history was never saved and the next message had no conversation context — producing "I don't have information about a previous query" failures. Fixed by moving `add_message()` calls to *before* token streaming begins.
 - Files/Areas: `routes/agent_api.py`
 - Notes / Follow-up: Also added `## CONTEXT RETENTION` rule to the Claude system prompt: when the user sends a follow-up ("what's the last bus today?") without repeating route/stop, agent must scan conversation history and reuse the most recently discussed route and stop rather than claiming it lacks context.
+
+---
+
+### 2026-03-19
+- Type: `feature`
+- Summary: Added `get_route_stops` tool — agent can now answer "what stops does route X make?" and "outbound stops for route 1". Built `get_route_stops()` in `schedule_service.py` using longest representative trip per headsign. Tool handler in `agent_tools.py` caps at 50 stops per direction. System prompt routing table updated.
+- Files/Areas: `routes/schedule_service.py`, `routes/agent_tools.py`, `routes/agent_claude.py`
+- Notes / Follow-up: Returns ordered stop list with stop_id, stop_name, and sequence per direction/headsign.
+
+### 2026-03-19
+- Type: `feature`
+- Summary: Upgraded service type injection from single-day to 7-day table. Agent can now answer "is tomorrow reduced service?" and multi-day service questions for up to 7 days ahead without calling any tool. `get_route_overview` now also returns `schedule_by_service_type` (first/last per Weekday/Saturday/Sunday/Reduced).
+- Files/Areas: `routes/schedule_service.py`, `routes/agent_claude.py`, `routes/agent_gpt_v3.py`
+- Notes / Follow-up: Added ROUTE OVERVIEW RESPONSES prompt rule so agent always shows the full service-type table.
+
+### 2026-03-19
+- Type: `feature`
+- Summary: Added tense + ETA formatting to schedule responses. Past tense ("was at 6:00 AM") for elapsed departures; approximate wait "(~N min)" appended when departure is within 90 minutes of current time.
+- Files/Areas: `routes/agent_claude.py` — TENSE AND ETA FOR SCHEDULE RESULTS prompt rule
+- Notes / Follow-up: Prompt-only change; no tool or service changes needed.
+
+### 2026-03-19
+- Type: `fix`
+- Summary: Fixed critical hallucination — agent invented Route 15 schedule at stop 221, which Route 15 never serves. Root cause: agent called `get_realtime_predictions` (no route filter), got Route 6 data, ignored it, then fabricated Route 15 from training knowledge. Two-layer fix: (1) new `route_not_at_stop` status in `get_schedule` when route+stop has zero GTFS trips (unambiguous signal vs the old ambiguous `no_trips`); (2) new ROUTE + STOP COMBINATION RULE in system prompt forces `get_schedule` with both `route_id` and `stop_id` whenever user specifies both.
+- Files/Areas: `routes/agent_tools.py` (`_route_never_serves_stop()` helper, `route_not_at_stop` status), `routes/agent_claude.py` (prompt rules)
+- Notes / Follow-up: `_route_never_serves_stop()` does a lightweight DB COUNT query. If the route never has any trips at the stop, returns the unambiguous status immediately. Also strengthened the GROUND TRUTH RULE to explicitly cover this case.
+
+### 2026-03-19
+- Type: `feature`
+- Summary: Automated the GPT analysis step of the test suite. New `tests/auto_analyze.py` reads the latest results JSON, calls GPT-4o-mini via OpenAI API, saves full analysis + parsed verdict JSON to `tests/analysis/`. Eliminates the manual copy-paste-into-ChatGPT workflow.
+- Files/Areas: `tests/auto_analyze.py` (new), `tests/gpt_analysis_prompt.md`, `tests/codex_run_and_analyze.md`, `tests/run_v2_scenarios.py`
+- Notes / Follow-up: Full loop is now `python tests/run_v2_scenarios.py && python tests/auto_analyze.py`. `--fails-only` flag available to save tokens when most scenarios pass.
+
+### 2026-03-19
+- Type: `decision`
+- Summary: Evaluated current testing approach and defined a 3-level quality improvement roadmap. Current system (static JSON scenarios + keyword signals + GPT analysis) is functional but has known weaknesses: fragile signals, no regression tracking, no production feedback loop. Roadmap: Level 1 — inline LLM-as-judge (replace keyword signals); Level 2 — production query replay from analytics.sqlite; Level 3 — adversarial scenario generation from GTFS data.
+- Files/Areas: `TASKS.md` — Testing & Quality Roadmap section
+- Notes / Follow-up: Level 1 is the highest priority — eliminates false-positive signal failures permanently without requiring any infrastructure changes.
