@@ -5,15 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RTS Project Dashboard</title>
   <style>
-    @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap");
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap");
 
     :root {
-      --bg:      #0d1117;
-      --s1:      #161b22;
-      --s2:      #1c2230;
-      --border:  #30363d;
+      --bg:      #070d1a;
+      --s1:      rgba(255,255,255,.04);
+      --s2:      rgba(255,255,255,.07);
+      --border:  rgba(255,255,255,.10);
+      --border2: rgba(255,255,255,.15);
       --text:    #e6edf3;
-      --muted:   #848d97;
+      --muted:   rgba(255,255,255,.40);
       --accent:  #58a6ff;
       --ok:      #3fb950;
       --warn:    #d29922;
@@ -21,126 +22,181 @@
       --purple:  #bc8cff;
       --blue:    #79c0ff;
       --gold:    #e3b341;
-      --shadow:  0 4px 28px rgba(0,0,0,.55);
-      --r:       10px;
+      --r:       12px;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      font-family: "Inter", "Segoe UI", sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
+      overflow-x: hidden;
     }
 
     a { color: var(--accent); text-decoration: none; }
 
+    /* ── animated background orbs ─────────────────────────────── */
+    .bg-orbs {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+    }
+    .orb {
+      position: absolute; border-radius: 50%; filter: blur(80px); opacity: .12;
+      animation: drift 18s ease-in-out infinite alternate;
+    }
+    .orb1 { width: 600px; height: 600px; background: #1e40af; top: -200px; left: -150px; animation-delay: 0s; }
+    .orb2 { width: 500px; height: 500px; background: #6d28d9; top: 30%; right: -200px; animation-delay: -6s; }
+    .orb3 { width: 400px; height: 400px; background: #0e7490; bottom: -100px; left: 30%; animation-delay: -12s; }
+    @keyframes drift {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(40px, 30px) scale(1.08); }
+    }
+
     /* ── wrap ─────────────────────────────────────────────────── */
-    .wrap { max-width: 1280px; margin: 0 auto; padding: 20px 16px 64px; }
+    .wrap { position: relative; z-index: 1; max-width: 1300px; margin: 0 auto; padding: 20px 16px 72px; }
 
     /* ── nav ──────────────────────────────────────────────────── */
-    .nav { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 20px; }
-
+    .nav { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 18px; align-items: center; }
+    .nav-title { font-family: "Space Grotesk", sans-serif; font-size: 1rem; font-weight: 700; color: #fff; margin-right: 8px; }
     .nav a {
-      display: inline-block;
-      padding: 6px 14px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      font-size: .82rem;
-      font-weight: 600;
-      color: var(--muted);
-      background: var(--s1);
-      transition: border-color .2s, color .2s;
+      display: inline-block; padding: 5px 13px;
+      border: 1px solid var(--border); border-radius: 999px;
+      font-size: .78rem; font-weight: 600; color: var(--muted);
+      background: var(--s1); transition: border-color .2s, color .2s;
     }
     .nav a:hover { border-color: var(--accent); color: var(--accent); }
+    .nav-spacer { flex: 1; }
+    .nav-logout { font-size: .75rem; color: var(--muted); cursor: pointer; }
+    .nav-logout:hover { color: var(--danger); }
+
+    /* ── live metrics strip ───────────────────────────────────── */
+    .metrics-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .metric-card {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 16px 18px;
+      display: flex; align-items: center; gap: 14px;
+      transition: border-color .2s, background .2s;
+      position: relative; overflow: hidden;
+    }
+    .metric-card::before {
+      content: ""; position: absolute; inset: 0;
+      background: var(--glow-color, transparent);
+      opacity: 0; transition: opacity .3s;
+    }
+    .metric-card:hover::before { opacity: 1; }
+    .metric-card.m-blue  { --glow-color: rgba(88,166,255,.04); }
+    .metric-card.m-green { --glow-color: rgba(63,185,80,.04); }
+    .metric-card.m-purple{ --glow-color: rgba(188,140,255,.04); }
+    .metric-card.m-gold  { --glow-color: rgba(227,179,65,.04); }
+    .metric-card.m-blue:hover  { border-color: rgba(88,166,255,.4); }
+    .metric-card.m-green:hover { border-color: rgba(63,185,80,.4); }
+    .metric-card.m-purple:hover{ border-color: rgba(188,140,255,.4); }
+    .metric-card.m-gold:hover  { border-color: rgba(227,179,65,.4); }
+    .metric-icon {
+      width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .m-blue   .metric-icon { background: rgba(88,166,255,.12); color: #58a6ff; }
+    .m-green  .metric-icon { background: rgba(63,185,80,.12);  color: #3fb950; }
+    .m-purple .metric-icon { background: rgba(188,140,255,.12);color: #bc8cff; }
+    .m-gold   .metric-icon { background: rgba(227,179,65,.12); color: #e3b341; }
+    .metric-body { flex: 1; min-width: 0; }
+    .metric-value {
+      font-family: "Space Grotesk", sans-serif; font-size: 1.7rem; font-weight: 700;
+      line-height: 1; color: #fff;
+    }
+    .metric-label { font-size: .72rem; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: .05em; }
 
     /* ── hero ─────────────────────────────────────────────────── */
     .hero {
-      background: linear-gradient(135deg, #0f172a 0%, #1a2744 55%, #1e3a5f 100%);
+      background: rgba(255,255,255,.03);
       border: 1px solid var(--border);
-      border-radius: 16px;
+      border-radius: 18px;
       padding: 28px 32px;
-      margin-bottom: 18px;
-      display: flex;
-      align-items: center;
-      gap: 32px;
-      box-shadow: var(--shadow);
-      position: relative;
-      overflow: hidden;
+      margin-bottom: 14px;
+      display: flex; align-items: center; gap: 28px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: "";
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(37,99,235,.08) 0%, rgba(124,58,237,.06) 50%, rgba(14,116,144,.05) 100%);
+      pointer-events: none;
     }
     .hero::after {
       content: "";
-      position: absolute;
-      top: -80px; right: -60px;
-      width: 260px; height: 260px;
-      background: radial-gradient(circle, rgba(88,166,255,.10), transparent 68%);
+      position: absolute; top: -60px; right: -40px;
+      width: 240px; height: 240px;
+      background: radial-gradient(circle, rgba(88,166,255,.12), transparent 65%);
       pointer-events: none;
     }
 
     /* progress ring */
-    .ring-wrap { flex-shrink: 0; position: relative; width: 104px; height: 104px; }
+    .ring-wrap { flex-shrink: 0; position: relative; width: 100px; height: 100px; z-index: 1; }
     .ring-wrap svg { transform: rotate(-90deg); }
-    .ring-track { fill: none; stroke: rgba(255,255,255,.10); stroke-width: 7; }
-    .ring-fill {
-      fill: none;
-      stroke: var(--ok);
-      stroke-width: 7;
-      stroke-linecap: round;
-      transition: stroke-dashoffset 1s cubic-bezier(.4,0,.2,1);
-    }
-    .ring-label {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-    }
-    .ring-pct { font-family: "Space Grotesk", sans-serif; font-size: 1.5rem; font-weight: 700; line-height: 1; }
-    .ring-sub { font-size: .68rem; color: rgba(255,255,255,.5); margin-top: 3px; }
+    .ring-track { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 7; }
+    .ring-fill  { fill: none; stroke: #3fb950; stroke-width: 7; stroke-linecap: round;
+                  transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1); }
+    .ring-label { position: absolute; inset: 0; display: flex; flex-direction: column;
+                  align-items: center; justify-content: center; }
+    .ring-pct { font-family: "Space Grotesk", sans-serif; font-size: 1.45rem; font-weight: 700; color: #fff; line-height: 1; }
+    .ring-sub { font-size: .65rem; color: rgba(255,255,255,.4); margin-top: 2px; }
 
-    .hero-text { flex: 1; min-width: 0; }
-    .hero h1 { font-family: "Space Grotesk", sans-serif; font-size: 1.45rem; color: #fff; margin-bottom: 6px; }
-    .hero-goal { color: rgba(255,255,255,.75); font-size: .88rem; line-height: 1.6; margin-bottom: 10px; }
-    .hero-meta { font-size: .76rem; color: rgba(255,255,255,.4); }
+    .hero-text { flex: 1; min-width: 0; z-index: 1; }
+    .hero h1 { font-family: "Space Grotesk", sans-serif; font-size: 1.4rem; color: #fff; margin-bottom: 5px; }
+    .hero-goal { color: rgba(255,255,255,.65); font-size: .86rem; line-height: 1.6; margin-bottom: 12px; }
+    .hero-meta { font-size: .73rem; color: rgba(255,255,255,.3); margin-bottom: 14px; }
 
-    /* ── stats ────────────────────────────────────────────────── */
+    /* health dots */
+    .health-row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .health-dot {
+      display: flex; align-items: center; gap: 6px;
+      font-size: .74rem; color: rgba(255,255,255,.5);
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      animation: pulse-green 2.5s ease-in-out infinite;
+    }
+    .dot.green { background: #3fb950; box-shadow: 0 0 6px #3fb950; }
+    .dot.red   { background: #f85149; box-shadow: 0 0 6px #f85149; animation: none; }
+    .dot.grey  { background: rgba(255,255,255,.2); animation: none; }
+    @keyframes pulse-green {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .45; }
+    }
+
+    /* ── stat cards ───────────────────────────────────────────── */
     .stats {
       display: grid;
       grid-template-columns: repeat(6, minmax(0,1fr));
       gap: 10px;
-      margin-bottom: 18px;
+      margin-bottom: 14px;
     }
-
     .stat {
-      background: var(--s1);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      padding: 14px 16px;
-      cursor: pointer;
-      position: relative;
-      overflow: hidden;
+      background: var(--s1); border: 1px solid var(--border); border-radius: var(--r);
+      padding: 14px 16px; cursor: pointer; position: relative; overflow: hidden;
       transition: border-color .18s, background .18s;
     }
-    .stat::before {
-      content: "";
-      position: absolute;
-      left: 0; top: 0; bottom: 0;
-      width: 3px;
-    }
-    .stat.s-all::before    { background: var(--muted); }
-    .stat.s-done::before   { background: var(--ok); }
-    .stat.s-next::before   { background: var(--purple); }
-    .stat.s-pend::before   { background: var(--blue); }
-    .stat.s-back::before   { background: var(--gold); }
-    .stat.s-block::before  { background: var(--danger); }
-
+    .stat::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+    .stat.s-all::before   { background: var(--muted); }
+    .stat.s-done::before  { background: var(--ok); }
+    .stat.s-next::before  { background: var(--purple); }
+    .stat.s-pend::before  { background: var(--blue); }
+    .stat.s-back::before  { background: var(--gold); }
+    .stat.s-block::before { background: var(--danger); }
     .stat:hover, .stat.lit { border-color: var(--accent); background: var(--s2); }
-
-    .stat-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
-    .stat-value { font-family: "Space Grotesk", sans-serif; font-size: 2rem; font-weight: 700; line-height: 1; }
+    .stat-label { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 5px; }
+    .stat-value { font-family: "Space Grotesk", sans-serif; font-size: 1.9rem; font-weight: 700; line-height: 1; }
     .s-all .stat-value   { color: var(--text); }
     .s-done .stat-value  { color: var(--ok); }
     .s-next .stat-value  { color: var(--purple); }
@@ -149,275 +205,234 @@
     .s-block .stat-value { color: var(--danger); }
 
     /* ── layout ───────────────────────────────────────────────── */
-    .layout { display: grid; grid-template-columns: 1fr 330px; gap: 14px; align-items: start; }
+    .layout { display: grid; grid-template-columns: 1fr 320px; gap: 14px; align-items: start; }
 
     /* ── panel ────────────────────────────────────────────────── */
     .panel { background: var(--s1); border: 1px solid var(--border); border-radius: var(--r); }
     .panel-head {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 13px 16px; border-bottom: 1px solid var(--border);
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
     }
-    .panel-head h2 { font-size: .92rem; font-weight: 600; }
-    .panel-head small { font-size: .78rem; color: var(--muted); }
+    .panel-head h2 { font-size: .88rem; font-weight: 600; }
+    .panel-head small { font-size: .75rem; color: var(--muted); }
     .panel-body { padding: 12px; }
 
     /* ── search ───────────────────────────────────────────────── */
     .search-wrap { position: relative; margin-bottom: 10px; }
-
     #searchInput {
-      width: 100%;
-      background: var(--s2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 9px 60px 9px 34px;
-      color: var(--text);
-      font-size: .88rem;
-      font-family: inherit;
-      outline: none;
-      transition: border-color .2s;
+      width: 100%; background: var(--s2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 58px 9px 34px;
+      color: var(--text); font-size: .86rem; font-family: inherit;
+      outline: none; transition: border-color .2s;
     }
     #searchInput::placeholder { color: var(--muted); }
     #searchInput:focus { border-color: var(--accent); }
+    .search-ico { position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+                  width: 14px; height: 14px; color: var(--muted); pointer-events: none; }
+    .search-key { position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+                  font-size: .66rem; color: var(--muted); background: var(--s1);
+                  border: 1px solid var(--border); border-radius: 4px; padding: 2px 5px; }
 
-    .search-ico {
-      position: absolute; left: 10px; top: 50%;
-      transform: translateY(-50%);
-      width: 14px; height: 14px;
-      color: var(--muted); pointer-events: none;
-    }
-    .search-key {
-      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-      font-size: .68rem; color: var(--muted);
-      background: var(--s1); border: 1px solid var(--border);
-      border-radius: 4px; padding: 2px 5px;
-    }
-
-    /* ── filter buttons ───────────────────────────────────────── */
+    /* ── filter pills ─────────────────────────────────────────── */
     .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-
     .fbtn {
-      padding: 5px 12px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      background: transparent;
-      color: var(--muted);
-      font-size: .76rem;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all .14s;
+      padding: 4px 11px; border: 1px solid var(--border); border-radius: 999px;
+      background: transparent; color: var(--muted); font-size: .74rem; font-weight: 600;
+      font-family: inherit; cursor: pointer; transition: all .14s;
     }
     .fbtn:hover { border-color: var(--accent); color: var(--accent); }
-    .fbtn.active { background: var(--accent); border-color: var(--accent); color: #0d1117; }
+    .fbtn.active { background: var(--accent); border-color: var(--accent); color: #070d1a; }
 
     /* ── task list ────────────────────────────────────────────── */
-    .task-list { display: block; max-height: 65vh; overflow-y: auto; padding-right: 2px; }
-    .task-list::-webkit-scrollbar { width: 4px; }
+    .task-list { display: block; max-height: 60vh; overflow-y: auto; padding-right: 2px; }
+    .task-list::-webkit-scrollbar { width: 3px; }
     .task-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-    .task-list .task { margin-bottom: 6px; }
 
-    /* task card */
-    .task {
-      background: var(--s2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-      transition: border-color .15s;
-    }
-    .task:hover { border-color: #444c56; }
-    .task.jump-hit { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(88,166,255,.25) inset; }
-
-    .task-head {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      min-height: 44px;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    .ticon {
-      width: 22px; height: 22px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: 700;
-    }
+    .task { background: var(--s2); border: 1px solid var(--border); border-radius: 8px;
+            overflow: hidden; transition: border-color .15s; margin-bottom: 6px; }
+    .task:hover { border-color: rgba(255,255,255,.2); }
+    .task.jump-hit { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(88,166,255,.2) inset; }
+    .task-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+                 min-height: 44px; cursor: pointer; user-select: none; }
+    .ticon { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+             display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
     .ticon.completed { background: rgba(63,185,80,.15); color: var(--ok); }
     .ticon.pending   { background: rgba(121,192,255,.15); color: var(--blue); }
     .ticon.blocked   { background: rgba(248,81,73,.15); color: var(--danger); }
     .ticon.next      { background: rgba(188,140,255,.15); color: var(--purple); }
     .ticon.backlog   { background: rgba(227,179,65,.15); color: var(--gold); }
-
-    .t-title { flex: 1; font-size: .87rem; font-weight: 500; min-width: 0; color: #e6edf3; }
-
+    .t-title { flex: 1; font-size: .85rem; font-weight: 500; min-width: 0; }
     .t-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-
-    .task-id {
-      font-family: "Space Grotesk", sans-serif;
-      font-size: .69rem;
-      letter-spacing: .04em;
-      color: var(--accent);
-      background: rgba(88,166,255,.1);
-      border: 1px solid rgba(88,166,255,.28);
-      border-radius: 4px;
-      padding: 2px 6px;
-      margin-right: 8px;
-      flex-shrink: 0;
-    }
-
-    .task-meta {
-      margin-top: 8px;
-      font-size: .76rem;
-      color: var(--muted);
-    }
-
-    .area-tag {
-      font-size: .7rem;
-      color: var(--muted);
-      background: rgba(255,255,255,.04);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 2px 6px;
-      max-width: 88px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
+    .task-id { font-family: "Space Grotesk", sans-serif; font-size: .68rem; letter-spacing: .04em;
+               color: var(--accent); background: rgba(88,166,255,.1); border: 1px solid rgba(88,166,255,.25);
+               border-radius: 4px; padding: 2px 5px; }
+    .area-tag { font-size: .68rem; color: var(--muted); background: rgba(255,255,255,.04);
+                border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px;
+                max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .chevron { color: var(--muted); font-size: 13px; transition: transform .2s; line-height: 1; }
     .task.open .chevron { transform: rotate(90deg); }
-
-    .task-body {
-      display: none;
-      padding: 0 12px 12px 44px;
-      font-size: .84rem;
-      color: #8b949e;
-      line-height: 1.65;
-      border-top: 1px solid var(--border);
-      padding-top: 10px;
-      margin-top: 0;
-    }
+    .task-body { display: none; padding: 10px 12px 12px 44px; font-size: .82rem;
+                 color: rgba(255,255,255,.5); line-height: 1.65;
+                 border-top: 1px solid var(--border); }
     .task.open .task-body { display: block; }
-
-    .blocker-tag {
-      margin-top: 8px;
-      padding: 8px 10px;
-      background: rgba(248,81,73,.1);
-      border: 1px solid rgba(248,81,73,.3);
-      border-radius: 6px;
-      color: #ffa198;
-      font-size: .82rem;
-    }
+    .task-meta { margin-top: 8px; font-size: .74rem; color: var(--muted); }
+    .blocker-tag { margin-top: 8px; padding: 7px 10px;
+                   background: rgba(248,81,73,.08); border: 1px solid rgba(248,81,73,.25);
+                   border-radius: 6px; color: #ffa198; font-size: .8rem; }
 
     /* ── sidebar ──────────────────────────────────────────────── */
     .sidebar { display: grid; gap: 12px; }
 
+    /* activity feed */
+    .activity-list { display: flex; flex-direction: column; gap: 0; }
+    .activity-item {
+      padding: 10px 14px; border-bottom: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-top { display: flex; align-items: center; gap: 8px; }
+    .activity-badge {
+      font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+      padding: 2px 7px; border-radius: 4px; flex-shrink: 0;
+    }
+    .badge-feature  { background: rgba(88,166,255,.15); color: #79c0ff; }
+    .badge-fix      { background: rgba(227,179,65,.15);  color: #e3b341; }
+    .badge-decision { background: rgba(188,140,255,.15); color: #bc8cff; }
+    .badge-deploy   { background: rgba(63,185,80,.15);   color: #3fb950; }
+    .badge-docs     { background: rgba(255,255,255,.08); color: rgba(255,255,255,.5); }
+    .badge-update   { background: rgba(255,255,255,.08); color: rgba(255,255,255,.5); }
+    .activity-date  { font-size: .7rem; color: var(--muted); margin-left: auto; flex-shrink: 0; }
+    .activity-summary { font-size: .78rem; color: rgba(255,255,255,.55); line-height: 1.5; }
+
     /* area bars */
     .area-rows { display: flex; flex-direction: column; gap: 9px; }
-    .area-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
     .area-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-    .area-name { font-size: .78rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .area-frac { font-size: .72rem; color: var(--muted); flex-shrink: 0; }
-    .area-track { background: rgba(255,255,255,.06); border-radius: 3px; height: 5px; overflow: hidden; }
-    .area-fill  { height: 100%; border-radius: 3px; background: var(--ok); transition: width .8s cubic-bezier(.4,0,.2,1); }
+    .area-name { font-size: .76rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .area-frac { font-size: .7rem; color: var(--muted); flex-shrink: 0; }
+    .area-track { background: rgba(255,255,255,.06); border-radius: 3px; height: 4px; overflow: hidden; }
+    .area-fill  { height: 100%; border-radius: 3px; background: var(--ok); transition: width .9s cubic-bezier(.4,0,.2,1); }
 
-    /* vision accordion */
-    .vacc-item { border-bottom: 1px solid var(--border); }
-    .vacc-item:last-child { border-bottom: none; }
-    .vacc-trigger {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 14px;
-      cursor: pointer;
-      font-size: .78rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      color: var(--muted);
-      user-select: none;
-    }
-    .vacc-trigger:hover { color: var(--text); }
-    .vacc-trigger .chevron { font-size: 11px; transition: transform .2s; }
-    .vacc-item.open .vacc-trigger .chevron { transform: rotate(90deg); }
-    .vacc-body { display: none; padding: 0 14px 12px; font-size: .83rem; color: #8b949e; line-height: 1.65; }
-    .vacc-item.open .vacc-body { display: block; }
+    /* quick links */
+    .qlink { display: block; padding: 7px 11px; border: 1px solid var(--border);
+             border-radius: 7px; font-size: .8rem; font-weight: 500; color: var(--muted);
+             background: var(--s2); transition: border-color .15s, color .15s; }
+    .qlink:hover { border-color: var(--accent); color: var(--accent); }
+    .qlink-star { border-color: rgba(188,140,255,.35); color: var(--purple); }
+    .qlink-star:hover { border-color: var(--purple); }
+    .qlink-api { font-family: monospace; font-size: .76rem; }
 
     /* ── misc ─────────────────────────────────────────────────── */
-    .empty-state { text-align: center; padding: 28px; color: var(--muted); font-size: .88rem; }
-    .err-msg { padding: 12px; background: rgba(248,81,73,.1); border: 1px solid rgba(248,81,73,.3); border-radius: 8px; color: #ffa198; font-size: .88rem; }
+    .empty-state { text-align: center; padding: 24px; color: var(--muted); font-size: .85rem; }
+    .err-msg { padding: 12px; background: rgba(248,81,73,.08); border: 1px solid rgba(248,81,73,.25);
+               border-radius: 8px; color: #ffa198; font-size: .86rem; }
+
+    /* ── auto-refresh indicator ───────────────────────────────── */
+    .refresh-badge {
+      font-size: .68rem; color: var(--muted); display: flex; align-items: center; gap: 5px;
+    }
+    .refresh-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ok);
+                   animation: pulse-green 2s ease-in-out infinite; }
 
     /* ── responsive ───────────────────────────────────────────── */
-    @media (max-width: 960px) {
+    @media (max-width: 1000px) {
       .layout { grid-template-columns: 1fr; }
-      .stats  { grid-template-columns: repeat(3, minmax(0,1fr)); }
+      .stats  { grid-template-columns: repeat(3, 1fr); }
       .hero   { flex-direction: column; gap: 18px; padding: 24px; }
+      .metrics-strip { grid-template-columns: repeat(2, 1fr); }
     }
-    @media (max-width: 520px) {
-      .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    @media (max-width: 540px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .metrics-strip { grid-template-columns: repeat(2, 1fr); }
     }
-
-    /* ── quick links ──────────────────────────────────────────── */
-    .qlink {
-      display: block;
-      padding: 7px 11px;
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      font-size: .82rem;
-      font-weight: 500;
-      color: var(--muted);
-      background: var(--s2);
-      transition: border-color .15s, color .15s;
-    }
-    .qlink:hover { border-color: var(--accent); color: var(--accent); }
-    .qlink-v2 { border-color: rgba(188,140,255,.35); color: var(--purple); }
-    .qlink-v2:hover { border-color: var(--purple); }
-    .qlink-api { font-family: monospace; font-size: .78rem; }
   </style>
 </head>
 <body>
+
+<div class="bg-orbs">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+</div>
+
 <div class="wrap">
 
   <!-- nav -->
   <nav class="nav">
-    <a href="/">← Main Tracker</a>
-    <a href="/wizard">Trip Wizard</a>
+    <span class="nav-title">RTS</span>
+    <a href="/">← Main</a>
     <a href="/chat">Chat Assistant</a>
+    <a href="/wizard">Trip Wizard</a>
+    <div class="nav-spacer"></div>
+    <div class="refresh-badge"><div class="refresh-dot"></div> <span id="lastRefresh">Live</span></div>
+    <a href="/dashboard/logout" class="nav-logout" style="margin-left:10px;">Logout</a>
   </nav>
+
+  <!-- live metrics strip -->
+  <div class="metrics-strip">
+    <div class="metric-card m-blue">
+      <div class="metric-icon">📡</div>
+      <div class="metric-body">
+        <div class="metric-value" id="mQueriesToday">–</div>
+        <div class="metric-label">Queries Today</div>
+      </div>
+    </div>
+    <div class="metric-card m-green">
+      <div class="metric-icon">✅</div>
+      <div class="metric-body">
+        <div class="metric-value" id="mSuccessRate">–</div>
+        <div class="metric-label">Success Rate</div>
+      </div>
+    </div>
+    <div class="metric-card m-purple">
+      <div class="metric-icon">💬</div>
+      <div class="metric-body">
+        <div class="metric-value" id="mActiveSessions">–</div>
+        <div class="metric-label">Active Sessions</div>
+      </div>
+    </div>
+    <div class="metric-card m-gold">
+      <div class="metric-icon">⚡</div>
+      <div class="metric-body">
+        <div class="metric-value" id="mAvgResponse">–</div>
+        <div class="metric-label">Avg Response</div>
+      </div>
+    </div>
+  </div>
 
   <!-- hero -->
   <section class="hero">
     <div class="ring-wrap">
-      <svg width="104" height="104" viewBox="0 0 104 104">
-        <circle class="ring-track" cx="52" cy="52" r="44"/>
-        <circle class="ring-fill" id="ringFill" cx="52" cy="52" r="44"
-          stroke-dasharray="276.5" stroke-dashoffset="276.5"/>
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <circle class="ring-track" cx="50" cy="50" r="42"/>
+        <circle class="ring-fill" id="ringFill" cx="50" cy="50" r="42"
+          stroke-dasharray="263.9" stroke-dashoffset="263.9"/>
       </svg>
       <div class="ring-label">
         <div class="ring-pct" id="ringPct">0%</div>
-        <div class="ring-sub">complete</div>
+        <div class="ring-sub">done</div>
       </div>
     </div>
     <div class="hero-text">
       <h1 id="heroTitle">RTS Project Dashboard</h1>
-      <p class="hero-goal" id="heroGoal">Loading project summary…</p>
+      <p class="hero-goal" id="heroGoal">Loading…</p>
       <div class="hero-meta" id="heroMeta"></div>
+      <div class="health-row" id="healthRow">
+        <div class="health-dot"><div class="dot grey"></div>Claude API</div>
+        <div class="health-dot"><div class="dot grey"></div>BusTime API</div>
+        <div class="health-dot"><div class="dot grey"></div>GTFS DB</div>
+        <div class="health-dot"><div class="dot grey"></div>Sessions</div>
+      </div>
     </div>
   </section>
 
-  <!-- stats -->
+  <!-- stat cards -->
   <div class="stats">
-    <div class="stat s-all lit"  data-f="all">   <div class="stat-label">Total</div>    <div class="stat-value" id="cAll">–</div></div>
-    <div class="stat s-done"     data-f="completed"><div class="stat-label">Done</div>   <div class="stat-value" id="cDone">–</div></div>
-    <div class="stat s-next"     data-f="next">  <div class="stat-label">Next</div>     <div class="stat-value" id="cNext">–</div></div>
-    <div class="stat s-pend"     data-f="pending"><div class="stat-label">Pending</div> <div class="stat-value" id="cPend">–</div></div>
-    <div class="stat s-back"     data-f="backlog"><div class="stat-label">Backlog</div> <div class="stat-value" id="cBack">–</div></div>
-    <div class="stat s-block"    data-f="blocked"><div class="stat-label">Blocked</div> <div class="stat-value" id="cBlock">–</div></div>
+    <div class="stat s-all lit" data-f="all">   <div class="stat-label">Total</div>   <div class="stat-value" id="cAll">–</div></div>
+    <div class="stat s-done"    data-f="completed"><div class="stat-label">Done</div>  <div class="stat-value" id="cDone">–</div></div>
+    <div class="stat s-next"    data-f="next">  <div class="stat-label">Next</div>   <div class="stat-value" id="cNext">–</div></div>
+    <div class="stat s-pend"    data-f="pending"><div class="stat-label">Pending</div><div class="stat-value" id="cPend">–</div></div>
+    <div class="stat s-back"    data-f="backlog"><div class="stat-label">Backlog</div><div class="stat-value" id="cBack">–</div></div>
+    <div class="stat s-block"   data-f="blocked"><div class="stat-label">Blocked</div><div class="stat-value" id="cBlock">–</div></div>
   </div>
 
   <!-- main layout -->
@@ -430,16 +445,13 @@
         <small id="panelCount"></small>
       </div>
       <div class="panel-body">
-        <!-- search -->
         <div class="search-wrap">
           <svg class="search-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
-            <circle cx="6.5" cy="6.5" r="4.5"/>
-            <path d="M10.5 10.5L14 14" stroke-linecap="round"/>
+            <circle cx="6.5" cy="6.5" r="4.5"/><path d="M10.5 10.5L14 14" stroke-linecap="round"/>
           </svg>
-          <input id="searchInput" type="search" placeholder="Search tasks… ( / )" autocomplete="off" />
+          <input id="searchInput" type="search" placeholder="Search tasks… ( / )" autocomplete="off"/>
           <span class="search-key">/</span>
         </div>
-        <!-- filter pills -->
         <div class="filters">
           <button class="fbtn active" data-f="all">All</button>
           <button class="fbtn" data-f="completed">✓ Done</button>
@@ -448,7 +460,6 @@
           <button class="fbtn" data-f="backlog">≡ Backlog</button>
           <button class="fbtn" data-f="blocked">✕ Blocked</button>
         </div>
-        <!-- tasks -->
         <div id="taskList" class="task-list">
           <div class="empty-state">Loading tasks…</div>
         </div>
@@ -458,7 +469,15 @@
     <!-- sidebar -->
     <div class="sidebar">
 
-      <!-- area breakdown -->
+      <!-- recent activity -->
+      <div class="panel">
+        <div class="panel-head"><h2>Recent Activity</h2><small>from project log</small></div>
+        <div id="activityFeed" class="activity-list">
+          <div class="empty-state">Loading…</div>
+        </div>
+      </div>
+
+      <!-- by area -->
       <div class="panel">
         <div class="panel-head"><h2>By Area</h2></div>
         <div class="panel-body">
@@ -466,123 +485,110 @@
         </div>
       </div>
 
-      <!-- vision accordion -->
-      <div class="panel">
-        <div class="panel-head"><h2>Project Vision</h2></div>
-        <div id="visionAcc"></div>
-      </div>
-
       <!-- quick links -->
       <div class="panel">
         <div class="panel-head"><h2>Quick Links</h2></div>
         <div class="panel-body" style="display:flex;flex-direction:column;gap:6px;">
-          <a class="qlink" href="/" target="_blank">← Main Tracker</a>
-          <a class="qlink" href="/chat?agent=v1" target="_blank">Chat Assistant (v1 legacy)</a>
-          <a class="qlink" href="/chat?agent=v2" target="_blank">Chat Assistant (v2 GPT old prompt)</a>
-          <a class="qlink qlink-v2" href="/chat" target="_blank">Chat Assistant (v3 Claude) ✦</a>
-          <a class="qlink" href="/chat?agent=v4" target="_blank">Chat Assistant (v4 GPT clean prompt)</a>
+          <a class="qlink qlink-star" href="/chat" target="_blank">Chat Assistant (v3 Claude) ✦</a>
+          <a class="qlink" href="/chat?agent=v4" target="_blank">Chat Assistant (v4 GPT)</a>
           <a class="qlink" href="/wizard" target="_blank">Trip Wizard</a>
           <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
           <a class="qlink qlink-api" href="/api/health" target="_blank">/api/health</a>
-          <a class="qlink qlink-api" href="#" onclick="return false;" title="POST only">/api/agent/v2</a>
-          <a class="qlink qlink-api" href="#" onclick="return false;" title="POST only">/api/agent/v4</a>
+          <a class="qlink qlink-api" href="/api/dashboard/metrics" target="_blank">/api/dashboard/metrics</a>
         </div>
       </div>
 
-    </div><!-- /sidebar -->
-  </div><!-- /layout -->
-</div><!-- /wrap -->
+    </div>
+  </div>
+</div>
 
 <script>
-  const ORDER = { blocked: 0, next: 1, pending: 2, backlog: 3, completed: 4 };
+  const ORDER  = { blocked:0, next:1, pending:2, backlog:3, completed:4 };
   const VALID  = Object.keys(ORDER);
-  const ICONS  = { completed: "✓", pending: "●", blocked: "✕", next: "→", backlog: "≡" };
+  const ICONS  = { completed:"✓", pending:"●", blocked:"✕", next:"→", backlog:"≡" };
+  const BADGE  = { feature:"badge-feature", fix:"badge-fix", decision:"badge-decision",
+                   deploy:"badge-deploy", docs:"badge-docs" };
 
   const $ = id => document.getElementById(id);
-  const state = { tasks: [], filter: "all", q: "" };
+  const state = { tasks:[], filter:"all", q:"" };
 
   function esc(v) {
-    return String(v ?? "")
-      .replace(/&/g,"&amp;").replace(/</g,"&lt;")
-      .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    return String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+  function norm(s) { return VALID.includes(s) ? s : "pending"; }
+  function isCode(q){ return /^rts-\d{4}$/i.test((q||"").trim()); }
+
+  // ── animated counter ────────────────────────────────────────
+  function animateCount(el, target, suffix="") {
+    const start = 0, dur = 700;
+    const t0 = performance.now();
+    function step(now) {
+      const p = Math.min((now - t0) / dur, 1);
+      const eased = p < .5 ? 2*p*p : -1+(4-2*p)*p;
+      el.textContent = Math.round(eased * target) + suffix;
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
   }
 
-  function norm(s) { return VALID.includes(s) ? s : "pending"; }
-  function isTaskCodeQuery(q) { return /^rts-\d{4}$/i.test((q || "").trim()); }
-
-  // ── counts ──────────────────────────────────────────────────
+  // ── counts ───────────────────────────────────────────────────
   function getCounts(tasks) {
-    const c = { all: tasks.length, completed: 0, next: 0, pending: 0, backlog: 0, blocked: 0 };
-    for (const t of tasks) {
-      const s = norm(t.status);
-      if (s in c) c[s]++;
-    }
+    const c = { all:tasks.length, completed:0, next:0, pending:0, backlog:0, blocked:0 };
+    for (const t of tasks) { const s=norm(t.status); if(s in c) c[s]++; }
     return c;
   }
 
-  // ── ring + stats ─────────────────────────────────────────────
+  // ── render stats ─────────────────────────────────────────────
   function renderStats(tasks) {
     const c = getCounts(tasks);
-    $("cAll").textContent   = c.all;
-    $("cDone").textContent  = c.completed;
-    $("cNext").textContent  = c.next;
-    $("cPend").textContent  = c.pending;
-    $("cBack").textContent  = c.backlog;
-    $("cBlock").textContent = c.blocked;
-
+    animateCount($("cAll"),   c.all);
+    animateCount($("cDone"),  c.completed);
+    animateCount($("cNext"),  c.next);
+    animateCount($("cPend"),  c.pending);
+    animateCount($("cBack"),  c.backlog);
+    animateCount($("cBlock"), c.blocked);
     const pct = c.all ? Math.round((c.completed / c.all) * 100) : 0;
     $("ringPct").textContent = pct + "%";
-
-    const C = 2 * Math.PI * 44; // r=44 → 276.46
+    const C = 2 * Math.PI * 42;
     $("ringFill").style.strokeDasharray  = C;
     $("ringFill").style.strokeDashoffset = C * (1 - c.completed / (c.all || 1));
   }
 
   // ── filter helpers ───────────────────────────────────────────
   function getVisible() {
-    return state.tasks
-      .filter(t => {
-        const s = norm(t.status);
-        if (state.filter !== "all" && s !== state.filter) return false;
-        if (state.q) {
-          const q = state.q.toLowerCase();
-          return (t.title   || "").toLowerCase().includes(q)
-              || (t.area    || "").toLowerCase().includes(q)
-              || (t.details || "").toLowerCase().includes(q)
-              || (t.id || "").toLowerCase().includes(q)
-              || (t.task_code || "").toLowerCase().includes(q);
-        }
-        return true;
-      })
-      .sort((a, b) => ORDER[norm(a.status)] - ORDER[norm(b.status)]);
+    return state.tasks.filter(t => {
+      const s = norm(t.status);
+      if (state.filter !== "all" && s !== state.filter) return false;
+      if (state.q) {
+        const q = state.q.toLowerCase();
+        return (t.title||"").toLowerCase().includes(q)
+            || (t.area||"").toLowerCase().includes(q)
+            || (t.details||"").toLowerCase().includes(q)
+            || (t.id||"").toLowerCase().includes(q)
+            || (t.task_code||"").toLowerCase().includes(q);
+      }
+      return true;
+    }).sort((a,b) => ORDER[norm(a.status)] - ORDER[norm(b.status)]);
   }
 
   // ── render tasks ─────────────────────────────────────────────
   function renderTasks() {
     const list = $("taskList");
     const visible = getVisible();
-
     $("panelCount").textContent = visible.length + " task" + (visible.length !== 1 ? "s" : "");
-
-    if (!visible.length) {
-      list.innerHTML = '<div class="empty-state">No tasks match.</div>';
-      return;
-    }
-
+    if (!visible.length) { list.innerHTML = '<div class="empty-state">No tasks match.</div>'; return; }
     list.innerHTML = visible.map((task, i) => {
-      const status = norm(task.status);
-      const icon   = ICONS[status] || "●";
+      const status  = norm(task.status);
+      const icon    = ICONS[status] || "●";
       const blocker = task.blocker
-        ? `<div class="blocker-tag"><strong>Blocker:</strong> ${esc(task.blocker)}</div>`
-        : "";
-      const meta = `<div class="task-meta"><strong>Ref:</strong> ${esc(task.task_code || "n/a")} | <strong>Slug:</strong> ${esc(task.id || "n/a")}</div>`;
+        ? `<div class="blocker-tag"><strong>Blocker:</strong> ${esc(task.blocker)}</div>` : "";
+      const meta = `<div class="task-meta"><strong>Ref:</strong> ${esc(task.task_code||"n/a")} | <strong>Slug:</strong> ${esc(task.id||"n/a")}</div>`;
       const body = (task.details ? esc(task.details) : "<em>No details.</em>") + meta + blocker;
-
       return `
         <div class="task" data-i="${i}">
           <div class="task-head">
             <div class="ticon ${status}">${icon}</div>
-            <span class="task-id">${esc(task.task_code || "NO-CODE")}</span>
+            <span class="task-id">${esc(task.task_code||"NO-CODE")}</span>
             <div class="t-title">${esc(task.title)}</div>
             <div class="t-right">
               <span class="area-tag" title="${esc(task.area||'General')}">${esc(task.area||"General")}</span>
@@ -592,26 +598,20 @@
           <div class="task-body">${body}</div>
         </div>`;
     }).join("");
-
-    for (const card of list.querySelectorAll(".task")) {
+    for (const card of list.querySelectorAll(".task"))
       card.querySelector(".task-head").addEventListener("click", () => card.classList.toggle("open"));
-    }
-
-    autoOpenTaskCodeHit(list, visible);
+    autoOpenHit(list, visible);
   }
 
-  function autoOpenTaskCodeHit(listEl, visibleTasks) {
-    const q = (state.q || "").trim().toUpperCase();
-    if (!isTaskCodeQuery(q)) return;
-
-    const idx = visibleTasks.findIndex(t => String(t.task_code || "").toUpperCase() === q);
+  function autoOpenHit(listEl, vis) {
+    const q = (state.q||"").trim().toUpperCase();
+    if (!isCode(q)) return;
+    const idx = vis.findIndex(t => String(t.task_code||"").toUpperCase() === q);
     if (idx < 0) return;
-
     const card = listEl.querySelector(`.task[data-i="${idx}"]`);
     if (!card) return;
-
-    card.classList.add("open", "jump-hit");
-    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    card.classList.add("open","jump-hit");
+    card.scrollIntoView({ behavior:"smooth", block:"center" });
     setTimeout(() => card.classList.remove("jump-hit"), 1400);
   }
 
@@ -621,105 +621,127 @@
     const map = {};
     for (const t of tasks) {
       const a = t.area || "General";
-      if (!map[a]) map[a] = { total: 0, done: 0 };
+      if (!map[a]) map[a] = { total:0, done:0 };
       map[a].total++;
       if (norm(t.status) === "completed") map[a].done++;
     }
-    const rows = Object.entries(map).sort((a, b) => b[1].total - a[1].total);
+    const rows = Object.entries(map).sort((a,b) => b[1].total - a[1].total);
     if (!rows.length) { el.innerHTML = '<div class="empty-state">No data.</div>'; return; }
     el.innerHTML = rows.map(([area, d]) => {
       const pct = Math.round((d.done / d.total) * 100);
+      return `<div>
+        <div class="area-top">
+          <span class="area-name" title="${esc(area)}">${esc(area)}</span>
+          <span class="area-frac">${d.done}/${d.total}</span>
+        </div>
+        <div class="area-track"><div class="area-fill" style="width:0%" data-pct="${pct}"></div></div>
+      </div>`;
+    }).join("");
+    // Animate bars after paint
+    setTimeout(() => {
+      for (const bar of el.querySelectorAll(".area-fill"))
+        bar.style.width = bar.dataset.pct + "%";
+    }, 80);
+  }
+
+  // ── activity feed ────────────────────────────────────────────
+  function renderActivity(entries) {
+    const el = $("activityFeed");
+    if (!entries || !entries.length) {
+      el.innerHTML = '<div class="empty-state">No log entries.</div>'; return;
+    }
+    el.innerHTML = entries.map(e => {
+      const bclass = BADGE[e.type] || "badge-update";
       return `
-        <div>
-          <div class="area-top">
-            <span class="area-name" title="${esc(area)}">${esc(area)}</span>
-            <span class="area-frac">${d.done}/${d.total}</span>
+        <div class="activity-item">
+          <div class="activity-top">
+            <span class="activity-badge ${bclass}">${esc(e.type)}</span>
+            <span class="activity-date">${esc(e.date)}</span>
           </div>
-          <div class="area-track"><div class="area-fill" style="width:${pct}%"></div></div>
+          <div class="activity-summary">${esc(e.summary)}</div>
         </div>`;
     }).join("");
   }
 
-  // ── vision accordion ─────────────────────────────────────────
-  function renderVision(vision) {
-    const el = $("visionAcc");
-    const fields = [
-      { label: "Goal",              key: "statement"      },
-      { label: "Customer Journey",  key: "cx_journey"     },
-      { label: "Wizard Strategy",   key: "wizard_strategy"},
-      { label: "End State",         key: "end_state"      },
+  // ── health dots ──────────────────────────────────────────────
+  function renderHealth(health) {
+    const row = $("healthRow");
+    const labels = [
+      ["claude_api",   "Claude API"],
+      ["bustime_api",  "BusTime API"],
+      ["gtfs_db",      "GTFS DB"],
+      ["session_store","Sessions"],
     ];
-    const items = fields.filter(f => vision[f.key]);
-    if (!items.length) { el.innerHTML = '<div class="empty-state">No vision data.</div>'; return; }
-    el.innerHTML = items.map(f => `
-      <div class="vacc-item">
-        <div class="vacc-trigger">${esc(f.label)}<span class="chevron">›</span></div>
-        <div class="vacc-body">${esc(vision[f.key])}</div>
-      </div>`).join("");
-
-    for (const item of el.querySelectorAll(".vacc-item")) {
-      item.querySelector(".vacc-trigger").addEventListener("click", () => item.classList.toggle("open"));
-    }
-    const first = el.querySelector(".vacc-item");
-    if (first) first.classList.add("open");
+    row.innerHTML = labels.map(([key, label]) => {
+      const ok = health?.[key];
+      const cls = ok === true ? "green" : ok === false ? "red" : "grey";
+      return `<div class="health-dot"><div class="dot ${cls}"></div>${esc(label)}</div>`;
+    }).join("");
   }
 
-  // ── filter control ────────────────────────────────────────────
-  function setFilter(f) {
-    state.filter = f;
-    // stat cards
-    for (const s of document.querySelectorAll(".stat")) s.classList.toggle("lit", s.dataset.f === f);
-    // filter buttons
-    for (const b of document.querySelectorAll(".fbtn")) b.classList.toggle("active", b.dataset.f === f);
-    // panel title
-    const LABELS = { all:"All Tasks", completed:"Completed", next:"Next Up", pending:"Pending", backlog:"Backlog", blocked:"Blocked" };
-    $("panelTitle").textContent = LABELS[f] || "Tasks";
-    renderTasks();
-  }
-
-  // ── load ──────────────────────────────────────────────────────
-  async function load() {
+  // ── load metrics ─────────────────────────────────────────────
+  async function loadMetrics() {
     try {
-      const res = await fetch("/api/project/tasks", { headers: { Accept: "application/json" } });
+      const res = await fetch("/api/dashboard/metrics");
+      if (!res.ok) return;
+      const m = await res.json();
+      animateCount($("mQueriesToday"),   m.queries_today || 0);
+      $("mSuccessRate").textContent      = (m.success_rate || 0) + "%";
+      animateCount($("mActiveSessions"), m.active_sessions || 0);
+      $("mAvgResponse").textContent      = m.avg_response_ms ? (m.avg_response_ms / 1000).toFixed(1) + "s" : "–";
+      renderHealth(m.health || {});
+      renderActivity(m.recent_log || []);
+      const now = new Date();
+      $("lastRefresh").textContent = "Updated " + now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+    } catch {}
+  }
+
+  // ── load tasks ───────────────────────────────────────────────
+  async function loadTasks() {
+    try {
+      const res = await fetch("/api/project/tasks", { headers: { Accept:"application/json" } });
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
       state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
-
-      const vision = data.vision || {};
       $("heroTitle").textContent = data.project || "RTS Project Dashboard";
-      $("heroGoal").textContent  = vision.statement || data.summary?.goal || "";
-      $("heroMeta").textContent  = "Updated: " + (data.updated_at || "unknown");
-
+      $("heroGoal").textContent  = data.vision?.statement || data.summary?.goal || "";
+      $("heroMeta").textContent  = "Last updated: " + (data.updated_at || "unknown");
       renderStats(state.tasks);
       renderTasks();
       renderAreas(state.tasks);
-      renderVision(vision);
     } catch (err) {
       $("taskList").innerHTML = `<div class="err-msg">Failed to load: ${esc(err.message)}</div>`;
     }
   }
 
-  // ── bindings ──────────────────────────────────────────────────
-  for (const el of document.querySelectorAll(".stat[data-f], .fbtn[data-f]")) {
-    el.addEventListener("click", () => setFilter(el.dataset.f));
+  // ── filter control ───────────────────────────────────────────
+  function setFilter(f) {
+    state.filter = f;
+    for (const s of document.querySelectorAll(".stat")) s.classList.toggle("lit", s.dataset.f === f);
+    for (const b of document.querySelectorAll(".fbtn")) b.classList.toggle("active", b.dataset.f === f);
+    const LABELS = { all:"All Tasks", completed:"Completed", next:"Next Up", pending:"Pending", backlog:"Backlog", blocked:"Blocked" };
+    $("panelTitle").textContent = LABELS[f] || "Tasks";
+    renderTasks();
   }
 
-  const searchInput = $("searchInput");
-  searchInput.addEventListener("input", () => { state.q = searchInput.value.trim(); renderTasks(); });
+  // ── bindings ─────────────────────────────────────────────────
+  for (const el of document.querySelectorAll(".stat[data-f], .fbtn[data-f]"))
+    el.addEventListener("click", () => setFilter(el.dataset.f));
 
+  const si = $("searchInput");
+  si.addEventListener("input", () => { state.q = si.value.trim(); renderTasks(); });
   document.addEventListener("keydown", e => {
-    if (e.key === "/" && document.activeElement !== searchInput) {
-      e.preventDefault(); searchInput.focus();
-    }
-    if (e.key === "Escape") {
-      searchInput.value = ""; state.q = ""; renderTasks(); searchInput.blur();
-    }
+    if (e.key === "/" && document.activeElement !== si) { e.preventDefault(); si.focus(); }
+    if (e.key === "Escape") { si.value = ""; state.q = ""; renderTasks(); si.blur(); }
   });
 
-  // refresh on tab return
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { loadTasks(); loadMetrics(); } });
 
-  load();
+  // ── init ─────────────────────────────────────────────────────
+  loadTasks();
+  loadMetrics();
+  // Auto-refresh metrics every 30s
+  setInterval(loadMetrics, 30_000);
 </script>
 </body>
 </html>

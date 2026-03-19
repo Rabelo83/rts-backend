@@ -1,0 +1,47 @@
+name: Weekly Analytics Backup
+
+on:
+  schedule:
+    # Every Sunday at 2:00 AM UTC
+    - cron: "0 2 * * 0"
+  workflow_dispatch:
+    # Allow manual trigger from GitHub Actions tab
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Export analytics from Render
+        env:
+          BACKEND_URL: ${{ secrets.RENDER_BACKEND_URL }}
+          DASHBOARD_PIN: ${{ secrets.DASHBOARD_PIN }}
+        run: |
+          mkdir -p backups/analytics
+          DATE=$(date +%Y-%m-%d)
+          curl -sf \
+            -H "X-Dashboard-Pin: ${DASHBOARD_PIN}" \
+            "${BACKEND_URL}/api/admin/analytics/export" \
+            -o "backups/analytics/analytics_${DATE}.json"
+          echo "Exported analytics for ${DATE}"
+          # Print row count
+          python3 -c "
+          import json, sys
+          with open('backups/analytics/analytics_${DATE}.json') as f:
+              d = json.load(f)
+          print(f'Rows exported: {d.get(\"count\", 0)}')
+          "
+
+      - name: Commit backup
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          DATE=$(date +%Y-%m-%d)
+          git add backups/analytics/
+          git diff --cached --quiet || git commit -m "chore: analytics backup ${DATE} [skip ci]"
+          git push
