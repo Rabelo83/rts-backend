@@ -379,5 +379,74 @@
     "expected_behavior": "Calls get_route_overview for route 1 on the upcoming Saturday date. Returns first/last times and frequency. Must explicitly say 'Saturday' and NOT use weekday data.",
     "pass_signals": ["Saturday", "route 1", "Route 1", "AM", "PM", "first", "last"],
     "fail_signals": ["I don't know", "cannot", "weekday", "Monday"]
+  },
+  {
+    "id": "S16",
+    "type": "single",
+    "category": "route_stop_mismatch",
+    "description": "Route + stop combination that doesn't exist in GTFS — must not hallucinate",
+    "query": "When does route 15 leave stop 221?",
+    "expected_behavior": "Calls get_schedule with route_id=15 and stop_id=221. GTFS has no trips for Route 15 at stop 221 — tool returns route_not_at_stop status. Agent must say Route 15 does not serve stop 221 (or similar). Must NOT invent departure times for this combination. Must NOT say 'no service today' as if service exists on other days — the route simply never stops there.",
+    "pass_signals": ["does not serve", "doesn't serve", "not stop", "stop 221", "Route 15", "route 15"],
+    "fail_signals": ["6:00 AM", "6:15 AM", "7:00 AM", "PM", "departs at", "leaves at"]
+  },
+  {
+    "id": "S17",
+    "type": "single",
+    "category": "stop_only_query",
+    "description": "Stop ID alone with no question — must immediately show predictions",
+    "query": "Stop 1492",
+    "expected_behavior": "User typed only a stop ID with no explicit question. Agent must immediately call get_realtime_predictions for stop 1492 and return upcoming arrivals. Must NOT ask a clarifying question like 'What would you like to know about stop 1492?' or 'Are you asking about arrivals?'",
+    "pass_signals": ["1492", "route", "Route", "min", "AM", "PM", "arriving", "bus"],
+    "fail_signals": ["What would you like", "Are you asking", "what information", "can you clarify", "please specify"]
+  },
+  {
+    "id": "S18",
+    "type": "single",
+    "category": "reduced_service_accuracy",
+    "description": "Reduced service claim must be based on tool data, not assumed for all routes",
+    "query": "Will route 15 be affected by reduced service tomorrow?",
+    "expected_behavior": "Agent must call get_route_overview or get_schedule for route 15 on tomorrow's date to check actual service. If the tool shows route 15 runs the same schedule on reduced service days as regular weekdays, agent must say it runs normally — NOT say 'reduced service means fewer trips for route 15' without tool evidence. Fabricating 'fewer trips' for a route that is unaffected is a FAIL.",
+    "pass_signals": ["route 15", "Route 15", "reduced", "service", "schedule", "normal", "same"],
+    "fail_signals": ["fewer trips", "less frequent", "reduced frequency", "will be affected", "expect longer waits"]
+  },
+  {
+    "id": "S19",
+    "type": "single",
+    "category": "route_stops_list",
+    "description": "List ordered stops for a route by direction",
+    "query": "What stops does route 1 make going toward Butler Plaza?",
+    "expected_behavior": "Calls get_route_stops for route 1 with direction toward Butler Plaza. Returns an ordered numbered list of stops including stop names and stop IDs in parentheses. Must show multiple stops (not just 1 or 2). Stop IDs should appear without leading zeros.",
+    "pass_signals": ["1.", "2.", "3.", "Route 1", "route 1", "Butler", "stop", "Stop"],
+    "fail_signals": ["I don't know", "cannot", "no stops", "I'm unable"]
+  },
+  {
+    "id": "S20",
+    "type": "single",
+    "category": "service_type_query",
+    "description": "Service type question answered directly from injected context — no tool needed",
+    "query": "Is RTS running reduced service this week?",
+    "expected_behavior": "Agent has the 7-day service schedule injected in its context. It must answer directly from that context without calling any tool. Response should name which days are reduced service vs regular service for the current week. tool_calls_made should be 0.",
+    "pass_signals": ["reduced", "Reduced", "weekday", "Saturday", "Sunday", "service", "today", "tomorrow"],
+    "fail_signals": ["I don't know", "I cannot", "I'm unable", "check the website"]
+  },
+  {
+    "id": "M06",
+    "type": "multi",
+    "category": "route_context_disambiguation",
+    "description": "Multi-turn: route known from Turn 1, place-name follow-up should use that route",
+    "turns": [
+      "When does route 1 leave Rosa Parks today?",
+      "What about from Butler Plaza?"
+    ],
+    "expected_behavior": "Turn 1 establishes route 1 context and returns schedule from Rosa Parks. Turn 2 is a location switch — agent must use the known route_id=1 from context and call get_schedule for route 1 from Butler Plaza directly. Must NOT call search_stops and present a generic disambiguation list unrelated to route 1. Response must show route 1 departures from Butler Plaza.",
+    "pass_signals_per_turn": [
+      ["Route 1", "route 1", "Rosa Parks", "AM", "PM"],
+      ["Route 1", "route 1", "Butler Plaza", "AM", "PM"]
+    ],
+    "fail_signals_per_turn": [
+      ["I don't know", "cannot"],
+      ["which stop", "multiple stops", "I don't know"]
+    ]
   }
 ]
