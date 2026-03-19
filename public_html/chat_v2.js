@@ -452,6 +452,11 @@ function addRatingButtons(botBubble, msgIdx, userMessage, botAnswer) {
   const row = document.createElement('div');
   row.className = 'rating-row';
 
+  const label = document.createElement('span');
+  label.className = 'rating-label';
+  label.textContent = 'Useful?';
+  row.appendChild(label);
+
   [1, -1].forEach(rating => {
     const btn = document.createElement('button');
     btn.className = 'rating-btn';

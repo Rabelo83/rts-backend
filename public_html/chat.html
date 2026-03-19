@@ -341,10 +341,17 @@
     /* ── Rating buttons ──────────────────────────────────────── */
     .rating-row {
       display: flex;
-      gap: 4px;
+      align-items: center;
+      gap: 6px;
       margin-top: 8px;
       padding-top: 6px;
       border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .rating-label {
+      font-size: 0.72rem;
+      opacity: 0.45;
+      letter-spacing: 0.02em;
+      user-select: none;
     }
     .rating-btn {
       background: none;
@@ -637,6 +644,6 @@
     </div>
   </main>
 
-  <script src="/static/chat_v2.js?v=7" defer></script>
+  <script src="/static/chat_v2.js?v=8" defer></script>
 </body>
 </html>
