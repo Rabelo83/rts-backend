@@ -447,6 +447,39 @@ function validateStopId(text) {
   return { valid: true, normalized, message: null };
 }
 
+// ====== USER RATINGS ======
+function addRatingButtons(botBubble, msgIdx, userMessage, botAnswer) {
+  const row = document.createElement('div');
+  row.className = 'rating-row';
+
+  [1, -1].forEach(rating => {
+    const btn = document.createElement('button');
+    btn.className = 'rating-btn';
+    btn.title = rating === 1 ? 'Helpful' : 'Not helpful';
+    btn.textContent = rating === 1 ? '\uD83D\uDC4D' : '\uD83D\uDC4E';
+    btn.addEventListener('click', () => {
+      if (row.dataset.rated) return;
+      row.dataset.rated = '1';
+      row.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: AppState.sessionId,
+          message_index: msgIdx,
+          rating,
+          user_message: (userMessage || '').slice(0, 200),
+          answer_preview: (botAnswer || '').slice(0, 200),
+        }),
+      }).catch(() => {});
+    });
+    row.appendChild(btn);
+  });
+
+  botBubble.appendChild(row);
+}
+
 // ====== ANALYTICS ======
 function trackEvent(eventName, data = {}) {
   try {
@@ -1356,6 +1389,11 @@ async function sendAgentMessage(message) {
     saveState();
     scheduleInactivityTimeout();
     trackEvent('agent_message_sent', { intent: AppState.intent });
+
+    // Rating buttons — only for real agent responses, not greetings or session messages
+    if (finalData && !isGreetingMessage(finalAnswer) && !isSessionMessage(finalAnswer)) {
+      addRatingButtons(botBubble, AppState.chatHistory.length - 1, message, finalAnswer);
+    }
 
   } catch (error) {
     if (!tokenReceived) {

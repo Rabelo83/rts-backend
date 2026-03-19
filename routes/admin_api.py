@@ -56,6 +56,41 @@ def _analytics_conn():
     return conn
 
 
+def _ensure_feedback_table(conn) -> bool:
+    """Create feedback table if it doesn't exist. Returns True on success."""
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS feedback (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts_utc        TEXT,
+                session_id    TEXT,
+                message_index INTEGER,
+                rating        INTEGER,
+                user_message  TEXT,
+                answer_preview TEXT
+            )
+        """)
+        conn.commit()
+        return True
+    except Exception:
+        return False
+
+
+def _get_satisfaction(conn, week_start: str) -> float | None:
+    """Return 7-day satisfaction % from feedback table, or None if no data."""
+    try:
+        row = conn.execute("""
+            SELECT COUNT(*) AS total,
+                   SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) AS positive
+            FROM feedback WHERE ts_utc >= ?
+        """, (week_start,)).fetchone()
+        if row and row["total"] > 0:
+            return round(float(row["positive"]) / row["total"] * 100, 1)
+    except Exception:
+        pass
+    return None
+
+
 def _parse_recent_log(n: int = 5) -> list:
     """Parse last n entries from PROJECT_LOG.md."""
     if not _LOG_PATH.exists():
@@ -85,6 +120,7 @@ def dashboard_metrics():
     queries_week = 0
     success_rate = 0.0
     avg_response_ms = 0
+    satisfaction_pct = None
 
     conn = _analytics_conn()
     if conn:
@@ -108,6 +144,9 @@ def dashboard_metrics():
                 queries_week = int(row["total_week"] or 0)
                 success_rate = round(float(row["success_pct"] or 0), 1)
                 avg_response_ms = int(row["avg_ms"] or 0)
+
+            _ensure_feedback_table(conn)
+            satisfaction_pct = _get_satisfaction(conn, week_start)
         except Exception:
             pass
         finally:
@@ -142,6 +181,7 @@ def dashboard_metrics():
         "queries_week": queries_week,
         "success_rate": success_rate,
         "avg_response_ms": avg_response_ms,
+        "satisfaction_pct": satisfaction_pct,
         "active_sessions": sess.get("active_sessions", 0),
         "health": {
             "claude_api": claude_ok,
@@ -177,5 +217,39 @@ def export_analytics():
             "count": len(rows),
             "rows": [dict(r) for r in rows],
         })
+    finally:
+        conn.close()
+
+
+@admin_bp.route("/api/feedback", methods=["POST"])
+def submit_feedback():
+    """Store a thumbs-up/down rating for a bot response."""
+    data = request.get_json(silent=True) or {}
+    rating = data.get("rating")
+    if rating not in (1, -1):
+        return jsonify({"error": "rating must be 1 or -1"}), 400
+
+    session_id    = str(data.get("session_id") or "")[:64]
+    message_index = int(data.get("message_index") or 0)
+    user_message  = str(data.get("user_message") or "")[:200]
+    answer_preview = str(data.get("answer_preview") or "")[:200]
+
+    conn = _analytics_conn()
+    if not conn:
+        return jsonify({"status": "ok"})   # no DB yet — fail silently
+    try:
+        _ensure_feedback_table(conn)
+        conn.execute("""
+            INSERT INTO feedback
+                (ts_utc, session_id, message_index, rating, user_message, answer_preview)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            datetime.now(timezone.utc).isoformat(),
+            session_id, message_index, rating, user_message, answer_preview,
+        ))
+        conn.commit()
+        return jsonify({"status": "ok"})
+    except Exception:
+        return jsonify({"status": "ok"})   # fail silently — never break chat
     finally:
         conn.close()
