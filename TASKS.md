@@ -81,29 +81,54 @@ Note: The initial list below was inferred from the current repository contents a
 - [x] Updated `gpt_analysis_prompt.md` — added `get_route_stops` + `route_not_at_stop`; bumped tool count to 7
 - [x] Updated `codex_run_and_analyze.md` — points to v3 agent, documents `auto_analyze.py` shortcut
 
-## 🗺️ Testing & Quality Roadmap (Planned)
-
-Three levels of improvement, in priority order:
+## 🗺️ Testing & Quality Roadmap
 
 ### Level 1 — Inline LLM-as-Judge ✅ DONE (2026-03-19)
-Replace fragile `pass_signals`/`fail_signals` keyword arrays with a real model verdict per scenario.
-- [x] Built `tests/run_and_judge.py` — single command: runs all scenarios + calls GPT-4o-mini inline per scenario for a real PASS/FAIL verdict
-- [x] `pass_signals`/`fail_signals` kept in `scenarios_v2.json` as hints only; judge uses `expected_behavior` as the truth source
-- [x] `run_v2_scenarios.py` + `auto_analyze.py` retained for reference; `run_and_judge.py` replaces the two-step workflow
-- Usage: `python tests/run_and_judge.py` (prod v3 default) or `--env local`, `--retry-fails`, `--no-judge`, `--ids S01,S07`
+- [x] Built `tests/run_and_judge.py` — single command, GPT-4o-mini judges inline per scenario
+- [x] Uses `expected_behavior` as truth source — no keyword signals
+- [x] Covers ~90% of regressions: behavioral errors, refusals, hallucination signals, context loss
+- **Known gap:** Cannot verify factual accuracy of times/stops (no GTFS knowledge) — addressed in Level 1b
+- Usage: `python tests/run_and_judge.py` · `--retry-fails` · `--no-judge` · `--ids S01,S07`
+
+### Level 1b — Wire LLM Judge into replay_from_logs.py (Next — quick win)
+- [ ] Replace keyword signals in `replay_from_logs.py` with same GPT-4o-mini judge from `run_and_judge.py`
+- [ ] Real user queries + real verdicts = strongest regression signal available
+- [ ] ~30 lines of change — reuse `llm_judge()` from `run_and_judge.py`
+
+### Level 1c — GTFS-Grounded Verifier (Planned — high value)
+Closes the 10% gap the LLM judge cannot cover — factual accuracy of times, stops, headsigns.
+- [ ] Build `tests/judge_gtfs.py` — extracts claimed facts from agent response (route, stop, times, headsigns), queries `gtfs.db` directly to verify, returns grounded PASS/FAIL
+- [ ] Runs locally with direct DB access — no external API needed for verification step
+- [ ] Wire into `run_and_judge.py` as optional `--gtfs-verify` flag
+- [ ] Pattern: LLM generates → grounded verifier checks (broadly applicable to any structured-data domain)
 
 ### Level 2 — Production Feedback Loop ✅ DONE (2026-03-19)
-Replay real user queries as regression tests instead of relying only on hand-written scenarios.
-- [x] Real user queries logged to `data/analytics.sqlite` (anonymized — no PII)
+- [x] Real user queries logged to `data/analytics.sqlite`
 - [x] Built `tests/replay_from_logs.py` — replays last N real conversations, flags PASS/WARN/FAIL
-- [ ] Run weekly or after any GTFS data refresh (run manually after production traffic accumulates)
+- [ ] Upgrade scoring to use LLM judge (Level 1b above)
+- [ ] Run weekly or after any GTFS data refresh
 
 ### Level 3 — Adversarial Scenario Generation (Low priority / quarterly)
-Use GPT to auto-generate new edge-case scenarios from live GTFS data.
-- [ ] Build `tests/generate_scenarios.py` — feeds route list + stop list to GPT, asks for 50 tricky test cases
+- [ ] Build `tests/generate_scenarios.py` — feeds route/stop list to GPT, returns 50 tricky test cases
 - [ ] Auto-append to `scenarios_v2.json` after human review
-- [ ] Focus areas: wrong stop IDs, route+stop mismatches, late-night edge cases, Spanish multi-turn
-- [ ] Benefit: keeps test suite growing without manual effort
+- [ ] Focus: wrong stop IDs, route+stop mismatches, late-night edge cases, Spanish multi-turn
+
+---
+
+## 🏗️ Reference Architecture Notes
+This project is being used as a model for future AI-powered development tools.
+
+**Core patterns established here:**
+1. **LLM tool-use agent** — LLM calls structured tools, never guesses from training data
+2. **Clean grounded system prompt** — explicit rules, no contradictions, direction filtering in code not prompt
+3. **LLM-as-judge testing** — `expected_behavior` as truth source, inline verdicts, no keyword signals
+4. **Production feedback loop** — replay real user queries as regression tests
+5. **GTFS-grounded verifier** (planned) — extract claims → verify against DB → grounded verdict
+
+**Key lesson from 19 sessions:** LLM tool-use + grounded verification > prompt engineering + keyword testing.
+The progression from GPT prompt-patching (276-line prompt, 18 sessions, unresolved direction filtering)
+to clean Claude tool-use agent (session 19, 30/30 tests) demonstrates why architectural decisions matter
+more than iterative prompt fixes.
 
 ## ✅ Session 19 cont. — 2026-03-19: Infrastructure & UX Fixes
 
@@ -117,7 +142,11 @@ Use GPT to auto-generate new edge-case scenarios from live GTFS data.
 
 ## Pending (Carry-over)
 
-- [ ] Decide whether `/dashboard` and task API should require auth
+- [x] `/dashboard`, `/chat`, `/wizard` PIN protection — set `DASHBOARD_PIN` + `SECRET_KEY` on Render
+- [ ] Add GitHub Secrets: `RENDER_BACKEND_URL` + `DASHBOARD_PIN` for analytics backup action
+- [ ] Find and document Hostinger frontend domain — add to README + CORS_ORIGINS in render.yaml
+- [ ] Level 1b: wire LLM judge into `replay_from_logs.py` — ~30 min effort
+- [ ] Level 1c: GTFS-grounded verifier (`tests/judge_gtfs.py`) — planned next major QA work
 - [ ] GTFS/schedule data refresh — **manual process** (owner provides updated files directly when needed)
 - [ ] Add route coincidence tool (where/when two routes share a stop) — deferred
 - [ ] Trip planning tool (multi-leg A→B routing) — deferred; requires significant new tooling

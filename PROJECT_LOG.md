@@ -228,3 +228,41 @@ How to use:
 - Summary: Three UX fixes to the v3 Claude agent: (1) Reduced Service note now renders as a separate paragraph instead of appended inline to the last sentence. (2) Stop IDs displayed to users now strip leading zeros (show "1492" not "0001492"). (3) Route-context disambiguation — when user asks a place-name follow-up in a route-specific conversation (e.g. "what about from Butler Plaza?" after Route 1), agent now passes the known route_id to get_schedule directly instead of calling search_stops generically and showing an unrelated stop list.
 - Files/Areas: `routes/agent_claude.py` — system prompt rules updated
 - Notes / Follow-up: All prompt-only changes, no tool or service layer changes needed.
+
+---
+
+### 2026-03-19
+- Type: `fix`
+- Summary: Cleaned up project_tasks.json — consolidated 30+ inconsistent area labels to 8 clean categories (Backend, AI / Agent, Frontend, Quality, Security, Ops, Data, Project Management). Fixed stale statuses (claude-1 through claude-8, tooluse-7, fix-direction-filtering, pending-rerun-tests all marked completed). Removed duplicate task entry. Updated updated_at to 2026-03-19.
+- Files/Areas: `data/project_tasks.json`
+- Notes / Follow-up: Dashboard By Area filter now shows clean consistent categories. This file is the single source of truth for the dashboard — keep it in sync with TASKS.md.
+
+### 2026-03-19
+- Type: `feature`
+- Summary: PIN protection extended to /chat and /wizard routes. Single unified /login endpoint with ?next= redirect parameter covers all protected pages (dashboard, chat, wizard). One PIN entry grants access to all three. Legacy /dashboard/login bookmarks still work via redirect.
+- Files/Areas: `app.py` — /login, /logout routes; /chat and /wizard PIN checks added
+- Notes / Follow-up: Activated when DASHBOARD_PIN env var is set on Render. SECRET_KEY env var controls session cookie signing. No PIN set = all pages open (dev mode).
+
+### 2026-03-19
+- Type: `fix`
+- Summary: Agent no longer assumes reduced service affects all routes. Root cause: system prompt example note said "fewer trips than a normal weekday" — agent was copying this phrase for every route regardless of actual GTFS data. Fixed example to say "Note: today is Reduced Service." only, with an explicit rule: never claim a route is affected unless get_route_overview or get_schedule confirms it.
+- Files/Areas: `routes/agent_claude.py` — date_header service note updated
+- Notes / Follow-up: Some routes (e.g. Route 15) run identical schedules on reduced service days. The agent must only report what tool results show.
+
+### 2026-03-19
+- Type: `feature`
+- Summary: Level 1 QA complete — built tests/run_and_judge.py. Single command replaces the old two-step run + copy-paste-to-ChatGPT workflow. Runs all scenarios against live agent, then calls GPT-4o-mini inline for a real PASS/FAIL verdict per scenario using expected_behavior as the truth source. No keyword signals. Saves to tests/results/judged_YYYYMMDD_HHMMSS.json.
+- Files/Areas: `tests/run_and_judge.py` (new), `TASKS.md`
+- Notes / Follow-up: Replaces fragile keyword signal scoring permanently. The judge reads expected_behavior + agent response and reasons about it. Known limitation: cannot verify factual accuracy of times/stops (no GTFS knowledge). Two planned follow-ups: (1) wire same judge into replay_from_logs.py; (2) build GTFS-grounded verifier for factual accuracy checks.
+
+### 2026-03-19
+- Type: `decision`
+- Summary: QA roadmap evolution decision. Current judge (GPT-4o-mini, no GTFS context) catches ~90% of regressions — behavioral errors, refusals, hallucination signals, context loss. The 10% it misses are factual accuracy bugs (wrong times, wrong headsigns). Two-phase plan: Phase 1 — wire LLM judge into replay_from_logs.py (30-min effort, quick win); Phase 2 — GTFS-grounded verifier: extract claimed facts from agent response, query gtfs.db to verify, return grounded verdict. Phase 2 runs locally with direct DB access, no external API needed for the verification step.
+- Files/Areas: `TASKS.md` — QA roadmap updated
+- Notes / Follow-up: This project is being used as a reference architecture for AI-powered development tool workflows — the judge/verifier pattern (LLM generates, grounded verifier checks) is broadly applicable beyond transit.
+
+### 2026-03-19
+- Type: `decision`
+- Summary: Project identified as reference architecture for AI development tool workflows. Key patterns established: (1) LLM agent with tool-use API (not chat prompt engineering); (2) clean system prompt with explicit grounding rules; (3) automated test suite with LLM-as-judge; (4) production feedback loop via query replay; (5) GTFS-grounded verifier for factual accuracy. These patterns apply to any domain where an LLM must answer questions grounded in a structured data source.
+- Files/Areas: `TASKS.md`, `PROJECT_LOG.md`
+- Notes / Follow-up: The progression from GPT prompt-patching (18 sessions, 276-line prompt with contradictions) to clean Claude tool-use agent (session 19, 30/30 tests) is the core lesson: LLM tool-use + grounded verification > prompt engineering + keyword testing.
