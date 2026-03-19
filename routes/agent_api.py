@@ -71,8 +71,12 @@ from routes.agent_gpt_v3 import handle_message as handle_message_v4
 
 bp = Blueprint("agent_api", __name__)
 
-LOG_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "chat_logs.sqlite"
-ANALYTICS_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "analytics.sqlite"
+# DATA_DIR env var lets Render Persistent Disk override the default local path.
+# On Render: set DATA_DIR=/data (mounted persistent disk).
+# Locally: defaults to <project_root>/data — no change needed.
+_DATA_DIR = Path(os.environ.get("DATA_DIR", str(Path(__file__).resolve().parents[1] / "data")))
+LOG_DB_PATH = _DATA_DIR / "chat_logs.sqlite"
+ANALYTICS_DB_PATH = _DATA_DIR / "analytics.sqlite"
 
 def _log_chat(message: str, response: str) -> None:
     if os.environ.get("CHAT_LOG_ENABLED", "false").lower() not in ("1", "true", "yes", "on"):

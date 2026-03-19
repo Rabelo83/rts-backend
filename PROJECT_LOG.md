@@ -192,3 +192,9 @@ How to use:
 - Summary: Evaluated current testing approach and defined a 3-level quality improvement roadmap. Current system (static JSON scenarios + keyword signals + GPT analysis) is functional but has known weaknesses: fragile signals, no regression tracking, no production feedback loop. Roadmap: Level 1 — inline LLM-as-judge (replace keyword signals); Level 2 — production query replay from analytics.sqlite; Level 3 — adversarial scenario generation from GTFS data.
 - Files/Areas: `TASKS.md` — Testing & Quality Roadmap section
 - Notes / Follow-up: Level 1 is the highest priority — eliminates false-positive signal failures permanently without requiring any infrastructure changes.
+
+### 2026-03-19
+- Type: `decision`
+- Summary: Evaluated database architecture. Decision: keep SQLite for all three stores (GTFS, analytics, sessions). SQLite is the correct choice at this scale and operational context.
+- Files/Areas: `rts_gtfs.sqlite` (13.8 MB, read-only GTFS), `data/analytics.sqlite` (append-only chat logs), session store (currently in-memory).
+- Notes / Follow-up: GTFS is read-only at query time — SQLite's single-writer limitation is irrelevant. analytics.sqlite is append-only with rare reads — SQLite handles this cleanly. Estimated traffic (<200 queries/day for a city transit chatbot) is far below any SQLite ceiling. The one real gap is session persistence: in-memory OrderedDict is lost on every Render restart. Fix: add a `sessions` table to `analytics.sqlite` and persist session history there. No PostgreSQL migration needed at current or foreseeable scale.

@@ -6,6 +6,12 @@ services:
     # Build installs deps AND builds the GTFS SQLite schedule DB
     buildCommand: pip install -r requirements.txt && python "Backend Basics/db/build_gtfs_db.py"
     startCommand: gunicorn server:app --workers 1 --timeout 120
+    # Persistent Disk — survives restarts AND redeploys (~$0.25/GB/mo)
+    # analytics.sqlite and sessions.sqlite are written here so no data is lost on deploy.
+    disk:
+      name: rts-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       - key: BUS_API_KEY
         # set the value in the Render dashboard later, do not hardcode here
@@ -16,3 +22,5 @@ services:
         value: https://rts-backend-7ru5.onrender.com
       - key: RATE_LIMIT
         value: "200 per hour"
+      - key: DATA_DIR
+        value: /data
