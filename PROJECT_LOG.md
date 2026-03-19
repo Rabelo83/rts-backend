@@ -262,6 +262,24 @@ How to use:
 - Notes / Follow-up: This project is being used as a reference architecture for AI-powered development tool workflows — the judge/verifier pattern (LLM generates, grounded verifier checks) is broadly applicable beyond transit.
 
 ### 2026-03-19
+- Type: `feature`
+- Summary: Level 1b complete — LLM judge wired into replay_from_logs.py. Upgraded replay scoring from keyword signals to GPT-4o-mini inline verdicts. Keyword signals kept as fast pre-filter. WARN verdict removed — clean PASS/FAIL only. --no-judge flag available for fast offline runs. Both QA pipelines (run_and_judge.py + replay_from_logs.py) now use real LLM verdicts.
+- Files/Areas: `tests/replay_from_logs.py`
+- Notes / Follow-up: Quality judge (not correctness judge) — asks "was this helpful?" since no expected_behavior exists for real user queries.
+
+### 2026-03-19
+- Type: `feature`
+- Summary: 6 new scenarios added to scenarios_v2.json (30→36 total) covering every bug and feature added in sessions 17-19. S16: route_not_at_stop hallucination prevention. S17: stop-only query must show predictions immediately. S18: reduced service must not be generalized to unaffected routes. S19: get_route_stops numbered list. S20: service type answered from injected context (0 tool calls). M06: route-context disambiguation multi-turn.
+- Files/Areas: `tests/scenarios_v2.json`
+- Notes / Follow-up: Pattern: every bug fixed → immediately becomes a scenario. The scenario file is now a living record of every problem the agent has had.
+
+### 2026-03-19
+- Type: `feature`
+- Summary: Level 1c complete — GTFS-grounded verifier (tests/judge_gtfs.py). Extracts routes/stops/times/negative-service claims from agent responses via regex, queries rts_gtfs.sqlite directly to verify each fact. Closes the 10% gap the LLM judge cannot cover: factual accuracy of departure times, route-stop relationships. Wired into run_and_judge.py as --gtfs-verify flag. Smoke tested: correctly catches hallucinated Route 15 departure at stop 221.
+- Files/Areas: `tests/judge_gtfs.py` (new), `tests/run_and_judge.py` (--gtfs-verify flag)
+- Notes / Follow-up: LLM generates → grounded verifier checks. This pattern (not just the code) is the key reference architecture contribution — reusable for any domain where an LLM answers questions grounded in structured data.
+
+### 2026-03-19
 - Type: `decision`
 - Summary: Project identified as reference architecture for AI development tool workflows. Key patterns established: (1) LLM agent with tool-use API (not chat prompt engineering); (2) clean system prompt with explicit grounding rules; (3) automated test suite with LLM-as-judge; (4) production feedback loop via query replay; (5) GTFS-grounded verifier for factual accuracy. These patterns apply to any domain where an LLM must answer questions grounded in a structured data source.
 - Files/Areas: `TASKS.md`, `PROJECT_LOG.md`

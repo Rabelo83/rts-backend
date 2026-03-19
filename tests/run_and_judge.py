@@ -4,6 +4,7 @@ RTS Agent — Run scenarios + inline LLM-as-judge (Level 1 QA)
 =============================================================
 Runs every scenario in scenarios_v2.json, then immediately asks GPT-4o-mini
 for a real PASS/FAIL verdict — no keyword signals, no copy-paste to ChatGPT.
+Optional --gtfs-verify flag adds a second layer: GTFS-grounded factual checks.
 
 Usage:
   python tests/run_and_judge.py                        # prod v3 (default)
@@ -13,6 +14,7 @@ Usage:
   python tests/run_and_judge.py --retry-fails          # re-run last failures
   python tests/run_and_judge.py --no-judge             # skip GPT, heuristic only
   python tests/run_and_judge.py --judge-fails-only     # GPT only on heuristic fails
+  python tests/run_and_judge.py --gtfs-verify          # add GTFS factual layer
 
 Output:
   tests/results/judged_YYYYMMDD_HHMMSS.json
@@ -391,6 +393,8 @@ def main():
                         help="Skip GPT judge — heuristic only (faster, less accurate)")
     parser.add_argument("--judge-fails-only", action="store_true",
                         help="Only run GPT judge on heuristic-fail scenarios")
+    parser.add_argument("--gtfs-verify", action="store_true",
+                        help="Add GTFS-grounded factual verification layer (requires local GTFS DB)")
     args = parser.parse_args()
 
     global _LOCAL_AGENT_VERSION
@@ -413,13 +417,26 @@ def main():
 
     endpoint = ENDPOINTS[args.env]
     scenarios = load_scenarios(Path(args.file), ids_filter)
-    use_judge = not args.no_judge
+    use_judge   = not args.no_judge
+    use_gtfs    = args.gtfs_verify
+    gtfs_verify = None
+    if use_gtfs:
+        try:
+            import sys as _sys
+            _sys.path.insert(0, str(SCRIPT_DIR))
+            from judge_gtfs import gtfs_verify as _gtfs_verify
+            gtfs_verify = _gtfs_verify
+            print("  GTFS verifier loaded.")
+        except Exception as exc:
+            print(f"  [!] GTFS verifier unavailable: {exc}  (--gtfs-verify ignored)")
+            use_gtfs = False
 
     print(f"\nRTS Agent — Run + Judge")
     print(f"Endpoint : {endpoint}")
     print(f"Scenarios: {len(scenarios)}"
           + (" (retry-fails)" if args.retry_fails else ""))
     print(f"Judge    : {'GPT-4o-mini inline' if use_judge else 'disabled (heuristic only)'}")
+    print(f"GTFS     : {'enabled' if use_gtfs else 'disabled'}")
     print(f"{'─' * 72}\n")
 
     results = []
@@ -427,7 +444,6 @@ def main():
         if s.get("type") == "multi":
             r = run_multi(endpoint, s, use_judge)
         else:
-            # For judge-fails-only: run scenario first, then decide whether to judge
             if args.judge_fails_only:
                 r = run_single(endpoint, s, use_judge=False)
                 if r["heuristic"] == "likely_fail" and r["status"] != "error":
@@ -437,6 +453,22 @@ def main():
                     print(f"         judge : {symbol} {vd['verdict']} — {vd['reason']}")
             else:
                 r = run_single(endpoint, s, use_judge)
+
+        # Optional GTFS factual layer — runs on top of LLM verdict
+        if use_gtfs and r.get("status") != "error" and r.get("response"):
+            query    = s.get("query") or " ".join(s.get("turns", []))
+            gv       = gtfs_verify(query, r["response"])
+            r["gtfs_verdict"] = gv["verdict"]
+            r["gtfs_reason"]  = gv["reason"]
+            r["gtfs_checks"]  = gv["checks"]
+            # Escalate to FAIL if GTFS contradicts a verified claim
+            if gv["verdict"] == "FAIL" and r.get("verdict") == "PASS":
+                r["verdict"] = "FAIL"
+                r["reason"]  = f"GTFS contradiction: {gv['reason']}"
+                print(f"         gtfs  : ✗ FAIL — {gv['reason']}")
+            elif gv["verdict"] == "PASS":
+                print(f"         gtfs  : ✓ {len(gv['checks'])} claim(s) verified")
+
         results.append(r)
         time.sleep(INTER_REQUEST_DELAY)
 

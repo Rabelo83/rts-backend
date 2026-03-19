@@ -98,12 +98,21 @@ Note: The initial list below was inferred from the current repository contents a
 - [x] Judge prompt tuned for open-ended transit queries (no expected_behavior — quality judge, not correctness judge)
 - Usage: `python tests/replay_from_logs.py` · `--last 100` · `--no-judge` · `--fails-only`
 
-### Level 1c — GTFS-Grounded Verifier (Planned — high value)
+### Level 1c — GTFS-Grounded Verifier ✅ DONE (2026-03-19)
 Closes the 10% gap the LLM judge cannot cover — factual accuracy of times, stops, headsigns.
-- [ ] Build `tests/judge_gtfs.py` — extracts claimed facts from agent response (route, stop, times, headsigns), queries `gtfs.db` directly to verify, returns grounded PASS/FAIL
-- [ ] Runs locally with direct DB access — no external API needed for verification step
-- [ ] Wire into `run_and_judge.py` as optional `--gtfs-verify` flag
-- [ ] Pattern: LLM generates → grounded verifier checks (broadly applicable to any structured-data domain)
+- [x] Built `tests/judge_gtfs.py` — extracts routes/stops/times/negative-service claims via regex, queries `rts_gtfs.sqlite` directly to verify each one
+- [x] Verifies: route exists, stop exists, route serves stop, route does NOT serve stop (negative claims), departure time within ±10min tolerance
+- [x] Returns `PASS` / `FAIL` / `UNVERIFIABLE` with per-claim check list
+- [x] Wired into `run_and_judge.py` as `--gtfs-verify` flag — escalates LLM PASS to FAIL if GTFS contradicts a claim
+- [x] Runs locally with direct DB access — no external API needed
+- [x] Smoke tested: correctly PASSes "Route 15 does not serve stop 221" and FAILs hallucinated "Route 15 departs at 6:00 AM from stop 221"
+- Usage: `python tests/run_and_judge.py --gtfs-verify` or standalone `python tests/judge_gtfs.py --query "..." --response "..."`
+- Pattern: **LLM generates → grounded verifier checks** — reusable for any structured-data domain
+
+### Planned — promote_to_scenario.py helper
+- [ ] Build `tests/promote_to_scenario.py` — takes a query from a replay FAIL result and scaffolds it into a new scenario entry with pre-filled `expected_behavior` draft
+- [ ] Closes the feedback loop: real user FAIL → reviewed → permanent scenario
+- [ ] Low effort, high value for keeping the test suite growing from production traffic
 
 ### Level 2 — Production Feedback Loop ✅ DONE (2026-03-19)
 - [x] Real user queries logged to `data/analytics.sqlite`
