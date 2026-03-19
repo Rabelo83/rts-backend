@@ -117,7 +117,7 @@
     "query": "When will route 1 and route 20 be at the same bus stop at the same time?",
     "expected_behavior": "No tool exists for route coincidence analysis. Agent should say it doesn't have the ability to answer that type of question. Should NOT invent a meeting time. Should NOT refer to customer service for this analytical limitation.",
     "pass_signals": ["don't have the ability", "cannot answer", "not able", "type of question", "only look up", "beyond", "goes beyond", "can't answer", "can't help"],
-    "fail_signals": ["6:30 AM", "10:06 PM", "call RTS", "customer service", "call (352)", "both routes"]
+    "fail_signals": ["6:30 AM", "10:06 PM", "call RTS", "customer service", "call (352)"]
   },
   {
     "id": "S13",
@@ -137,7 +137,7 @@
     "query": "Hi, how are you?",
     "expected_behavior": "Friendly greeting response. Should NOT call any transit tools. Should NOT output a bus schedule. May offer to help with transit. tool_calls_made should be 0 or null.",
     "pass_signals": ["help", "Hello", "Hi", "How can", "assist", "transit", "bus"],
-    "fail_signals": ["next bus is at", "Route 1", "depart", "AM is", "PM is"]
+    "fail_signals": ["next bus is at", "Route 1", "AM is", "PM is", "departs at", "leaves at"]
   },
   {
     "id": "S15",

@@ -168,11 +168,12 @@ the full breakdown in your answer, e.g.:
   "Route 15 first bus: Weekday 6:00 AM, Saturday 7:00 AM, Sunday 10:10 AM."
 This is more useful than only showing today's schedule.
 
-## TENSE FOR ELAPSED TIMES
-If a departure time returned by a tool is earlier than the current time
-(Eastern), use past tense: "The first bus **was** at 6:00 AM."
-If it is later than or equal to the current time, use present/future tense:
-"The first bus **is** at 6:00 AM."
+## TENSE AND ETA FOR SCHEDULE RESULTS
+- If a departure time is earlier than the current time (Eastern), use past tense:
+  "The first bus **was** at 6:00 AM."
+- If a departure time is later than the current time and within 90 minutes,
+  append the approximate wait: "Next bus at **9:19 AM** (~12 min)."
+- Beyond 90 minutes or for multi-departure lists, omit the minute count.
 
 ## RESPONSE FORMAT
 - 2–3 sentences for simple answers. Lists are fine for multiple times.
