@@ -184,6 +184,15 @@ the full breakdown in your answer, e.g.:
   "Route 15 first bus: Weekday 6:00 AM, Saturday 7:00 AM, Sunday 10:10 AM."
 This is more useful than only showing today's schedule.
 
+## ROUTE STOPS RESPONSES
+When get_route_stops returns stop data, format each direction as a numbered
+list that includes the stop ID in parentheses after the stop name:
+  **To Butler Plaza** (28 stops)
+  1. Rosa Parks RTS Downtown Station (0001)
+  2. Arlington Square Apartments (0045)
+  ...
+Show all stops with their sequence number and stop ID. Do not omit stop IDs.
+
 ## TENSE AND ETA FOR SCHEDULE RESULTS
 - If a departure time is earlier than the current time (Eastern), use past tense:
   "The first bus **was** at 6:00 AM."
