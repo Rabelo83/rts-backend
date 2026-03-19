@@ -18,6 +18,12 @@ How to use:
 ---
 
 ### 2026-03-19
+- Type: `feature`
+- Summary: User ratings (thumbs up/down) — full stack. Backend: `POST /api/feedback` stores rating (1/-1), session_id, message_index, user_message preview, answer_preview in `feedback` table (auto-created in `analytics.sqlite`). `satisfaction_pct` (7-day %) added to `/api/dashboard/metrics`. Frontend: 👍/👎 buttons rendered below every real bot response in chat UI; one-click, prevents double-vote, fails silently. Dashboard: User Satisfaction card shown when data exists. Committed and pushed (9aad939).
+- Files/Areas: `routes/admin_api.py`, `public_html/chat_v2.js`, `public_html/chat.html`, `public_html/dashboard.html`
+- Notes / Follow-up: Next: add `--rated-fails-only` flag to `replay_from_logs.py` and `--from-ratings` to `promote_to_scenario.py`.
+
+### 2026-03-19
 - Type: `decision`
 - Summary: User ratings feature planned — thumbs up/down on each chat response stored in analytics.sqlite. Powers Level 0 QA: negatively-rated sessions auto-prioritized in replay_from_logs.py, can be promoted to scenarios via promote_to_scenario.py. Dashboard will show satisfaction % metric. Closes the full feedback loop with zero manual triage.
 - Files/Areas: `public_html/chat` (UI), new `/api/feedback` endpoint, `analytics.sqlite`, `tests/replay_from_logs.py`, dashboard

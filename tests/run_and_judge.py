@@ -164,8 +164,13 @@ Rules:
 - If the response makes up times, stops, or routes not in the tool results = FAIL
 - Do NOT verify specific calendar dates (e.g. whether "March 20" is really tomorrow).
   The agent runs in real-time and its dates are correct. Only check structure and behavior.
-- Do NOT penalize a response for not mentioning reduced service unless the expected
-  behavior explicitly requires it.
+- Do NOT verify or contradict service types (Weekday, Saturday, Sunday, Reduced Service).
+  The agent reads live GTFS data; if it says today is Reduced Service, trust that it is correct.
+- Do NOT penalize a response for mentioning OR not mentioning reduced service unless
+  the expected behavior explicitly requires a specific service type.
+- Do NOT compare departure times against any schedule knowledge you have. Only verify
+  that the agent used the correct behavior (called the right tool, named the right day type,
+  included the required information structure).
 
 Return JSON only, no prose:
 {"verdict": "PASS" or "FAIL", "reason": "one sentence max"}

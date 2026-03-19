@@ -55,7 +55,7 @@
     "category": "route_overview",
     "description": "Route schedule overview — route 43 running tomorrow",
     "query": "What is the route 43 schedule for tomorrow?",
-    "expected_behavior": "Calls get_route_overview for route 43 on tomorrow's date. Returns first/last departure times and average frequency. Should name the day type (weekday/Saturday/Sunday) and both directions.",
+    "expected_behavior": "Calls get_route_overview for route 43 on tomorrow's date. Returns first/last departure times and average frequency. Should name the day type (Weekday/Saturday/Sunday/Reduced Service — whichever is active tomorrow) and both directions. Reduced Service is a valid day type.",
     "pass_signals": ["AM", "PM", "43", "first", "last", "every", "frequency", "weekday", "Saturday", "Sunday", "direction"],
     "fail_signals": ["I don't know", "I cannot", "error"]
   },
@@ -177,10 +177,10 @@
       "When does route 10 leave downtown today?",
       "What about from Butler Plaza?"
     ],
-    "expected_behavior": "Turn 2 should query schedule for route 10 from Butler Plaza (new location). Response must reference Butler Plaza. Should NOT continue to show downtown departures.",
+    "expected_behavior": "Turn 2 should attempt to find the schedule for route 10 from Butler Plaza. Route 10 does NOT serve Butler Plaza. The agent must correctly inform the user that Route 10 does not serve Butler Plaza — this is the correct answer. The response MUST reference Butler Plaza by name. Should NOT continue showing downtown departures or ignore the location change.",
     "pass_signals_per_turn": [
       ["AM", "PM", "route 10", "10", "downtown"],
-      ["Butler", "Plaza", "10", "AM", "PM"]
+      ["Butler", "Plaza"]
     ],
     "fail_signals_per_turn": [
       [],
@@ -376,7 +376,7 @@
     "category": "route_overview",
     "description": "Route overview for a weekend day — must name Saturday or Sunday",
     "query": "What is the route 1 schedule for this Saturday?",
-    "expected_behavior": "Calls get_route_overview for route 1 on the upcoming Saturday date. Returns first/last times and frequency. Must explicitly say 'Saturday' and NOT use weekday data.",
+    "expected_behavior": "Calls get_route_overview for route 1 on the upcoming Saturday date. Returns first/last times and frequency. Must explicitly say 'Saturday' (specifying the date like 'Saturday, March 21' is acceptable) and NOT use weekday data.",
     "pass_signals": ["Saturday", "route 1", "Route 1", "AM", "PM", "first", "last"],
     "fail_signals": ["I don't know", "cannot", "weekday", "Monday"]
   },
