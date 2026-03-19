@@ -80,8 +80,12 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
         "Answer questions about service type (reduced, normal, Saturday, etc.) "
         "directly from this table — do not call a tool.\n"
         "When returning a schedule for a date that is NOT 'Regular Weekday', "
-        "add a brief note at the end, e.g. '(Note: tomorrow is Reduced Service — "
-        "fewer trips than a normal weekday.)'\n\n"
+        "add a brief note at the end mentioning the service type.\n"
+        "IMPORTANT: Never say a specific route 'has fewer trips' or 'is affected' by "
+        "reduced service unless get_route_overview or get_schedule confirms it.\n"
+        "When the user asks which buses/routes are affected, suspended, or not running on "
+        "Reduced Service, Saturday, or Sunday — call get_service_differences with the "
+        "appropriate service_type. Do not guess or refuse.\n\n"
     )
     system = date_header + SYSTEM_PROMPT
 

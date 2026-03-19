@@ -229,6 +229,34 @@ TOOLS: list[dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_service_differences",
+            "description": (
+                "Compare which routes are suspended or added on a non-weekday service type "
+                "versus a regular weekday. Use this when the user asks which buses are "
+                "affected, suspended, not running, or changed on Reduced Service, Saturday, "
+                "or Sunday. Returns lists of suspended routes (run on weekday but not on "
+                "the given service type) and extra routes (run on the given service type "
+                "but not on weekdays)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "service_type": {
+                        "type": "string",
+                        "description": (
+                            "The service type to compare against regular weekday. "
+                            "One of: 'Reduced_Service', 'Saturday', 'Sunday'."
+                        ),
+                    }
+                },
+                "required": ["service_type"],
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 
@@ -429,6 +457,7 @@ def dispatch_tool(name: str, arguments: dict) -> dict:
         "search_routes": _tool_search_routes,
         "get_route_overview": _tool_get_route_overview,
         "get_route_stops": _tool_get_route_stops,
+        "get_service_differences": _tool_get_service_differences,
     }
     handler = handlers.get(name)
     if not handler:
@@ -797,3 +826,74 @@ def _tool_get_route_overview(route_id: str, date: str | None = None) -> dict:
         "directions": summary["directions"],
         "schedule_by_service_type": service_schedule,
     }
+
+
+# ── Tool 7: get_service_differences ──────────────────────────────────────────
+
+def _tool_get_service_differences(service_type: str) -> dict:
+    """Compare routes on a given service type vs regular weekday schedule."""
+    conn = _sched.connect_db()
+    if not conn:
+        return {"status": "db_unavailable", "message": "Schedule database unavailable."}
+
+    # Normalize common variations
+    _alias = {
+        "reduced": "Reduced_Service",
+        "reduced service": "Reduced_Service",
+        "reducedservice": "Reduced_Service",
+        "saturday": "Saturday",
+        "sunday": "Sunday",
+    }
+    svc = _alias.get(service_type.lower().strip(), service_type)
+
+    try:
+        def routes_for_service(service_id: str) -> set:
+            rows = conn.execute(
+                """
+                SELECT DISTINCT r.route_short_name
+                FROM trips t
+                JOIN routes r ON r.route_id = t.route_id
+                WHERE t.service_id = ?
+                """,
+                (service_id,),
+            ).fetchall()
+            return {row[0] for row in rows if row[0]}
+
+        weekday_routes = routes_for_service("Weekday")
+        target_routes = routes_for_service(svc)
+
+        if not target_routes and not weekday_routes:
+            return {
+                "status": "not_found",
+                "service_type": svc,
+                "message": f"No GTFS data found for service type '{svc}'. "
+                           "Valid options: Reduced_Service, Saturday, Sunday.",
+            }
+
+        suspended = sorted(weekday_routes - target_routes, key=lambda x: (len(x), x))
+        extra = sorted(target_routes - weekday_routes, key=lambda x: (len(x), x))
+        running = sorted(weekday_routes & target_routes, key=lambda x: (len(x), x))
+
+        # Human-readable label
+        _label = {
+            "Reduced_Service": "Reduced Service",
+            "Saturday": "Saturday",
+            "Sunday": "Sunday",
+        }
+        label = _label.get(svc, svc)
+
+        return {
+            "status": "ok",
+            "service_type": label,
+            "suspended_routes": suspended,
+            "extra_routes": extra,
+            "running_routes": running,
+            "summary": (
+                f"On {label}, {len(suspended)} route(s) are suspended compared to a regular weekday"
+                + (f": {', '.join(suspended)}" if suspended else "")
+                + (f". {len(extra)} route(s) run only on {label}: {', '.join(extra)}" if extra else "")
+                + f". {len(running)} route(s) run as normal."
+            ),
+        }
+    finally:
+        conn.close()

@@ -271,7 +271,10 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
         "IMPORTANT: Never say a specific route 'has fewer trips' or 'is affected' by "
         "reduced service unless get_route_overview or get_schedule confirms it. "
         "Some routes run the same schedule on Reduced Service days as on regular weekdays. "
-        "Only report what the tool results show — do not assume.\n\n"
+        "Only report what the tool results show — do not assume.\n"
+        "When the user asks which buses/routes are affected, suspended, or not running on "
+        "Reduced Service, Saturday, or Sunday — call get_service_differences with the "
+        "appropriate service_type. Do not guess or refuse.\n\n"
     )
     system = date_header + SYSTEM_PROMPT
 
