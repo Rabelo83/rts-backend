@@ -366,6 +366,31 @@
     .qlink-star:hover { border-color: var(--purple); }
     .qlink-api { font-family: monospace; font-size: .76rem; }
 
+    /* ── QA panel ───────────────────────────────────────────────── */
+    .qa-panel {
+      background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 14px; padding: 16px 20px; margin-bottom: 14px;
+    }
+    .qa-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .qa-title  { font-weight:600; font-size:.9rem; color:#e6edf3; }
+    .qa-hint   { font-size:.72rem; color:var(--muted); }
+    .qa-hint code { background:rgba(255,255,255,.07); padding:1px 5px; border-radius:4px; font-size:.7rem; }
+    .qa-grid   { display:flex; gap:12px; flex-wrap:wrap; }
+    .qa-card   {
+      background: rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.09);
+      border-radius:10px; padding:12px 16px; min-width:160px; flex:1;
+    }
+    .qa-card-label { font-size:.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px; }
+    .qa-card-pct   { font-size:1.6rem; font-weight:700; font-family:'Space Grotesk',sans-serif; }
+    .qa-card-sub   { font-size:.72rem; color:var(--muted); margin-top:2px; }
+    .qa-bar-wrap   { margin-top:8px; height:4px; background:rgba(255,255,255,.1); border-radius:2px; }
+    .qa-bar        { height:4px; border-radius:2px; transition:width .6s ease; }
+    .qa-trend      { display:flex; gap:3px; align-items:flex-end; margin-top:8px; height:24px; }
+    .qa-trend-bar  { flex:1; border-radius:2px 2px 0 0; min-width:8px; }
+    .pct-high  { color:#3fb950; } .bar-high  { background:#3fb950; }
+    .pct-mid   { color:#d29922; } .bar-mid   { background:#d29922; }
+    .pct-low   { color:#f85149; } .bar-low   { background:#f85149; }
+
     /* ── activity timeline strip ──────────────────────────────── */
     .timeline-wrap {
       margin-bottom: 14px;
@@ -506,6 +531,15 @@
     <div class="stat s-pend"    data-f="pending"><div class="stat-label">Pending</div><div class="stat-value" id="cPend">–</div></div>
     <div class="stat s-back"    data-f="backlog"><div class="stat-label">Backlog</div><div class="stat-value" id="cBack">–</div></div>
     <div class="stat s-block"   data-f="blocked"><div class="stat-label">Blocked</div><div class="stat-value" id="cBlock">–</div></div>
+  </div>
+
+  <!-- QA panel -->
+  <div class="qa-panel" id="qaPanel" style="display:none">
+    <div class="qa-header">
+      <span class="qa-title">QA Health</span>
+      <span class="qa-hint">run <code>python tests/qa_report.py</code> to refresh</span>
+    </div>
+    <div class="qa-grid" id="qaGrid"></div>
   </div>
 
   <!-- recent activity — horizontal scrollable timeline -->
@@ -812,6 +846,50 @@
     }).join("");
   }
 
+  // ── QA panel ─────────────────────────────────────────────────
+  function renderQA(qa) {
+    const panel = $("qaPanel");
+    const grid  = $("qaGrid");
+    if (!qa || (!qa.scenario && !qa.replay)) { panel.style.display = "none"; return; }
+    panel.style.display = "block";
+    grid.innerHTML = "";
+
+    function pctClass(p) { return p >= 90 ? "pct-high" : p >= 70 ? "pct-mid" : "pct-low"; }
+    function barClass(p) { return p >= 90 ? "bar-high" : p >= 70 ? "bar-mid" : "bar-low"; }
+
+    function makeCard(label, data) {
+      const p    = data.pass_pct || 0;
+      const pc   = pctClass(p);
+      const bc   = barClass(p);
+      const sub  = `${data.passed}/${data.total} pass · ${data.judged_by || "keyword"}`;
+      return `<div class="qa-card">
+        <div class="qa-card-label">${label}</div>
+        <div class="qa-card-pct ${pc}">${p.toFixed(1)}%</div>
+        <div class="qa-card-sub">${sub}</div>
+        <div class="qa-bar-wrap"><div class="qa-bar ${bc}" style="width:${p}%"></div></div>
+      </div>`;
+    }
+
+    if (qa.scenario) grid.innerHTML += makeCard("Scenario Suite", qa.scenario);
+    if (qa.replay)   grid.innerHTML += makeCard("Production Replay", qa.replay);
+
+    // Trend sparkline
+    const trend = qa.scenario_trend || [];
+    if (trend.length > 1) {
+      const max  = Math.max(...trend, 1);
+      const bars = trend.map(p => {
+        const h  = Math.round((p / max) * 22) + 2;
+        const bc = barClass(p);
+        return `<div class="qa-trend-bar ${bc}" title="${p}%" style="height:${h}px"></div>`;
+      }).join("");
+      grid.innerHTML += `<div class="qa-card" style="min-width:120px">
+        <div class="qa-card-label">Scenario Trend</div>
+        <div class="qa-trend">${bars}</div>
+        <div class="qa-card-sub">${trend.length} runs · last ${trend[trend.length-1]}%</div>
+      </div>`;
+    }
+  }
+
   // ── load metrics ─────────────────────────────────────────────
   async function loadMetrics() {
     try {
@@ -824,6 +902,7 @@
       $("mAvgResponse").textContent      = m.avg_response_ms ? (m.avg_response_ms / 1000).toFixed(1) + "s" : "–";
       renderHealth(m.health || {});
       renderActivity(m.recent_log || []);
+      renderQA(m.qa || {});
       const now = new Date();
       $("lastRefresh").textContent = "Updated " + now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
     } catch {}

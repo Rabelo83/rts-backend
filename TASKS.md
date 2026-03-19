@@ -109,6 +109,12 @@ Closes the 10% gap the LLM judge cannot cover — factual accuracy of times, sto
 - Usage: `python tests/run_and_judge.py --gtfs-verify` or standalone `python tests/judge_gtfs.py --query "..." --response "..."`
 - Pattern: **LLM generates → grounded verifier checks** — reusable for any structured-data domain
 
+### QA Progress Tracking ✅ DONE (2026-03-19)
+- [x] Built `tests/qa_report.py` — reads all result files, populates `tests/qa_history.sqlite`, prints trend/per-scenario reliability/regression diff
+- [x] `routes/admin_api.py` now exposes `qa` key in `/api/dashboard/metrics` — latest scenario + replay pass rates + 5-run trend
+- [x] Dashboard QA panel — shows scenario pass %, replay pass %, sparkline trend; hidden when no data yet
+- Usage: `python tests/qa_report.py` · `--scenarios` · `--diff` · `--last 10`
+
 ### Planned — promote_to_scenario.py helper
 - [ ] Build `tests/promote_to_scenario.py` — takes a query from a replay FAIL result and scaffolds it into a new scenario entry with pre-filled `expected_behavior` draft
 - [ ] Closes the feedback loop: real user FAIL → reviewed → permanent scenario

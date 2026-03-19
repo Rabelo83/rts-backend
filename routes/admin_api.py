@@ -14,9 +14,38 @@ from flask import Blueprint, jsonify, request
 
 admin_bp = Blueprint("admin_api", __name__)
 
-_DATA_DIR = Path(os.environ.get("DATA_DIR", str(Path(__file__).resolve().parents[1] / "data")))
+_DATA_DIR     = Path(os.environ.get("DATA_DIR", str(Path(__file__).resolve().parents[1] / "data")))
 _ANALYTICS_DB = _DATA_DIR / "analytics.sqlite"
-_LOG_PATH = Path(__file__).resolve().parents[1] / "PROJECT_LOG.md"
+_LOG_PATH     = Path(__file__).resolve().parents[1] / "PROJECT_LOG.md"
+_QA_HISTORY   = Path(__file__).resolve().parents[1] / "tests" / "qa_history.sqlite"
+
+
+def _get_qa_summary() -> dict:
+    """Read latest QA run stats from qa_history.sqlite (populated by qa_report.py)."""
+    if not _QA_HISTORY.exists():
+        return {}
+    try:
+        conn = sqlite3.connect(_QA_HISTORY)
+        result = {}
+        for rtype in ("scenario", "replay"):
+            row = conn.execute(
+                "SELECT total, passed, failed, pass_pct, judged_by, run_at "
+                "FROM runs WHERE run_type=? ORDER BY run_at DESC LIMIT 1",
+                (rtype,)
+            ).fetchone()
+            if row:
+                result[rtype] = {
+                    "total": row[0], "passed": row[1], "failed": row[2],
+                    "pass_pct": row[3], "judged_by": row[4], "run_at": row[5],
+                }
+        trend = conn.execute(
+            "SELECT pass_pct FROM runs WHERE run_type='scenario' ORDER BY run_at DESC LIMIT 5"
+        ).fetchall()
+        result["scenario_trend"] = [r[0] for r in reversed(trend)]
+        conn.close()
+        return result
+    except Exception:
+        return {}
 
 
 def _analytics_conn():
@@ -121,6 +150,7 @@ def dashboard_metrics():
             "session_store": True,
         },
         "recent_log": _parse_recent_log(6),
+        "qa": _get_qa_summary(),
     })
 
 
