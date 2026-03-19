@@ -1051,3 +1051,99 @@ def get_route_day_summary(route_id: str, date_str: str | None = None) -> dict | 
         return None
     finally:
         conn.close()
+
+
+def get_route_stops(route_id: str, direction_hint: str | None = None) -> dict:
+    """Return ordered list of stops for a route, optionally filtered by direction/headsign.
+
+    Returns:
+        {
+          "status": "ok",
+          "route": "1",
+          "directions": [
+            {
+              "headsign": "Butler Plaza",
+              "stops": [
+                {"stop_id": "0001", "stop_name": "Rosa Parks RTS Downtown Station", "sequence": 1},
+                ...
+              ]
+            },
+            ...
+          ]
+        }
+    """
+    conn = connect_db()
+    if conn is None:
+        return {"status": "db_unavailable"}
+    try:
+        # Get distinct headsigns for this route
+        headsigns_rows = conn.execute(
+            """
+            SELECT DISTINCT t.trip_headsign
+            FROM trips t
+            JOIN routes r ON r.route_id = t.route_id
+            WHERE r.route_short_name = ?
+            ORDER BY t.trip_headsign
+            """,
+            (route_id,),
+        ).fetchall()
+
+        if not headsigns_rows:
+            return {"status": "route_not_found", "route": route_id}
+
+        all_headsigns = [r["trip_headsign"] for r in headsigns_rows]
+
+        # Filter by direction hint if provided
+        if direction_hint:
+            hint_lower = direction_hint.lower()
+            filtered = [h for h in all_headsigns if hint_lower in h.lower()]
+            target_headsigns = filtered if filtered else all_headsigns
+        else:
+            target_headsigns = all_headsigns
+
+        directions = []
+        for headsign in target_headsigns:
+            # Get a representative trip for this headsign (longest trip = most stops)
+            trip_row = conn.execute(
+                """
+                SELECT t.trip_id, COUNT(st.stop_id) AS stop_count
+                FROM trips t
+                JOIN routes r ON r.route_id = t.route_id
+                JOIN stop_times st ON st.trip_id = t.trip_id
+                WHERE r.route_short_name = ? AND t.trip_headsign = ?
+                GROUP BY t.trip_id
+                ORDER BY stop_count DESC
+                LIMIT 1
+                """,
+                (route_id, headsign),
+            ).fetchone()
+
+            if not trip_row:
+                continue
+
+            stops_rows = conn.execute(
+                """
+                SELECT s.stop_id_padded, s.stop_name, st.stop_sequence
+                FROM stop_times st
+                JOIN stops s ON s.stop_id = st.stop_id
+                WHERE st.trip_id = ?
+                ORDER BY st.stop_sequence
+                """,
+                (trip_row["trip_id"],),
+            ).fetchall()
+
+            directions.append({
+                "headsign": headsign,
+                "stops": [
+                    {
+                        "stop_id": r["stop_id_padded"],
+                        "stop_name": r["stop_name"],
+                        "sequence": r["stop_sequence"],
+                    }
+                    for r in stops_rows
+                ],
+            })
+
+        return {"status": "ok", "route": route_id, "directions": directions}
+    finally:
+        conn.close()

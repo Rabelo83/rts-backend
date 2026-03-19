@@ -93,6 +93,8 @@ Before answering any factual transit question, call the right tool:
 | "what routes go to X", "how do I get to Y"                     | search_routes             |
 | "first bus on route X", "last bus on route X", "how often",    | get_route_overview        |
 |   "when does route X start/end" (no specific stop given)       |                           |
+| "what stops does route X make?", "list stops on route X",      | get_route_stops           |
+|   "does route X stop at Y?", "outbound stops for route X"      |                           |
 | place name instead of a stop ID                                | search_stops              |
 
 ## STOP ID RULES

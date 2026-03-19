@@ -199,6 +199,36 @@ TOOLS: list[dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_route_stops",
+            "description": (
+                "List all stops on a route in order, optionally filtered by direction. "
+                "Use when the user asks 'what stops does route X make?', "
+                "'list the stops on route 1 outbound', or 'does route 5 stop at X?'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "route_id": {
+                        "type": "string",
+                        "description": "Route number (e.g. '1', '43').",
+                    },
+                    "direction": {
+                        "type": "string",
+                        "description": (
+                            "Optional direction or headsign keyword to filter results, "
+                            "e.g. 'Butler Plaza', 'outbound', 'downtown'. "
+                            "Omit to return all directions."
+                        ),
+                    },
+                },
+                "required": ["route_id"],
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 
@@ -375,6 +405,17 @@ def _stop_name_from_gtfs(stop_id: str) -> str:
         conn.close()
 
 
+def _tool_get_route_stops(route_id: str, direction: str | None = None) -> dict:
+    route_id = _normalize_route_id(route_id) or route_id
+    result = _sched.get_route_stops(route_id, direction_hint=direction)
+    if result.get("status") != "ok":
+        return result
+    # Limit each direction to 50 stops max to keep response size reasonable
+    for d in result.get("directions", []):
+        d["stops"] = d["stops"][:50]
+    return result
+
+
 def dispatch_tool(name: str, arguments: dict) -> dict:
     """
     Called by the agent loop for each tool_call the LLM requests.
@@ -387,6 +428,7 @@ def dispatch_tool(name: str, arguments: dict) -> dict:
         "get_schedule": _tool_get_schedule,
         "search_routes": _tool_search_routes,
         "get_route_overview": _tool_get_route_overview,
+        "get_route_stops": _tool_get_route_stops,
     }
     handler = handlers.get(name)
     if not handler:
