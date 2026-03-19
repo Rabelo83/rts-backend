@@ -305,12 +305,57 @@
     .activity-summary { font-size: .78rem; color: rgba(255,255,255,.55); line-height: 1.5; }
 
     /* area bars */
-    .area-rows { display: flex; flex-direction: column; gap: 9px; }
+    .area-rows { display: flex; flex-direction: column; gap: 6px; }
+    .area-row-btn {
+      background: none; border: 1px solid transparent; border-radius: 8px;
+      padding: 7px 8px; cursor: pointer; width: 100%; text-align: left;
+      transition: border-color .15s, background .15s; color: inherit; font-family: inherit;
+    }
+    .area-row-btn:hover { border-color: var(--border2); background: var(--s2); }
+    .area-row-btn.active { border-color: var(--accent); background: rgba(88,166,255,.06); }
     .area-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
     .area-name { font-size: .76rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .area-frac { font-size: .7rem; color: var(--muted); flex-shrink: 0; }
     .area-track { background: rgba(255,255,255,.06); border-radius: 3px; height: 4px; overflow: hidden; }
     .area-fill  { height: 100%; border-radius: 3px; background: var(--ok); transition: width .9s cubic-bezier(.4,0,.2,1); }
+    .area-clear {
+      width: 100%; padding: 6px; margin-top: 4px;
+      background: none; border: 1px dashed var(--border); border-radius: 7px;
+      color: var(--muted); font-size: .72rem; cursor: pointer; font-family: inherit;
+      transition: border-color .15s, color .15s;
+    }
+    .area-clear:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* blocked alert */
+    .blocked-alert {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; margin-bottom: 10px;
+      background: rgba(248,81,73,.08); border: 1px solid rgba(248,81,73,.3);
+      border-radius: 9px; cursor: pointer; transition: background .15s;
+    }
+    .blocked-alert:hover { background: rgba(248,81,73,.13); }
+    .blocked-alert-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger);
+                         animation: pulse-green 1.5s ease-in-out infinite; flex-shrink: 0; }
+    .blocked-alert-text { font-size: .8rem; color: #ffa198; flex: 1; }
+    .blocked-alert-arrow { font-size: .8rem; color: rgba(248,81,73,.5); }
+
+    /* next-up spotlight */
+    .spotlight-header {
+      font-size: .7rem; text-transform: uppercase; letter-spacing: .07em;
+      color: var(--muted); margin-bottom: 8px; padding: 0 2px;
+    }
+    .spotlight-cards { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+    .spotlight-card {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; background: rgba(188,140,255,.05);
+      border: 1px solid rgba(188,140,255,.2); border-radius: 8px;
+      cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .spotlight-card:hover { border-color: rgba(188,140,255,.5); background: rgba(188,140,255,.08); }
+    .spotlight-arrow { font-size: .75rem; color: var(--purple); }
+    .spotlight-title { font-size: .82rem; font-weight: 500; flex: 1; min-width: 0;
+                       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .spotlight-area  { font-size: .68rem; color: var(--muted); flex-shrink: 0; }
 
     /* quick links */
     .qlink { display: block; padding: 7px 11px; border: 1px solid var(--border);
@@ -510,7 +555,7 @@
                    deploy:"badge-deploy", docs:"badge-docs" };
 
   const $ = id => document.getElementById(id);
-  const state = { tasks:[], filter:"all", q:"" };
+  const state = { tasks:[], filter:"all", q:"", area:null };
 
   function esc(v) {
     return String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -559,6 +604,7 @@
     return state.tasks.filter(t => {
       const s = norm(t.status);
       if (state.filter !== "all" && s !== state.filter) return false;
+      if (state.area && (t.area || "General") !== state.area) return false;
       if (state.q) {
         const q = state.q.toLowerCase();
         return (t.title||"").toLowerCase().includes(q)
@@ -571,13 +617,53 @@
     }).sort((a,b) => ORDER[norm(a.status)] - ORDER[norm(b.status)]);
   }
 
+  // ── area filter ──────────────────────────────────────────────
+  function setArea(area) {
+    state.area = (state.area === area) ? null : area; // toggle
+    renderTasks();
+    renderAreas(state.tasks);
+    // Scroll to task list
+    document.querySelector(".panel").scrollIntoView({ behavior:"smooth", block:"start" });
+  }
+
   // ── render tasks ─────────────────────────────────────────────
   function renderTasks() {
     const list = $("taskList");
     const visible = getVisible();
-    $("panelCount").textContent = visible.length + " task" + (visible.length !== 1 ? "s" : "");
-    if (!visible.length) { list.innerHTML = '<div class="empty-state">No tasks match.</div>'; return; }
-    list.innerHTML = visible.map((task, i) => {
+    const areaLabel = state.area ? ` · ${state.area}` : "";
+    $("panelCount").textContent = visible.length + " task" + (visible.length !== 1 ? "s" : "") + areaLabel;
+
+    // Blocked alert (shown when viewing all, not already filtered to blocked)
+    const blocked = state.tasks.filter(t => norm(t.status) === "blocked");
+    let alertHtml = "";
+    if (blocked.length && state.filter !== "blocked" && !state.area) {
+      alertHtml = `<div class="blocked-alert" onclick="setFilter('blocked')">
+        <div class="blocked-alert-dot"></div>
+        <div class="blocked-alert-text"><strong>${blocked.length} blocked task${blocked.length > 1 ? "s" : ""}</strong> — click to view</div>
+        <div class="blocked-alert-arrow">→</div>
+      </div>`;
+    }
+
+    // Next-up spotlight (top 3 "next" tasks when not already filtered)
+    const nextUp = state.tasks.filter(t => norm(t.status) === "next").slice(0, 3);
+    let spotlightHtml = "";
+    if (nextUp.length && state.filter === "all" && !state.area && !state.q) {
+      spotlightHtml = `<div class="spotlight-header">↗ Up Next</div>
+        <div class="spotlight-cards">
+        ${nextUp.map((t, i) => `
+          <div class="spotlight-card" onclick="jumpToTask('${esc(t.task_code||'')}')">
+            <span class="spotlight-arrow">→</span>
+            <span class="spotlight-title">${esc(t.title)}</span>
+            <span class="spotlight-area">${esc(t.area||'General')}</span>
+          </div>`).join("")}
+        </div>`;
+    }
+
+    if (!visible.length) {
+      list.innerHTML = alertHtml + spotlightHtml + '<div class="empty-state">No tasks match.</div>';
+      return;
+    }
+    list.innerHTML = alertHtml + spotlightHtml + visible.map((task, i) => {
       const status  = norm(task.status);
       const icon    = ICONS[status] || "●";
       const blocker = task.blocker
@@ -603,6 +689,12 @@
     autoOpenHit(list, visible);
   }
 
+  function jumpToTask(code) {
+    si.value = code; state.q = code; state.area = null;
+    setFilter("all");
+    si.focus();
+  }
+
   function autoOpenHit(listEl, vis) {
     const q = (state.q||"").trim().toUpperCase();
     if (!isCode(q)) return;
@@ -615,7 +707,7 @@
     setTimeout(() => card.classList.remove("jump-hit"), 1400);
   }
 
-  // ── area bars ────────────────────────────────────────────────
+  // ── area bars (clickable) ────────────────────────────────────
   function renderAreas(tasks) {
     const el = $("areaRows");
     const map = {};
@@ -627,16 +719,27 @@
     }
     const rows = Object.entries(map).sort((a,b) => b[1].total - a[1].total);
     if (!rows.length) { el.innerHTML = '<div class="empty-state">No data.</div>'; return; }
+
     el.innerHTML = rows.map(([area, d]) => {
-      const pct = Math.round((d.done / d.total) * 100);
-      return `<div>
+      const pct     = Math.round((d.done / d.total) * 100);
+      const isActive = state.area === area;
+      return `<button class="area-row-btn${isActive ? " active" : ""}" data-area="${esc(area)}" title="Filter tasks by ${esc(area)}">
         <div class="area-top">
-          <span class="area-name" title="${esc(area)}">${esc(area)}</span>
+          <span class="area-name">${esc(area)}</span>
           <span class="area-frac">${d.done}/${d.total}</span>
         </div>
         <div class="area-track"><div class="area-fill" style="width:0%" data-pct="${pct}"></div></div>
-      </div>`;
+      </button>`;
     }).join("");
+
+    if (state.area) {
+      el.innerHTML += `<button class="area-clear" onclick="setArea(null)">✕ Clear area filter</button>`;
+    }
+
+    // Wire clicks
+    for (const btn of el.querySelectorAll(".area-row-btn"))
+      btn.addEventListener("click", () => setArea(btn.dataset.area));
+
     // Animate bars after paint
     setTimeout(() => {
       for (const bar of el.querySelectorAll(".area-fill"))
@@ -717,11 +820,13 @@
   // ── filter control ───────────────────────────────────────────
   function setFilter(f) {
     state.filter = f;
+    state.area   = null; // clear area when switching status tab
     for (const s of document.querySelectorAll(".stat")) s.classList.toggle("lit", s.dataset.f === f);
     for (const b of document.querySelectorAll(".fbtn")) b.classList.toggle("active", b.dataset.f === f);
     const LABELS = { all:"All Tasks", completed:"Completed", next:"Next Up", pending:"Pending", backlog:"Backlog", blocked:"Blocked" };
     $("panelTitle").textContent = LABELS[f] || "Tasks";
     renderTasks();
+    renderAreas(state.tasks);
   }
 
   // ── bindings ─────────────────────────────────────────────────

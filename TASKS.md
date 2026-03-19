@@ -128,8 +128,33 @@ Use GPT to auto-generate new edge-case scenarios from live GTFS data.
 
 - [ ] Realtime prediction reliability is limited by RTS/BusTime external API availability
 
+## ✅ Session 19 cont. — 2026-03-19: Dashboard Interactivity + Replay QA
+
+- [x] Dashboard wow redesign — animated orbs, glassmorphism hero, live metrics strip, health dots, activity feed, animated counters
+- [x] `routes/admin_api.py` — `/api/dashboard/metrics` (live stats) + `/api/admin/analytics/export` (PIN-protected)
+- [x] PIN login — `DASHBOARD_PIN` env var gates `/dashboard`; `SECRET_KEY` for session cookie
+- [x] `.github/workflows/analytics-backup.yml` — weekly GitHub Action exports analytics JSON to `backups/analytics/`
+- [x] Dashboard By Area clickable — clicking an area filters task list + scrolls to it; active area highlighted; clear button
+- [x] Blocked alert banner — red callout at top of task list when blocked tasks exist; click to filter
+- [x] Next-Up spotlight — top 3 "next" tasks shown as quick-action cards above task list
+- [x] `tests/replay_from_logs.py` — Level 2 QA: replays last N real user queries from analytics.sqlite against live v3 agent; scores PASS/WARN/FAIL; saves results JSON
+
+## Pending (Carry-over)
+
+- [ ] Decide whether `/dashboard` and task API should require auth (PIN login built — just set DASHBOARD_PIN env var)
+- [ ] GTFS/schedule data refresh — **manual process** (owner provides updated files directly when needed)
+- [ ] Add route coincidence tool (where/when two routes share a stop) — deferred
+- [ ] Trip planning tool (multi-leg A→B routing) — deferred; requires significant new tooling
+- [ ] Find and document Hostinger frontend domain — add to README + CORS_ORIGINS in render.yaml
+- [ ] Level 1 testing: inline LLM-as-judge in `run_v2_scenarios.py` (eliminates false positives permanently)
+- [ ] Add GitHub Secrets for analytics backup: `RENDER_BACKEND_URL` + `DASHBOARD_PIN`
+
+## Blocked
+
+- [ ] Realtime prediction reliability is limited by RTS/BusTime external API availability
+
 ## Next Steps
 
-1. Level 1 testing upgrade: inline LLM-as-judge in `run_v2_scenarios.py` (eliminates false positives permanently).
-2. Build persistence smoke test — automated script to verify session context survives a simulated restart.
-3. Build `tests/replay_from_logs.py` — replay real user queries from `analytics.sqlite` as regression tests.
+1. Set `DASHBOARD_PIN` + `SECRET_KEY` + `RENDER_BACKEND_URL` on Render/GitHub if locking dashboard before presentation.
+2. Level 1 testing upgrade: inline LLM-as-judge in `run_v2_scenarios.py`.
+3. Run `python tests/replay_from_logs.py` after production traffic accumulates to catch real-world regressions.

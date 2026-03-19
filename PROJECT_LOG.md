@@ -206,6 +206,24 @@ How to use:
 - Notes / Follow-up: Render Persistent Disk provisioned manually via dashboard (render.yaml disk config does not auto-provision on existing services). Starter plan required — confirmed active.
 
 ### 2026-03-19
+- Type: `feature`
+- Summary: Dashboard full wow redesign — animated gradient orb background, glassmorphism hero, live metrics strip (queries today, success rate, active sessions, avg response), pulsing system health dots (Claude API, BusTime API, GTFS DB, Sessions), Recent Activity feed from PROJECT_LOG.md, animated counters on all stat cards. Auto-refreshes metrics every 30s. PIN login via DASHBOARD_PIN env var.
+- Files/Areas: `public_html/dashboard.html`, `routes/admin_api.py` (new), `app.py`
+- Notes / Follow-up: Dashboard feeds from project_tasks.json (tasks) + /api/dashboard/metrics (live stats) + PROJECT_LOG.md (activity feed).
+
+### 2026-03-19
+- Type: `feature`
+- Summary: Dashboard interactivity — By Area rows clickable (filters task list + scrolls, active area highlighted, clear button). Blocked alert banner when blocked tasks exist. Next-Up spotlight shows top 3 next tasks as quick-action cards. Clicking spotlight card jumps directly to that task.
+- Files/Areas: `public_html/dashboard.html`
+- Notes / Follow-up: Client-side only. Area filter stacks with status filter.
+
+### 2026-03-19
+- Type: `feature`
+- Summary: Built Level 2 QA — tests/replay_from_logs.py. Loads real user queries from analytics.sqlite, replays against live v3 agent, scores PASS/WARN/FAIL, saves JSON results. Weekly GitHub Action (.github/workflows/analytics-backup.yml) exports analytics to backups/analytics/ and commits to repo.
+- Files/Areas: `tests/replay_from_logs.py` (new), `.github/workflows/analytics-backup.yml` (new), `backups/analytics/`
+- Notes / Follow-up: Requires RENDER_BACKEND_URL + DASHBOARD_PIN as GitHub Secrets for backup action. Run replay with `python tests/replay_from_logs.py --last 50`.
+
+### 2026-03-19
 - Type: `fix`
 - Summary: Three UX fixes to the v3 Claude agent: (1) Reduced Service note now renders as a separate paragraph instead of appended inline to the last sentence. (2) Stop IDs displayed to users now strip leading zeros (show "1492" not "0001492"). (3) Route-context disambiguation — when user asks a place-name follow-up in a route-specific conversation (e.g. "what about from Butler Plaza?" after Route 1), agent now passes the known route_id to get_schedule directly instead of calling search_stops generically and showing an unrelated stop list.
 - Files/Areas: `routes/agent_claude.py` — system prompt rules updated
