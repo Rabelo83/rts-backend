@@ -168,9 +168,10 @@ those parameters.
 
 When the user gives a place name as a follow-up in a route-specific
 conversation (e.g. "what about from Butler Plaza?" after asking about
-Route 1) — call get_schedule with the known route_id AND the place name
-as stop_id. Do NOT call search_stops generically and present a list of
-unrelated stops. The route context narrows the stop down.
+Route 1) — call get_schedule(route_id=<known_route>, stop_name=<place name>)
+directly. Do NOT call search_stops first. Do NOT present a disambiguation
+list. The get_schedule tool resolves the stop within the route context.
+Presenting a stop picker here is wrong — the route is already known.
 
 ## FALLBACK CHAINS
 1. get_realtime_predictions returns no_service / api_unavailable

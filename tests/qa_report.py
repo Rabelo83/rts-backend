@@ -114,7 +114,7 @@ def ingest_all(conn: sqlite3.Connection) -> int:
 
 def _bar(pct: float, width: int = 20) -> str:
     filled = round(pct / 100 * width)
-    return "█" * filled + "░" * (width - filled)
+    return "#" * filled + "." * (width - filled)
 
 
 def print_trend(conn: sqlite3.Connection, last_n: int, run_type: str | None = None):
@@ -133,7 +133,7 @@ def print_trend(conn: sqlite3.Connection, last_n: int, run_type: str | None = No
     rows = list(reversed(rows))  # oldest first for trend display
 
     print(f"\n  {'Date/Run':<26} {'Type':<9} {'Env':<9} {'Judge':<12}  {'Pass':>5}  {'Total':>5}  {'Rate':>6}  Trend")
-    print(f"  {'─'*26} {'─'*9} {'─'*9} {'─'*12}  {'─'*5}  {'─'*5}  {'─'*6}  {'─'*20}")
+    print(f"  {'-'*26} {'-'*9} {'-'*9} {'-'*12}  {'-'*5}  {'-'*5}  {'-'*6}  {'-'*20}")
     for r in rows:
         run_id, rtype, run_at, env, judged_by, total, passed, failed, pass_pct = r
         # Shorten run_id for display
@@ -161,10 +161,10 @@ def print_scenario_reliability(conn: sqlite3.Connection, min_runs: int = 2):
         return
 
     print(f"\n  {'Scenario':<12} {'Runs':>5}  {'Pass':>5}  {'Rate':>6}  Reliability")
-    print(f"  {'─'*12} {'─'*5}  {'─'*5}  {'─'*6}  {'─'*20}")
+    print(f"  {'-'*12} {'-'*5}  {'-'*5}  {'-'*6}  {'-'*20}")
     for sid, runs, passes, pct in rows:
         bar = _bar(pct or 0)
-        flag = "  ← FLAKY" if (pct or 0) < 80 else ""
+        flag = "  [FLAKY]" if (pct or 0) < 80 else ""
         print(f"  {sid:<12} {runs:>5}  {passes:>5}  {pct:>5.1f}%  {bar}{flag}")
 
 
@@ -195,9 +195,9 @@ def print_regression_diff(conn: sqlite3.Connection, run_type: str = "scenario"):
     recovered     = [sid for sid, v in curr.items() if v == "PASS" and prev.get(sid) == "FAIL"]
     still_failing = [sid for sid, v in curr.items() if v == "FAIL" and prev.get(sid) == "FAIL"]
 
-    print(f"\n  Diff: {prev_id[:30]}  →  {curr_id[:30]}")
+    print(f"\n  Diff: {prev_id[:30]}  =>  {curr_id[:30]}")
     if new_fails:
-        print(f"\n  🔴 New failures ({len(new_fails)}) — REGRESSION:")
+        print(f"\n  [REGRESSION] New failures ({len(new_fails)}):")
         for sid in new_fails:
             reason = conn.execute(
                 "SELECT reason FROM scenario_results WHERE run_id=? AND scenario_id=?",
@@ -205,15 +205,15 @@ def print_regression_diff(conn: sqlite3.Connection, run_type: str = "scenario"):
             ).fetchone()
             print(f"    [{sid}] {(reason[0] if reason else '')[:80]}")
     else:
-        print(f"\n  ✓ No new failures vs previous run")
+        print(f"\n  [OK] No new failures vs previous run")
 
     if recovered:
-        print(f"\n  ✓ Recovered ({len(recovered)}):")
+        print(f"\n  [RECOVERED] ({len(recovered)}):")
         for sid in recovered:
             print(f"    [{sid}]")
 
     if still_failing:
-        print(f"\n  ⚠ Still failing ({len(still_failing)}):")
+        print(f"\n  [STILL FAILING] ({len(still_failing)}):")
         for sid in still_failing:
             print(f"    [{sid}]")
 
@@ -267,31 +267,31 @@ def main():
         print(f"  Ingested {new} new result file(s) into qa_history.sqlite\n")
 
     total_runs = conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
-    print(f"\n{'═'*72}")
-    print(f"  RTS QA Progress Report  —  {total_runs} total runs on record")
-    print(f"{'═'*72}")
+    print(f"\n{'='*72}")
+    print(f"  RTS QA Progress Report  --  {total_runs} total runs on record")
+    print(f"{'='*72}")
 
-    print("\n── Run History" + (f" (last {args.last})" if args.last else "") + " ──")
+    print("\n-- Run History" + (f" (last {args.last})" if args.last else "") + " --")
     print_trend(conn, args.last, args.type)
 
     if args.scenarios:
-        print("\n── Per-Scenario Reliability (≥2 runs) ──")
+        print("\n-- Per-Scenario Reliability (>=2 runs) --")
         print_scenario_reliability(conn)
 
     if args.diff:
-        print("\n── Regression Diff (scenario runs) ──")
+        print("\n-- Regression Diff (scenario runs) --")
         print_regression_diff(conn, "scenario")
 
     # Always show latest summary
     summary = latest_summary(conn)
-    print(f"\n── Latest Results ──")
+    print(f"\n-- Latest Results --")
     for rtype in ("scenario", "replay"):
         if rtype in summary:
             s = summary[rtype]
             print(f"  {rtype:<9}: {s['passed']}/{s['total']} PASS  ({s['pass_pct']}%)  "
                   f"judged by {s['judged_by']}  [{s['run_at'][:16]}]")
     if summary.get("trend"):
-        trend_str = "  →  ".join(f"{p}%" for p in summary["trend"])
+        trend_str = "  ->  ".join(f"{p}%" for p in summary["trend"])
         print(f"  trend    : {trend_str}")
     print()
 

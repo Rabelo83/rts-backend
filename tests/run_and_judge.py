@@ -177,7 +177,13 @@ def _get_judge_client() -> OpenAI:
             print("ERROR: OPENAI_API_KEY not set — cannot run judge.")
             print("  Set it in .env.local or as an env var, then re-run.")
             sys.exit(1)
-        _judge_client = OpenAI(api_key=api_key, timeout=30)
+        # Explicitly set base_url to real OpenAI — overrides OPENAI_BASE_URL env var
+        # which may point to a local Ollama instance
+        _judge_client = OpenAI(
+            api_key=api_key,
+            base_url="https://api.openai.com/v1",
+            timeout=30,
+        )
     return _judge_client
 
 
@@ -253,7 +259,7 @@ def run_single(endpoint: str, scenario: dict, use_judge: bool) -> dict:
             "heuristic": "likely_fail",
             "verdict": "FAIL", "reason": f"agent error: {err}",
         }
-        print(f"  ✗ FAIL")
+        print(f"  [FAIL]")
         return result
 
     response_text = (data or {}).get("answer", "")
@@ -268,8 +274,8 @@ def run_single(endpoint: str, scenario: dict, use_judge: bool) -> dict:
         verdict_data = {"verdict": "PASS" if h == "ok" else "FAIL",
                         "reason": "heuristic only"}
 
-    symbol = "✓" if verdict_data["verdict"] == "PASS" else "✗"
-    print(f"  {symbol} {verdict_data['verdict']}  ({elapsed}ms, {tool_calls or 0} tools)")
+    symbol = "PASS" if verdict_data["verdict"] == "PASS" else "FAIL"
+    print(f"  [{symbol}]  ({elapsed}ms, {tool_calls or 0} tools)")
     if verdict_data["verdict"] == "FAIL":
         print(f"         reason: {verdict_data['reason']}")
 
@@ -335,8 +341,8 @@ def run_multi(endpoint: str, scenario: dict, use_judge: bool) -> dict:
         verdict_data = {"verdict": "FAIL" if had_error or any_empty else "PASS",
                         "reason": "heuristic only"}
 
-    symbol = "✓" if verdict_data["verdict"] == "PASS" else "✗"
-    print(f"    → {symbol} {verdict_data['verdict']}  {verdict_data['reason']}")
+    symbol = "PASS" if verdict_data["verdict"] == "PASS" else "FAIL"
+    print(f"    => [{symbol}]  {verdict_data['reason']}")
 
     return {
         "id": sid, "type": "multi",
@@ -437,7 +443,7 @@ def main():
           + (" (retry-fails)" if args.retry_fails else ""))
     print(f"Judge    : {'GPT-4o-mini inline' if use_judge else 'disabled (heuristic only)'}")
     print(f"GTFS     : {'enabled' if use_gtfs else 'disabled'}")
-    print(f"{'─' * 72}\n")
+    print("-" * 72 + "\n")
 
     results = []
     for s in scenarios:
@@ -449,8 +455,8 @@ def main():
                 if r["heuristic"] == "likely_fail" and r["status"] != "error":
                     vd = llm_judge(r["expected_behavior"], r["response"], r["tool_calls_made"])
                     r.update(vd)
-                    symbol = "✓" if vd["verdict"] == "PASS" else "✗"
-                    print(f"         judge : {symbol} {vd['verdict']} — {vd['reason']}")
+                    symbol = "PASS" if vd["verdict"] == "PASS" else "FAIL"
+                    print(f"         judge : [{symbol}] — {vd['reason']}")
             else:
                 r = run_single(endpoint, s, use_judge)
 
@@ -465,9 +471,9 @@ def main():
             if gv["verdict"] == "FAIL" and r.get("verdict") == "PASS":
                 r["verdict"] = "FAIL"
                 r["reason"]  = f"GTFS contradiction: {gv['reason']}"
-                print(f"         gtfs  : ✗ FAIL — {gv['reason']}")
+                print(f"         gtfs  : [FAIL] — {gv['reason']}")
             elif gv["verdict"] == "PASS":
-                print(f"         gtfs  : ✓ {len(gv['checks'])} claim(s) verified")
+                print(f"         gtfs  : [PASS] {len(gv['checks'])} claim(s) verified")
 
         results.append(r)
         time.sleep(INTER_REQUEST_DELAY)
@@ -478,7 +484,7 @@ def main():
     n_fail = total - n_pass
     pct    = round(n_pass / total * 100) if total else 0
 
-    print(f"\n{'═' * 72}")
+    print("\n" + "=" * 72)
     print(f"  PASS {n_pass:>3}  FAIL {n_fail:>3}  ({pct}% pass rate)  — {total} scenarios")
 
     if n_fail:
@@ -486,8 +492,10 @@ def main():
         for r in results:
             if r.get("verdict") == "FAIL":
                 sid  = r["id"]
-                desc = r.get("description") or r.get("query", "")[:60]
+                desc = (r.get("description") or r.get("query", ""))[:60]
                 why  = r.get("reason", "")
+                desc = desc.encode("ascii", "replace").decode("ascii")
+                why  = why.encode("ascii", "replace").decode("ascii")
                 print(f"    [{sid}] {desc}")
                 print(f"           {why}")
 
@@ -506,7 +514,7 @@ def main():
         "results": results,
     }, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    print(f"\n  Saved → {out_path.name}")
+    print(f"\n  Saved: {out_path.name}")
     print(f"\n  Re-run failures: python tests/run_and_judge.py --retry-fails")
     print()
 
