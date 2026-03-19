@@ -14,17 +14,22 @@ The assistant helps bus riders in Gainesville, FL find:
 
 The assistant speaks **English and Spanish** (detects language automatically).
 
-### The assistant's 5 tools (the ONLY data sources)
+### The assistant's 7 tools (the ONLY data sources)
 
 | Tool | What it does |
 |---|---|
 | `search_stops` | Find a stop by name or landmark (returns stop_id or multiple candidates) |
 | `get_realtime_predictions` | Live ETAs for a stop_id from the Bustime API |
-| `get_schedule` | Next departures from GTFS for a route + stop |
+| `get_schedule` | Next departures from GTFS for a route + stop. Returns `route_not_at_stop` if the route never serves that stop. |
 | `search_routes` | Find which routes serve a destination or area |
-| `get_route_overview` | First/last departure + frequency for a route on a given day |
+| `get_route_overview` | First/last departure + frequency per service type (Weekday/Saturday/Sunday/Reduced) for a route |
+| `get_route_stops` | Ordered list of stops for a route, grouped by direction/headsign |
 
 **The assistant CANNOT do**: trip planning (A→B routing), finding where two routes meet, accessibility queries, or any analysis that requires joining data across multiple routes simultaneously. For those, it should say: *"I don't have the ability to answer that type of question yet."*
+
+**Key statuses to know**:
+- `route_not_at_stop` — route was specified but never serves that stop; agent should say so clearly, not fabricate a schedule
+- `no_trips` — route serves the stop but no departures found in the requested window
 
 ---
 

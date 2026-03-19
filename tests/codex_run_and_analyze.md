@@ -1,4 +1,4 @@
-# Codex: Run, Analyze, Fix, and Verify RTS Agent v2 Tests
+# Codex: Run, Analyze, Fix, and Verify RTS Agent v3 Tests
 
 You are an autonomous coding agent. Execute ALL six steps below in order
 using your file-reading and file-writing tools. Do NOT stop after analysis.
@@ -32,8 +32,16 @@ python tests/run_v2_scenarios.py --env local
 ```
 
 The script automatically creates a Flask test client and issues HTTP requests
-against `/api/agent/v2` internally. Note the path of the saved results file
+against `/api/agent/v3` internally (set `_LOCAL_AGENT_VERSION = "v3"` in
+`run_v2_scenarios.py` if needed). Note the path of the saved results file
 (e.g. `tests/results/run_YYYYMMDD_HHMMSS.json`).
+
+**Shortcut — run and auto-analyze in one step:**
+```
+python tests/run_v2_scenarios.py --env local && python tests/auto_analyze.py
+```
+`auto_analyze.py` reads the latest results file and calls GPT-4o-mini automatically.
+Verdicts are saved to `tests/analysis/verdicts_run_YYYYMMDD_HHMMSS.json`.
 
 ---
 
@@ -42,7 +50,7 @@ against `/api/agent/v2` internally. Note the path of the saved results file
 Read all three files before proceeding:
 - `tests/results/run_YYYYMMDD_HHMMSS.json`  (the results you just generated)
 - `tests/gpt_analysis_prompt.md`             (the evaluation rubric)
-- `routes/agent_v2.py`                       (the agent system prompt + loop)
+- `routes/agent_claude.py`                   (the v3 agent system prompt + loop)
 
 ---
 
@@ -92,14 +100,13 @@ Common safe fix patterns:
 - **Wrong language in response**: Open `routes/schedule_service.py`, find
   `_AREA_ALIASES`, and add the missing Spanish key → area-code entry.
   Example: `"universidad de florida": "UF"` (follow the existing dict format).
-- **Follow-up returns wrong time**: Open `routes/agent_v2.py`, find the
-  `## FOLLOW-UP TIME ADVANCEMENT` block inside `SYSTEM_PROMPT`, and edit
+- **Follow-up returns wrong time**: Open `routes/agent_claude.py`, find the
+  `## FOLLOW-UP ADVANCEMENT` block inside `SYSTEM_PROMPT`, and edit
   the relevant sentence. Do not touch any Python code outside the string.
-- **Out-of-scope response references customer service**: Open `routes/agent_v2.py`,
-  find `## WHEN THE QUESTION IS BEYOND YOUR TOOLS` inside `SYSTEM_PROMPT`,
-  and edit only that paragraph.
-- **Hallucination in a specific category**: Open `routes/agent_v2.py`,
-  find the relevant `## HARD RULES` bullet, strengthen the wording.
+- **Out-of-scope response references customer service**: Open `routes/agent_claude.py`,
+  find `## OUT OF SCOPE` inside `SYSTEM_PROMPT`, and edit only that paragraph.
+- **Hallucination in a specific category**: Open `routes/agent_claude.py`,
+  find the relevant rule block, strengthen the wording.
 - **New scenario needed**: Open `tests/scenarios_v2.json`, append the new
   scenario object before the closing `]`. Preserve valid JSON.
 

@@ -398,7 +398,11 @@ def main():
 
     print(f"\nResults saved: {out_file}")
     print(f"\n{'-' * 72}")
-    print(f"NEXT STEPS -- GPT Analysis:")
+    print(f"NEXT STEPS -- Automated GPT Analysis:")
+    print(f"  python tests/auto_analyze.py")
+    print(f"  (reads latest results, calls GPT-4o-mini, saves verdicts to tests/analysis/)")
+    print(f"")
+    print(f"  -- or manually --")
     print(f"  1. Open  tests/gpt_analysis_prompt.md  (copy entire content)")
     print(f"  2. Paste it into a fresh ChatGPT conversation")
     print(f"  3. Then paste the contents of:\n       {out_file}")
