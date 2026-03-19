@@ -198,3 +198,15 @@ How to use:
 - Summary: Evaluated database architecture. Decision: keep SQLite for all three stores (GTFS, analytics, sessions). SQLite is the correct choice at this scale and operational context.
 - Files/Areas: `rts_gtfs.sqlite` (13.8 MB, read-only GTFS), `data/analytics.sqlite` (append-only chat logs), session store (currently in-memory).
 - Notes / Follow-up: GTFS is read-only at query time — SQLite's single-writer limitation is irrelevant. analytics.sqlite is append-only with rare reads — SQLite handles this cleanly. Estimated traffic (<200 queries/day for a city transit chatbot) is far below any SQLite ceiling. The one real gap is session persistence: in-memory OrderedDict is lost on every Render restart. Fix: add a `sessions` table to `analytics.sqlite` and persist session history there. No PostgreSQL migration needed at current or foreseeable scale.
+
+### 2026-03-19
+- Type: `feature`
+- Summary: Added SQLite session persistence and Render Persistent Disk support. Sessions now survive server restarts and idle spin-downs via write-through SQLite in `utils/session_manager.py`. Analytics and session DB files now write to `/data` (Render Persistent Disk) so data survives redeploys. `DATA_DIR` env var controls the path — defaults to local `data/` folder, override to `/data` on Render.
+- Files/Areas: `utils/session_manager.py` (SQLite write-through, DB restore on cache miss), `routes/agent_api.py` (DATA_DIR-aware paths), `render.yaml` (disk: rts-data, mountPath: /data, 1 GB; DATA_DIR=/data env var)
+- Notes / Follow-up: Render Persistent Disk provisioned manually via dashboard (render.yaml disk config does not auto-provision on existing services). Starter plan required — confirmed active.
+
+### 2026-03-19
+- Type: `fix`
+- Summary: Three UX fixes to the v3 Claude agent: (1) Reduced Service note now renders as a separate paragraph instead of appended inline to the last sentence. (2) Stop IDs displayed to users now strip leading zeros (show "1492" not "0001492"). (3) Route-context disambiguation — when user asks a place-name follow-up in a route-specific conversation (e.g. "what about from Butler Plaza?" after Route 1), agent now passes the known route_id to get_schedule directly instead of calling search_stops generically and showing an unrelated stop list.
+- Files/Areas: `routes/agent_claude.py` — system prompt rules updated
+- Notes / Follow-up: All prompt-only changes, no tool or service layer changes needed.

@@ -107,13 +107,22 @@ Use GPT to auto-generate new edge-case scenarios from live GTFS data.
 - [ ] Focus areas: wrong stop IDs, route+stop mismatches, late-night edge cases, Spanish multi-turn
 - [ ] Benefit: keeps test suite growing without manual effort
 
+## ✅ Session 19 cont. — 2026-03-19: Infrastructure & UX Fixes
+
+- [x] SQLite session persistence — `utils/session_manager.py` now writes sessions to `sessions.sqlite` on every `add_message()`. On cache miss (server restart), sessions are restored from DB automatically. Background cleanup purges expired rows from both memory and SQLite.
+- [x] Render Persistent Disk — `render.yaml` updated with `disk: rts-data, mountPath: /data, 1 GB`. `DATA_DIR=/data` env var wires both `analytics.sqlite` and `sessions.sqlite` to the persistent volume — data now survives redeploys.
+- [x] `DATA_DIR` env var — `routes/agent_api.py` analytics paths and `utils/session_manager.py` session DB path both respect `DATA_DIR`. Local dev unchanged (defaults to `data/`).
+- [x] Stop-only query — "stop 1492" with no question now calls `get_realtime_predictions` immediately instead of asking a clarifying question.
+- [x] Reduced Service note — now rendered as a separate paragraph, not appended inline to the schedule answer.
+- [x] Stop ID display — leading zeros stripped when showing stop IDs to users (1492 not 0001492).
+- [x] Route-context disambiguation — follow-up place-name queries in a route-specific conversation now pass the known route_id to `get_schedule` directly, avoiding the generic search_stops disambiguation list.
+
 ## Pending (Carry-over)
 
 - [ ] Decide whether `/dashboard` and task API should require auth
 - [ ] GTFS/schedule data refresh — **manual process** (owner provides updated files directly when needed)
 - [ ] Add route coincidence tool (where/when two routes share a stop) — deferred
 - [ ] Trip planning tool (multi-leg A→B routing) — deferred; requires significant new tooling
-- [ ] Consider persistent session storage (SQLite) to survive Render restarts — currently in-memory only
 
 ## Blocked
 
@@ -122,5 +131,5 @@ Use GPT to auto-generate new edge-case scenarios from live GTFS data.
 ## Next Steps
 
 1. Level 1 testing upgrade: inline LLM-as-judge in `run_v2_scenarios.py` (eliminates false positives permanently).
-2. Production logging: wire real user queries into `analytics.sqlite` for replay testing.
-3. Session persistence decision: SQLite vs in-memory for Render restart resilience.
+2. Build persistence smoke test — automated script to verify session context survives a simulated restart.
+3. Build `tests/replay_from_logs.py` — replay real user queries from `analytics.sqlite` as regression tests.
