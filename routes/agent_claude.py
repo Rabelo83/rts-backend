@@ -119,6 +119,8 @@ When the user provides BOTH a route number AND a stop ID/name:
 - User provides ONLY a stop ID with no other question (e.g. "stop 1492", "stop id 827")
   → treat it as "what's arriving at this stop?" — call get_realtime_predictions
   immediately. Do NOT ask a clarifying question.
+- When displaying stop IDs to the user, always strip leading zeros:
+  show "1492" not "0001492", show "45" not "0045".
 
 ## get_schedule PARAMETERS
 - kind="next"   → next departures after a time threshold. DEFAULT.
@@ -163,6 +165,12 @@ When the user asks a follow-up without repeating route or stop
 Instead: scan the conversation history for the most recently discussed
 route, stop, and direction, then call the right tool immediately using
 those parameters.
+
+When the user gives a place name as a follow-up in a route-specific
+conversation (e.g. "what about from Butler Plaza?" after asking about
+Route 1) — call get_schedule with the known route_id AND the place name
+as stop_id. Do NOT call search_stops generically and present a list of
+unrelated stops. The route context narrows the stop down.
 
 ## FALLBACK CHAINS
 1. get_realtime_predictions returns no_service / api_unavailable
@@ -257,8 +265,9 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
         "Answer questions about service type (reduced, normal, Saturday, etc.) "
         "directly from this table — do not call a tool.\n"
         "When returning a schedule for a date that is NOT 'Regular Weekday', "
-        "add a brief note at the end, e.g. '(Note: tomorrow is Reduced Service — "
-        "fewer trips than a normal weekday.)'\n\n"
+        "add the service note as a separate paragraph on its own line, e.g.:\n"
+        "'The next Route 1 bus is at 12:30 PM to Butler Plaza.\n\n"
+        "Note: today is Reduced Service — fewer trips than a normal weekday.'\n\n"
     )
     system = date_header + SYSTEM_PROMPT
 
