@@ -267,7 +267,11 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
         "When returning a schedule for a date that is NOT 'Regular Weekday', "
         "add the service note as a separate paragraph on its own line, e.g.:\n"
         "'The next Route 1 bus is at 12:30 PM to Butler Plaza.\n\n"
-        "Note: today is Reduced Service — fewer trips than a normal weekday.'\n\n"
+        "Note: today is Reduced Service.'\n"
+        "IMPORTANT: Never say a specific route 'has fewer trips' or 'is affected' by "
+        "reduced service unless get_route_overview or get_schedule confirms it. "
+        "Some routes run the same schedule on Reduced Service days as on regular weekdays. "
+        "Only report what the tool results show — do not assume.\n\n"
     )
     system = date_header + SYSTEM_PROMPT
 
