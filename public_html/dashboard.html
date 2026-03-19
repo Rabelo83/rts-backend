@@ -790,7 +790,6 @@
       return `<div class="tl-card">
         <div class="tl-top">
           <span class="activity-badge ${bclass}">${esc(e.type)}</span>
-          <span class="tl-date">${esc(e.date)}</span>
         </div>
         <div class="tl-summary">${esc(e.summary)}</div>
       </div>`;
@@ -839,7 +838,7 @@
       state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
       $("heroTitle").textContent = data.project || "RTS Project Dashboard";
       $("heroGoal").textContent  = data.vision?.statement || data.summary?.goal || "";
-      $("heroMeta").textContent  = "Last updated: " + (data.updated_at || "unknown");
+      $("heroMeta").textContent  = "";
       renderStats(state.tasks);
       renderTasks();
       renderAreas(state.tasks);

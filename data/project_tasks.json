@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
-  "updated_at": "2026-03-18",
-  "note": "Session 19: Decision to migrate agent from GPT-4o-mini to Claude API. System prompt reached 276 lines with contradictions; direction filtering at hub stops remained unresolved after 2 sessions; rate limiting hit production. New plan: agent_claude.py, clean system prompt <100 lines, direction filtering via GTFS direction_id at code level.",
+  "updated_at": "2026-03-19",
+  "note": "Session 19: Migrated agent from GPT-4o-mini to Claude API (v3). Clean system prompt rewrite, 30/30 test pass, deployed to Render. Dashboard redesign with live metrics, PIN login, analytics backup, SQLite session persistence, Render Persistent Disk.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -44,7 +44,7 @@
       "id": "done-ai-assistant",
       "title": "Integrate AI assistant API and web indexing endpoints",
       "status": "completed",
-      "area": "AI",
+      "area": "AI / Agent",
       "details": "Added agent and web indexing/search/ask endpoints for assistant functionality."
     },
     {
@@ -86,7 +86,7 @@
       "id": "completed-local-llm-setup",
       "title": "Add local LLM (Ollama) support for development testing",
       "status": "completed",
-      "area": "Dev Tools",
+      "area": "Backend",
       "details": "agent_service.py now reads OPENAI_BASE_URL env var via _openai_client() helper. Set it to http://localhost:11434/v1 to route all LLM calls to local Ollama (llama3.1:8b). .env.local.example and run_local.sh added for repeatable local dev workflow. Dashboard improved with vision panel, area grouping, and nav links."
     },
     {
@@ -107,7 +107,7 @@
       "id": "pending-embeddings-webqa",
       "title": "Replace keyword overlap in webqa.py with OpenAI embeddings",
       "status": "pending",
-      "area": "AI",
+      "area": "AI / Agent",
       "details": "Current token-overlap scoring misses synonyms and context. Replace with text-embedding-3-small vector similarity search. Data is small enough to embed entirely in memory on startup."
     },
     {
@@ -156,7 +156,7 @@
       "id": "improve-stop-name-resolution",
       "title": "Fuzzy stop name resolution in agent (fix 'santa fe' type queries)",
       "status": "completed",
-      "area": "AI",
+      "area": "AI / Agent",
       "priority": "critical",
       "details": "Fixed 4 root causes: is_transit_keywords now catches 'next'/'when'/'leaving'/'depart'; transit gate also passes if message has a route number; prefer_schedule trigger fires on stop_name_hint/origin_hint; _gtfs_resolve_stop_name() added for LIKE+fuzzy_lookup scoped to route. Also: parse_time now handles 'morning'→06:00, 'afternoon'→12:00, 'evening'→17:00; history date/time context preserved when user clicks a stop button."
     },
@@ -172,7 +172,7 @@
       "id": "completed-chat-ux-fixes",
       "title": "Fix chat triple greeting, parse_time priority, and time-only follow-up fallback",
       "status": "completed",
-      "area": "Frontend + Backend",
+      "area": "Frontend",
       "details": "Three bugs fixed: (1) chat_v2.js now strips stale greeting messages from localStorage on load and always shows a single fresh greeting — no more accumulation across sessions; (2) schedule_service.parse_time now checks explicit am/pm times (e.g. 7am) before vague time-of-day words (morning/afternoon/evening) so 'after 7am?' returns 07:00 not 06:00; (3) agent_service now merges full user-message history (ctx) for time-only follow-up messages so 'after 7am?' carries route/bus context forward and passes the transit gate."
     },
     {
@@ -211,7 +211,7 @@
       "id": "reduce-openai-calls-per-request",
       "title": "Reduce OpenAI calls from up to 4 down to 1-2 per agent request",
       "status": "completed",
-      "area": "AI",
+      "area": "AI / Agent",
       "priority": "high",
       "details": "Removed two wasted LLM calls: (1) history_summary = _history_summary_for_llm(history) was computed in try_transit_answer but never used (code switched to llm_extract_intent_hybrid which takes raw history); (2) build_direction_prompt's LLM rewrite replaced with deterministic template that includes route/stop context. Per-request calls: 1 (intent extraction only) to 2 (if direction needed for multi-direction routes). humanize_answer already off by default."
     },
@@ -223,84 +223,9 @@
       "details": "tests/test_schedule_service.py and tests/test_agent_service.py cover parse_date, parse_time, extract_route_id_regex, extract_stop_id_regex, normalize_stop_id, is_transit_keywords, wants_schedule, wants_realtime, has_explicit_timeframe, guess_destination_hint, detect_language_simple, _has_strong_context, _last_user_with_context, _is_followup_after, _extract_last_departure_time. Running tests caught and fixed 'noon' in text matched 'afternoon'. Session 6 added 14 more tests for the new follow-up detection functions."
     },
     {
-      "id": "completed-chat-ui-redesign",
-      "title": "Chat UI redesign: viewport fill, improved bubbles, typing dots, starter questions",
-      "status": "completed",
-      "area": "Frontend",
-      "details": "chat.html: flex 100dvh layout so messages fill the full screen with no void below. style.css: bot bubble now light-blue (#dbeafe) with left accent border (was near-invisible white-on-white). Animated CSS typing dots replace ⏳ Thinking… loading indicator. Send button replaced with circular 48px SVG arrow icon. 4 starter question chips appear after greeting (dismiss on first send or language toggle)."
-    },
-    {
-      "id": "completed-followup-after-fix",
-      "title": "Fix 'the one after that?' not advancing past last shown departure",
-      "status": "completed",
-      "area": "Backend",
-      "details": "Session 6: Added _is_followup_after() and _extract_last_departure_time(). Session 8: Fixed GTFS >= re-show bug via _advance_time_one_minute() (+1 min to threshold). Fixed stop-context loss bug via ctx-strip approach: full user history stripped of old 'after TIME' patterns, preserving route AND stop name from all prior turns. 145 tests all green."
-    },
-    {
-      "id": "completed-greeting-detection",
-      "title": "Fix greetings (hi/hello) returning old schedule from prior session context",
-      "status": "completed",
-      "area": "Backend",
-      "details": "Session 8: Added _GREETING_WORDS frozenset and early-return in try_transit_answer before ctx merge. Greetings no longer absorb prior transit history. handle_agent_message now returns a warm conversational greeting with quick-action buttons. Fallback for unclear queries guides instead of lecturing."
-    },
-    {
-      "id": "add-input-validation",
-      "title": "Add input length and content validation to /api/agent",
-      "status": "completed",
-      "area": "Security",
-      "priority": "high",
-      "details": "agent_api.py now strips ASCII control chars from message, enforces 1000-char max (returns 400 on breach), and validates session_id against UUID v4 regex — rejects non-UUID values rather than crashing."
-    },
-    {
-      "id": "gunicorn-single-worker-fix",
-      "title": "Configure Gunicorn workers in render.yaml to avoid session loss",
-      "status": "completed",
-      "area": "Ops",
-      "priority": "high",
-      "details": "render.yaml startCommand updated to 'gunicorn server:app --workers 1 --timeout 120'. Single worker ensures in-memory SessionManager is consistent. 120s timeout prevents Gunicorn killing slow LLM responses."
-    },
-    {
-      "id": "improve-gtfs-stop-fuzzy-match",
-      "title": "Improve GTFS stop name fuzzy matching for natural language stop references",
-      "status": "pending",
-      "area": "AI",
-      "priority": "medium",
-      "details": "Related to stop-name-resolution. Beyond simple token overlap, use Levenshtein distance or embeddings to match 'Rosa Parks' to 'Rosa Parks Transit Center', 'Publix on Archer' to stops near that landmark. Load stop name→id mapping at startup."
-    },
-    {
-      "id": "add-openai-retry-backoff",
-      "title": "Handle OpenAI 429 rate limit errors gracefully",
-      "status": "completed",
-      "area": "Backend",
-      "priority": "medium",
-      "details": "Done in Session 5. SDK max_retries=3 auto-retries 429/5xx with exponential backoff. See add-openai-retry-logic entry."
-    },
-    {
-      "id": "gtfs-auto-refresh",
-      "title": "Automate GTFS schedule data refresh on RTS service changes",
-      "status": "pending",
-      "area": "Data",
-      "priority": "medium",
-      "details": "GTFS SQLite is built once at deploy time. RTS publishes new schedules each semester and for service changes. Stale data means wrong answers. Add: a /api/admin/rebuild-gtfs endpoint (token-protected) that re-fetches GTFS zip and rebuilds the DB, plus a cron trigger or Render deploy hook."
-    },
-    {
-      "id": "structured-outputs-intent",
-      "title": "Use OpenAI structured outputs (JSON schema) for intent extraction",
-      "status": "completed",
-      "area": "AI",
-      "priority": "medium",
-      "details": "Done in Session 7. See completed-structured-outputs entry."
-    },
-    {
-      "id": "task-maintenance-ongoing",
-      "title": "Keep task inventory updated after each change",
-      "status": "pending",
-      "area": "Project Management"
-    },
-    {
       "id": "pending-task-maintenance",
       "title": "Keep task inventory updated after each change",
-      "status": "pending",
+      "status": "next",
       "area": "Project Management",
       "details": "Review and update TASKS.md and project_tasks.json whenever a feature is finished or scope changes."
     },
@@ -314,9 +239,9 @@
     {
       "id": "pending-auth-admin",
       "title": "Protect admin/project dashboard endpoints if needed",
-      "status": "pending",
+      "status": "next",
       "area": "Security",
-      "details": "Decide whether /dashboard and project status APIs should be public or require a token/auth guard."
+      "details": "PIN login built — set DASHBOARD_PIN env var on Render. Chat also PIN-protected via same session cookie."
     },
     {
       "id": "pending-observability",
@@ -336,7 +261,7 @@
       "id": "blocked-bustime-reliability",
       "title": "Realtime reliability depends on external RTS BusTime API uptime",
       "status": "blocked",
-      "area": "Dependency",
+      "area": "Ops",
       "details": "Intermittent provider/API outages can degrade predictions; mitigation is caching and fallback messaging.",
       "blocker": "External third-party/API availability"
     },
@@ -359,7 +284,7 @@
       "id": "completed-structured-outputs",
       "title": "Structured outputs for intent extraction (json_schema strict mode)",
       "status": "completed",
-      "area": "AI",
+      "area": "AI / Agent",
       "details": "intent_extractor.py uses response_format=json_schema strict=True on OpenAI production. Falls back to json_object when OPENAI_BASE_URL is set (local Ollama). Enforces intent enum, language enum, needs array — removes defensive post-processing. CORS_ORIGINS=https://rts-backend-7ru5.onrender.com also added to render.yaml."
     },
     {
@@ -373,7 +298,7 @@
       "id": "completed-streaming-sse",
       "title": "Add SSE streaming for chat responses (typewriter effect)",
       "status": "completed",
-      "area": "Frontend + Backend",
+      "area": "Frontend",
       "details": "Session 9: Full SSE pipeline added. Backend: humanize_answer_stream() yields text in 3-word chunks (or real LLM tokens if HUMANIZE_ENABLED=true); stream_agent_message() generator wraps handle_agent_message; /api/agent/stream POST endpoint returns text/event-stream. Frontend: sendAgentMessage() uses fetch+ReadableStream; bot bubble fills word-by-word on 'token' events; buttons and session_id applied on 'done' event."
     },
     {
@@ -387,14 +312,14 @@
       "id": "completed-route-discovery",
       "title": "Answer 'What routes go to UF?' type discovery queries",
       "status": "completed",
-      "area": "Backend + AI",
+      "area": "Backend",
       "details": "Session 9: routes_serving_destination() added (GTFS LIKE query). Session 10: replaced with routes_serving_area() using authoritative BusStopInventory Area column (stop_areas.json). 'UF'/'campus'/'university of florida' → Area=UF → 16 exact routes (vs 12 fuzzy). Area aliases cover UF, downtown/CG, AL, Lake City, Trenton. Falls back to LIKE query for unknown areas."
     },
     {
       "id": "completed-route-day-summary",
       "title": "Route day summary: show overview when route known but stop missing",
       "status": "completed",
-      "area": "Backend + AI",
+      "area": "Backend",
       "details": "Session 11: get_route_day_summary() in schedule_service.py queries active services for the given date; returns first/last departure per headsign + frequency label ((last-first)/(trips-1) rounded to 5 min); agent_service wires it so 'Route 43 schedule tomorrow' returns day label (e.g. Friday — weekday), per-direction overview, and direction buttons instead of dead-end 'which stop?'. Button cap also fixed from 6 to 8."
     },
     {
@@ -422,37 +347,37 @@
       "id": "completed-direction-buttons-firstlast",
       "title": "Suppress direction buttons after first/last bus queries",
       "status": "completed",
-      "area": "Backend / UX",
+      "area": "Backend",
       "details": "Session 13: _show_dir_buttons = not wants_first and not wants_last in agent_service.py. When user asks for first or last bus, the route day summary already answers the question — direction buttons were unnecessary friction. Buttons and 'want full schedule?' prompt only appear for general schedule queries."
     },
     {
       "id": "next-release-checklist",
       "title": "Run pre-release validation on Render deployment",
-      "status": "next",
-      "area": "Release",
-      "details": "Verify health endpoint, main UI, chat, wizard, schedule flows, and dashboard after deploy."
+      "status": "completed",
+      "area": "Ops",
+      "details": "Verified health endpoint, main UI, chat, wizard, schedule flows, and dashboard after Session 19 deploy."
     },
     {
       "id": "improve-source-labeling",
       "title": "P1-A: Label real-time vs static schedule in every response",
       "status": "completed",
-      "area": "UX / Trust",
+      "area": "Frontend",
       "priority": 1,
-      "details": "Research finding: users trained by Google Maps expect all answers to be real-time. When we return a GTFS schedule time they treat it as an ETA — trust collapses when bus doesn't match. Fix: prefix real-time responses with 'Live tracker shows...' and schedule responses with 'Scheduled at X (static schedule)'. Use existing sources metadata (source_type: realtime vs backend_basics_schedule) to drive the label automatically in response_builder.py."
+      "details": "v3 agent always labels live predictions vs scheduled times. 'Live tracker shows...' vs 'Scheduled at X'."
     },
     {
       "id": "improve-escalation-exit",
       "title": "P1-B: Add human escalation after 2-3 consecutive failures",
       "status": "completed",
-      "area": "UX / Accessibility",
+      "area": "Frontend",
       "priority": 1,
-      "details": "Research finding: 2–3 failed disambiguations is the universal chatbot abandonment threshold (CTA study, WorkBot analysis). After 2–3 'need_stop_or_route' / 'clarify_route_vs_stop' responses in a session, append 'Still stuck? Call RTS Customer Service: (352) 334-2600 or visit go-rts.com'. Implementation: session_manager tracks failure_count per session; agent_service checks it and appends escalation note. Equity requirement — elderly and low-literacy riders have no recourse without this."
+      "details": "After 2 unresolved turns, agent appends 'Still stuck? Call RTS Customer Service: (352) 334-2600 or visit go-rts.com'."
     },
     {
       "id": "improve-fuzzy-match-confidence",
       "title": "P1-C: Confirm fuzzy stop matches before using them",
       "status": "backlog",
-      "area": "Backend / Trust",
+      "area": "Backend",
       "priority": 1,
       "details": "When _gtfs_resolve_stop_name() matches via fuzzy/token search (not exact or stop_id direct), we currently respond with full confidence. If the match is wrong, user gets wrong stop schedule. Fix: add match_type field ('exact', 'fuzzy') to _gtfs_resolve_stop_name() and resolve_stop_global() results. In agent_service.py, when match_type='fuzzy', ask for confirmation: 'I think you mean Stop 0473 – Reitz Union. Is that right? [Yes] [Different stop]' before fetching predictions."
     },
@@ -460,7 +385,7 @@
       "id": "improve-landmark-resolution",
       "title": "P2-D: Landmark-to-stop resolution for arbitrary locations",
       "status": "backlog",
-      "area": "Backend / NLU",
+      "area": "Backend",
       "priority": 2,
       "details": "Research finding: #1 documented stop-resolution failure across all transit chatbot papers. Users say 'near Walmart on Archer Road' or 'the stop by Publix on University Ave' — not GTFS stop names. stop_areas.json covers zones (UF, Downtown) but not arbitrary landmarks. Options: (A) Expand stop_areas.json with known Gainesville landmarks mapped to specific stop IDs — low cost, limited coverage. (B) Add Google Places / OSM geocoding call to find nearest GTFS stop to a described location — broader coverage, adds external API dependency. Start with option A (curated landmark map), document gap for option B."
     },
@@ -476,7 +401,7 @@
       "id": "improve-humanize-brevity",
       "title": "P2-F: Enforce brevity in HUMANIZE_ENABLED responses",
       "status": "backlog",
-      "area": "UX / Accessibility",
+      "area": "Frontend",
       "priority": 2,
       "details": "Research strongly recommends ≤3 sentences for mobile and elderly users. Current humanize system prompt does not constrain length. Add explicit instruction: 'Keep responses under 3 sentences. Be direct. Do not explain reasoning. Preserve all times, stop IDs, and route numbers exactly.' Apply only when HUMANIZE_ENABLED=true."
     },
@@ -484,7 +409,7 @@
       "id": "improve-spanish-testing",
       "title": "P3-H: Spanish code-switching test suite",
       "status": "backlog",
-      "area": "QA / Multilingual",
+      "area": "Quality",
       "priority": 3,
       "details": "Gainesville Spanish speakers mix English and Spanish: '¿Cuándo viene el bus 43 al downtown?' Current lang detection handles clean Spanish/English but mixed code-switching is untested. Collect 20–30 real mixed-language transit queries representative of Gainesville riders. Add to test suite as regression tests. Also validate that tmsg(lang, ...) correctly detects language for mixed inputs."
     },
@@ -492,7 +417,7 @@
       "id": "improve-gtfs-autorefresh",
       "title": "P3-I: GTFS auto-refresh admin endpoint",
       "status": "backlog",
-      "area": "Ops / Backend",
+      "area": "Ops",
       "priority": 3,
       "details": "GTFS DB goes stale at semester transitions (UF schedule changes, new routes). Token-protected POST /api/admin/rebuild-gtfs that: downloads latest GTFS zip from go-rts.com, rebuilds rts_gtfs.sqlite, runs smoke-test queries, returns success/error. Requires ADMIN_TOKEN env var. Prevents manual re-deploy every semester."
     },
@@ -500,194 +425,274 @@
       "id": "tooluse-1-tool-schema",
       "title": "Tool-Use Refactor: Design tool schema (inputs, outputs, status codes)",
       "status": "completed",
-      "area": "AI Architecture",
+      "area": "AI / Agent",
       "priority": 1,
-      "details": "Define the 5 tools the LLM will call instead of the current rule-code pipeline. Each tool must return an explicit status field — never empty arrays. Tools: (1) search_stops(name_or_landmark) → [{stop_id, stop_name, match_type}] or {status: 'no_match'}. (2) get_realtime_predictions(stop_id) → [{route, minutes, headsign}] or {status: 'no_service' | 'api_unavailable'}. (3) query_schedule(route_id, stop_id_or_name, time?, date?) → [{departure, headsign}] or {status: 'no_trips' | 'stop_not_found' | 'route_not_found'}. (4) get_routes_at_stop(stop_id) → [{route_id, headsign}]. (5) get_route_overview(route_id, date?) → {first, last, frequency_min, directions[]} or {status: 'no_service'}. Document inputs/outputs/status codes before writing any code."
+      "details": "Defined 5 tools: search_stops, get_realtime_predictions, query_schedule / get_schedule, get_routes_at_stop, get_route_overview. Each returns explicit status field. Documented inputs/outputs/status codes before writing code."
     },
     {
       "id": "tooluse-2-tool-implementations",
       "title": "Tool-Use Refactor: Implement tool wrapper functions",
       "status": "completed",
-      "area": "AI Architecture",
+      "area": "AI / Agent",
       "priority": 1,
-      "details": "Create routes/agent_tools.py. Wrap existing services as clean tool-callable functions matching the schema from tooluse-1. Each wrapper: (1) calls the existing service (schedule_service, rts_api, stop_resolver) — no new business logic. (2) Always returns an explicit status so the LLM never sees ambiguous empty results. (3) Handles exceptions internally and returns {status: 'error', message: ...} rather than raising. Keep all existing service code untouched — this is just a translation layer. Depends on: tooluse-1."
+      "details": "Created routes/agent_tools.py. Wrapper functions call existing services and always return explicit status. No new business logic — translation layer only."
     },
     {
       "id": "tooluse-3-system-prompt",
       "title": "Tool-Use Refactor: Write the system prompt with grounding rules",
       "status": "completed",
-      "area": "AI Architecture",
+      "area": "AI / Agent",
       "priority": 1,
-      "details": "Write the system prompt that defines what the LLM is, what it can do, and what it must never do. Must include: (1) Persona: RTS Gainesville transit assistant. (2) Hard grounding rule: ONLY state departure times and stop names that appear in a tool result from this conversation. Never use training knowledge about bus schedules. (3) No-hallucination rule: if a tool returns no results or an error, say exactly that — do not guess or interpolate. (4) Tool-call-first rule: always call a tool before answering any factual transit question. (5) Language rule: respond in the language the user wrote in (EN/ES). (6) Brevity rule: 3 sentences max, preserve times/routes/stop IDs exactly. Can be written in parallel with tooluse-2."
+      "details": "System prompt defines persona, hard no-hallucination rule, tool-call-first rule, tool selection decision tree, EN/ES language rule, brevity rule."
     },
     {
       "id": "tooluse-4-agent-loop",
       "title": "Tool-Use Refactor: Build the tool-use agent orchestration loop",
       "status": "completed",
-      "area": "AI Architecture",
+      "area": "AI / Agent",
       "priority": 1,
-      "details": "Create routes/agent_v2.py with a single handle_message(msg, history, session_ctx) function. Pattern: (1) Build messages array from history. (2) Call LLM with tools defined. (3) If response has tool_calls: execute each tool, append results to messages, call LLM again. (4) Repeat until no tool_calls (max 5 iterations to prevent loops). (5) Return final text answer + any button suggestions the LLM emits. LLM choice: gpt-4o-mini (already integrated, existing _openai_client() helper reused). Temperature = 0 for all tool-synthesis responses. Depends on: tooluse-2 and tooluse-3."
+      "details": "routes/agent_v2.py — messages array, LLM call, tool execution, loop up to 5 iterations. GPT-4o-mini at temperature 0."
     },
     {
       "id": "tooluse-5-api-integration",
       "title": "Tool-Use Refactor: Wire new agent into Flask API",
       "status": "completed",
-      "area": "AI Architecture",
+      "area": "AI / Agent",
       "priority": 1,
-      "details": "Done in Session 15. Added /api/agent/v2 (JSON) and /api/agent/v2/stream (SSE, same wire format as /api/agent/stream) endpoints in agent_api.py. Both share _v2_session_setup() helper for session management, validation, and analytics logging. chat_v2.js CONFIG.AGENT_ENDPOINT defaults to /api/agent/stream; reading URL param ?agent=v2 switches it to /api/agent/v2/stream without any code change — dev toggle. Old /api/agent and /api/agent/stream untouched."
+      "details": "Done in Session 15. /api/agent/v2 (JSON) and /api/agent/v2/stream (SSE). ?agent=v2 URL param toggle."
     },
     {
       "id": "tooluse-6-test-scenarios",
       "title": "Tool-Use Refactor: Test all key conversation scenarios",
       "status": "completed",
-      "area": "AI Architecture / Quality",
+      "area": "Quality",
       "priority": 1,
-      "details": "Done in Session 15. 7/8 PASS against live /api/agent/v2. S1 ETA Rosa Parks ✓. S2 Follow-up no route bleed ✓. S3 Route discovery (16 UF routes) ✓. S4 Route overview first/last ✓. S5 First bus after explicit time (no first-of-day false) ✓. S6 The one after that - advances ✓ (confirmed with route 10; route 43 downtown was correct 'no service'). S7 Spanish response ✓. S8 Unknown landmark graceful ✓. Also: removed button rendering from chat_v2.js — buttons are wizard-only, chat is free-form text."
+      "details": "Session 15: 7/8 PASS against live /api/agent/v2. All core scenarios validated."
     },
     {
       "id": "backlog-route-coincidence-tool",
-      "title": "Add find_route_coincidences tool to v2 agent",
+      "title": "Add find_route_coincidences tool to agent",
       "status": "backlog",
-      "area": "AI Architecture / Backend",
+      "area": "AI / Agent",
       "priority": 3,
-      "details": "Add a 6th tool: find_route_coincidences(route_ids: list, date?, tolerance_minutes?=5). GTFS JOIN query: stop_times for route A × stop_times for route B at same stop_id, filtered by ABS(departure_time_A - departure_time_B) <= tolerance. Returns list of {stop_name, stop_id, route_A_time, route_B_time, diff_minutes}. Answers 'when are routes 1 and 20 at the same stop?' Currently the agent hallucinates an answer by pattern-matching first/last times from get_route_overview — verified in testing."
+      "details": "Add a tool: find_route_coincidences(route_ids, date?, tolerance_minutes?=5). GTFS JOIN query finds stops where two routes meet within N minutes. Answers 'when are routes 1 and 20 at the same stop?'"
     },
     {
       "id": "tooluse-testing-infrastructure",
       "title": "GPT-driven scenario testing infrastructure for v2 agent",
       "status": "completed",
-      "area": "Quality / AI Architecture",
+      "area": "Quality",
       "priority": 1,
-      "details": "Session 16: Created 4 files in tests/: (1) scenarios_v2.json — 20 hand-crafted scenarios (15 single + 5 multi-turn) covering realtime, schedule, route discovery, Spanish, out-of-scope, greetings, follow-ups, context bleed. (2) run_v2_scenarios.py — Python runner hits live /api/agent/v2, logs all responses to tests/results/run_YYYYMMDD_HHMMSS.json with quick heuristic check. (3) gpt_analysis_prompt.md — paste-into-ChatGPT prompt that makes GPT act as QA analyst: evaluates each scenario on VERDICT/TOOL_CHECK/HALLUCINATION/ISSUE/SUGGESTED_TASK; outputs verdict JSON + summary + 10 new scenario suggestions. (4) gpt_user_simulator_prompt.md — paste-into-ChatGPT prompt that makes GPT generate 30+ new realistic rider queries + 5 multi-turn chains, formatted to match scenarios_v2.json schema for direct appending. Workflow: run script → paste results into GPT (judge) → paste task suggestions back to Claude (fix) → repeat."
+      "details": "Session 16: scenarios_v2.json (30 scenarios), run_v2_scenarios.py, gpt_analysis_prompt.md, auto_analyze.py. Full automated test + analysis pipeline."
     },
     {
       "id": "tooluse-7-deploy-validate",
       "title": "Tool-Use Refactor: Deploy to Render and validate in production",
-      "status": "next",
-      "area": "AI Architecture / Ops",
+      "status": "completed",
+      "area": "Ops",
       "priority": 1,
-      "details": "Push to Render with AGENT_VERSION=v2 env var. Run smoke tests: health endpoint, 3 ETA queries at known stops, 1 schedule query, 1 route discovery, 1 Spanish query. Confirm no hallucinated times in any response. Monitor Render logs for tool call errors or LLM loop termination warnings. Once stable for 24h: flip default to v2, remove old pipeline in a cleanup commit. Update MEMORY.md and project_tasks.json. Depends on: tooluse-6."
+      "details": "v3 (Claude) deployed to Render (2026-03-18). ANTHROPIC_API_KEY set. 30/30 test pass confirmed. Default is now v3."
     },
     {
       "id": "fix-stop-sequence-sql",
       "title": "Fix: get_route_day_summary returned false no-service for some routes",
       "status": "completed",
       "area": "Backend",
-      "details": "Session 17: SQL query in get_route_day_summary used `stop_sequence = 1` (hardcoded) to find each trip's first stop. GTFS routes whose trips don't start at sequence 1 returned zero rows and were reported as runs_today=False. Fixed by adding trip_first_seq CTE using MIN(stop_sequence) per trip — now works for any starting sequence value. Likely caused 'no trips for Route 75 today' when Route 75 was verifiably running."
+      "details": "Session 17: SQL query used stop_sequence = 1 (hardcoded). Fixed with MIN(stop_sequence) CTE per trip."
     },
     {
       "id": "fix-route-overview-attribution",
       "title": "Fix: Agent incorrectly attributed route_overview times to named stops",
       "status": "completed",
-      "area": "AI / System Prompt",
-      "details": "Session 17: get_route_overview returns first/last departure from each trip's origin stop (stop_sequence=1), not from named terminal stops like Rosa Parks. LLM was saying 'departs from Rosa Parks at 11:13 PM' for a Route 1 trip whose headsign was 'To Rosa Parks' (meaning Rosa Parks is the destination). Added ## INTERPRETING get_route_overview RESULTS section to SYSTEM_PROMPT in agent_v2.py."
+      "area": "AI / Agent",
+      "details": "Session 17: Added ## INTERPRETING get_route_overview RESULTS section to SYSTEM_PROMPT — first/last times are from origin stop, not named terminus."
     },
     {
       "id": "fix-cross-route-comparison",
       "title": "Fix: 'Latest bus running today' cross-route comparison now correctly out-of-scope",
       "status": "completed",
-      "area": "AI / System Prompt",
-      "details": "Session 17: 'What is the latest/last bus running today?' requires comparing all routes simultaneously — the per-route tools cannot answer it. Added this as an explicit example in ## WHEN THE QUESTION IS BEYOND YOUR TOOLS. Agent now honestly says it can't answer instead of hallucinating per-route results and inventing 'no trips' for routes it didn't verify."
+      "area": "AI / Agent",
+      "details": "Session 17: Added explicit out-of-scope example in ## WHEN THE QUESTION IS BEYOND YOUR TOOLS."
     },
     {
       "id": "fix-disambiguation-context-loss",
       "title": "Fix: Agent forgot time/date params after disambiguation exchange",
       "status": "completed",
-      "area": "AI / System Prompt",
-      "details": "Session 17: When user said 'it doesn't matter' after being shown multiple stop options, LLM forgot time specified in original query (e.g. 'noon') and called get_schedule with current time. Also: when user corrected the wrong time ('I said noon, not 8pm'), agent called search_routes instead of retrying get_schedule. Added ## HANDLING DISAMBIGUATION RESPONSES section: pick first candidate, preserve all original params (time/date/route/kind), do NOT call wrong tools on corrections."
+      "area": "AI / Agent",
+      "details": "Session 17: Added ## HANDLING DISAMBIGUATION RESPONSES section — preserve all original params after disambiguation."
     },
     {
       "id": "pending-rerun-tests",
       "title": "Re-run full scenario test suite after session-17 fixes",
-      "status": "pending",
+      "status": "completed",
       "area": "Quality",
-      "details": "Run `python tests/run_v2_scenarios.py --env local` to validate session 17 fixes. Target 28+/30 pass. S12/S13 may now pass (BEYOND YOUR TOOLS updated). M01/M02/M04/GPT13/GPT15 multi-turn empty responses still need investigation."
+      "details": "v3 (Claude) scored 30/30 on full test suite (2026-03-18)."
     },
     {
       "id": "fix-system-prompt-6gaps",
       "title": "Fix 6 system prompt gaps found via tool schema audit",
       "status": "completed",
-      "area": "AI / System Prompt",
-      "details": "Session 18 (commit 4fce616): (1) kind=first/last is day-level — 'first bus after 4pm' must use kind=next+time, not kind=first; (2) get_realtime_predictions returns ALL routes — added rule to filter displayed results to user's specified route; (3) skip search_stops when user gives a numeric stop ID; reuse resolved stop_ids within conversation; (4) date format must be single-word day name or ISO — never 'next Monday'; (5) no_trips auto-calls get_route_overview to show when route does run instead of dead-ending to customer service; (6) direction filter improved: two-step headsign exclusion (stop name + downtown hub equivalence: Rosa Parks = Downtown Station = RTS Transfer Center); ask user if ambiguous."
+      "area": "AI / Agent",
+      "details": "Session 18: kind=first/last day-level, filter realtime to user route, skip search_stops for numeric stop ID, date format rules, no_trips → auto get_route_overview, direction filter improvements."
     },
     {
       "id": "fix-direction-filtering",
-      "title": "Fix: direction filtering for 'out of [stop]' queries — needs new approach",
-      "status": "pending",
-      "area": "AI / Backend",
+      "title": "Fix: direction filtering for hub stops — automatic Python-level filter",
+      "status": "completed",
+      "area": "AI / Agent",
       "priority": "high",
-      "details": "Problem: 'first bus 1 out of Rosa Parks after 4pm' returns BOTH headsigns — 'To Downtown Station' (4:01 PM) AND 'To Butler Plaza' (4:06 PM). User expects only 'To Butler Plaza' since Rosa Parks IS the downtown hub. What was tried and failed: (A) System prompt rules (Step 1: exclude headsigns containing stop name, Step 2: downtown hub equivalence Rosa Parks=Downtown Station=RTS Transfer Center) — LLM ignores it reliably. (B) filter_inbound boolean parameter on get_schedule schema — LLM still decides, same reliability problem. Current state: automatic Python-level _filter_inbound_departures() added to agent_tools.py (commit 426e68b) — applies on all hub stops without LLM involvement, but NOT yet validated. Approach to investigate: (1) Verify if automatic hub filter actually works on prod — run test query. (2) If not, look at GTFS direction_id field per trip — Route 1 at Rosa Parks direction_id=0 vs direction_id=1 may deterministically identify outbound vs inbound without string matching. (3) Consider adding direction as a separate field in the tool result so the LLM can reason about it more reliably. (4) Consider always returning the stop's full name in results so headsign comparison is exact."
+      "details": "Session 18/19: _filter_inbound_departures() added to agent_tools.py. Applies automatically at hub stops without LLM involvement. Validated — Claude uses kind=next correctly so filter runs. Prompt-based approach was abandoned."
     },
     {
       "id": "fix-time-param-omission",
-      "title": "Fix: LLM omitted `time` param on get_schedule causing 'no departures' false negatives",
+      "title": "Fix: LLM omitted time param on get_schedule causing false 'no departures'",
       "status": "completed",
-      "area": "AI / Tool Schema",
-      "details": "Session 18: Root cause of 'route 1 after 4pm from rosa parks' returning no departures. Tool description said 'Omit to use current time' — LLM skipped the time param, tool returned current-clock departures (e.g. 10:42 AM), LLM compared those to user's '4pm' window and concluded no trips. Proved by exact match of 'hallucinated' times to dispatch_tool output with no time arg. Fix: (1) agent_tools.py time param description now says 'ALWAYS pass this when user mentioned a specific time'; (2) agent_v2.py SYSTEM_PROMPT CRITICAL rule added explaining that omitting time defaults to current clock and will produce wrong results. Commit a3dbd33."
+      "area": "AI / Agent",
+      "details": "Session 18: Tool description updated: 'ALWAYS pass this when user mentioned a specific time'. CRITICAL rule added to SYSTEM_PROMPT."
     },
     {
       "id": "claude-1-sdk-setup",
       "title": "Session 19: Add Anthropic SDK dependency",
-      "status": "pending",
-      "area": "AI Architecture",
+      "status": "completed",
+      "area": "AI / Agent",
       "priority": 1,
-      "details": "Add 'anthropic' to requirements.txt. Add ANTHROPIC_API_KEY to render.yaml env vars and local .env. Verify import works in Python environment."
+      "details": "Added 'anthropic' to requirements.txt. ANTHROPIC_API_KEY added to render.yaml env vars."
     },
     {
       "id": "claude-2-agent-rewrite",
       "title": "Session 19: Create routes/agent_claude.py — new agent using Claude tool-use API",
-      "status": "pending",
-      "area": "AI Architecture",
+      "status": "completed",
+      "area": "AI / Agent",
       "priority": 1,
-      "details": "Build new agent loop using anthropic Python SDK. Same tool dispatch pattern as agent_v2.py but calling Claude instead of OpenAI. Reuse all 5 tools from agent_tools.py unchanged. Max 5 tool-call iterations. Temperature=0. Support streaming via SSE."
+      "details": "Built new agent loop using Anthropic Python SDK. Same tool dispatch pattern as agent_v2.py but calling Claude (claude-haiku-4-5). Max 5 iterations. Temperature=0. SSE streaming supported."
     },
     {
       "id": "claude-3-system-prompt",
       "title": "Session 19: Rewrite system prompt — clean, <100 lines, no contradictions",
-      "status": "pending",
-      "area": "AI Architecture",
+      "status": "completed",
+      "area": "AI / Agent",
       "priority": 1,
-      "details": "Start from scratch. Current prompt is 276 lines with conflicting rules (e.g. kind=first ignores time vs always pass time). New prompt: persona, hard no-hallucination rule, tool-call-first rule, tool selection decision tree (clear, no overlapping conditions), language rule (EN/ES), brevity rule. All direction filtering to be handled in code, NOT in prompt."
+      "details": "Complete rewrite. Persona, no-hallucination rule, tool-call-first, decision tree, EN/ES rule, brevity rule. Direction filtering handled in code, not prompt."
     },
     {
       "id": "claude-4-direction-fix",
       "title": "Session 19: Fix direction filtering using GTFS direction_id (code-level)",
-      "status": "pending",
-      "area": "AI Architecture / Backend",
+      "status": "completed",
+      "area": "AI / Agent",
       "priority": 1,
-      "details": "Prompt-based direction filtering failed across 2 sessions. Fix in agent_tools.py using GTFS direction_id field. When user says 'out of [stop]', filter schedule results to only outbound direction_id trips. No prompt rules needed — deterministic code filter. Validate on Rosa Parks / Route 1 test case."
+      "details": "Validated — _filter_inbound_departures() in agent_tools.py works correctly with Claude. Root cause of prior GPT failures was kind=first bypassing the filter. Claude uses kind=next correctly."
     },
     {
       "id": "claude-5-rate-limit-fallback",
       "title": "Session 19: Add graceful degradation when Claude API is unavailable",
-      "status": "pending",
-      "area": "AI Architecture / Ops",
+      "status": "completed",
+      "area": "AI / Agent",
       "priority": 1,
-      "details": "Handle API errors (rate limit, timeout, network) gracefully. On failure: respond with 'I can look up schedule info for you — what route and stop?' — falls back to schedule-only mode. Do not expose raw API errors to the user."
+      "details": "Rate limit → go-rts.com + phone number. Other errors → retry message. No raw API errors exposed to users."
     },
     {
       "id": "claude-6-wire-flask",
       "title": "Session 19: Wire agent_claude.py into Flask at /api/agent/v3",
-      "status": "pending",
-      "area": "AI Architecture",
+      "status": "completed",
+      "area": "AI / Agent",
       "priority": 1,
-      "details": "Add /api/agent/v3 (JSON) and /api/agent/v3/stream (SSE) endpoints in agent_api.py. Frontend toggle: ?agent=v3 URL param. Keep v2 endpoints untouched during transition."
+      "details": "/api/agent/v3 (JSON) and /api/agent/v3/stream (SSE) added to agent_api.py. ?agent=v3 frontend toggle."
     },
     {
       "id": "claude-7-test-validate",
-      "title": "Session 19: Run full test suite against v3 endpoint — target 28+/30",
-      "status": "pending",
+      "title": "Session 19: Run full test suite against v3 endpoint — 30/30 passing",
+      "status": "completed",
       "area": "Quality",
       "priority": 1,
-      "details": "Run python tests/run_v2_scenarios.py --env local --agent v3. Validate direction filtering fix (Rosa Parks). Validate multi-turn follow-ups. Validate Spanish responses. Target ≥28/30 pass before deploy."
+      "details": "30/30 passing (2026-03-18). S12 fixed with prompt clarification. auto_analyze.py confirmed all scenarios PASS."
     },
     {
       "id": "claude-8-deploy",
-      "title": "Session 19: Deploy to Render and flip default to v3",
-      "status": "pending",
-      "area": "Ops / AI Architecture",
+      "title": "Session 19: Deploy to Render — v3 is now default",
+      "status": "completed",
+      "area": "Ops",
       "priority": 1,
-      "details": "Add ANTHROPIC_API_KEY to Render env vars. Push to main. Smoke test: health endpoint, 3 ETA queries, 1 schedule query, 1 Spanish query, 1 direction-filtered query (Rosa Parks out). Once stable 24h: flip default endpoint from v2 to v3. Update README with v3 URL."
+      "details": "Pushed to main (2026-03-18). ANTHROPIC_API_KEY set in Render dashboard. Smoke test passed. v3 is now the default agent."
+    },
+    {
+      "id": "session19-sqlite-sessions",
+      "title": "Session 19: SQLite session persistence — survives Render restarts",
+      "status": "completed",
+      "area": "Backend",
+      "details": "utils/session_manager.py writes every session to sessions.sqlite on add_message(). On cache miss after restart, restores from DB automatically. Background cleanup purges expired rows from both memory and SQLite."
+    },
+    {
+      "id": "session19-render-disk",
+      "title": "Session 19: Render Persistent Disk — data survives redeploys",
+      "status": "completed",
+      "area": "Ops",
+      "details": "render.yaml updated with disk: rts-data, mountPath: /data, 1 GB. DATA_DIR=/data env var wires analytics.sqlite and sessions.sqlite to persistent volume."
+    },
+    {
+      "id": "session19-dashboard-redesign",
+      "title": "Session 19: Dashboard wow redesign — glassmorphism, live metrics, health dots",
+      "status": "completed",
+      "area": "Frontend",
+      "details": "Animated CSS orbs background, frosted-glass hero, live metrics strip (4 cards), pulsing health dots, animated counters, horizontal activity timeline, clickable By Area filter, blocked alert banner, Next-Up spotlight."
+    },
+    {
+      "id": "session19-pin-login",
+      "title": "Session 19: PIN login for dashboard and chat",
+      "status": "completed",
+      "area": "Security",
+      "details": "DASHBOARD_PIN env var gates /dashboard and /chat. SECRET_KEY for Flask session cookie. Login/logout routes in app.py. Same session cookie covers both pages."
+    },
+    {
+      "id": "session19-analytics-backup",
+      "title": "Session 19: Weekly GitHub Action analytics backup",
+      "status": "completed",
+      "area": "Data",
+      "details": ".github/workflows/analytics-backup.yml — Sunday 2am UTC cron + manual trigger. Exports analytics JSON via /api/admin/analytics/export, commits to backups/analytics/."
+    },
+    {
+      "id": "session19-replay-qa",
+      "title": "Session 19: Level 2 QA — replay real user queries from analytics.sqlite",
+      "status": "completed",
+      "area": "Quality",
+      "details": "tests/replay_from_logs.py replays last N real user queries against live v3 agent. PASS/WARN/FAIL scoring. Saves detailed JSON results to tests/results/."
+    },
+    {
+      "id": "level1-inline-judge",
+      "title": "Level 1 testing: inline LLM-as-judge in run_v2_scenarios.py",
+      "status": "next",
+      "area": "Quality",
+      "details": "Replace fragile pass_signals/fail_signals keyword arrays with GPT-4o-mini verdict per scenario inline. Eliminates all false-positive signal failures. Also collapse run_v2_scenarios.py + auto_analyze.py into single run_and_judge.py command."
+    },
+    {
+      "id": "pending-github-secrets",
+      "title": "Add GitHub Secrets for analytics backup action",
+      "status": "next",
+      "area": "Ops",
+      "details": "Add RENDER_BACKEND_URL and DASHBOARD_PIN to GitHub repository secrets so analytics-backup.yml can run."
+    },
+    {
+      "id": "gtfs-auto-refresh",
+      "title": "Automate GTFS schedule data refresh on RTS service changes",
+      "status": "pending",
+      "area": "Data",
+      "priority": "medium",
+      "details": "GTFS SQLite is built once at deploy time. RTS publishes new schedules each semester and for service changes. Stale data means wrong answers. Add: a /api/admin/rebuild-gtfs endpoint (token-protected) that re-fetches GTFS zip and rebuilds the DB, plus a cron trigger or Render deploy hook."
+    },
+    {
+      "id": "improve-gtfs-stop-fuzzy-match",
+      "title": "Improve GTFS stop name fuzzy matching for natural language stop references",
+      "status": "pending",
+      "area": "AI / Agent",
+      "priority": "medium",
+      "details": "Beyond simple token overlap, use Levenshtein distance or embeddings to match 'Rosa Parks' to 'Rosa Parks Transit Center', 'Publix on Archer' to stops near that landmark."
+    },
+    {
+      "id": "add-openai-retry-backoff",
+      "title": "Handle OpenAI 429 rate limit errors gracefully (reference entry)",
+      "status": "completed",
+      "area": "Backend",
+      "priority": "medium",
+      "details": "Done in Session 5. SDK max_retries=3 auto-retries 429/5xx with exponential backoff. See add-openai-retry-logic entry."
     }
   ]
 }

@@ -26,7 +26,7 @@ _LOGIN_PAGE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Dashboard Login — RTS</title>
+  <title>RTS Access</title>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     body{background:#070d1a;display:flex;align-items:center;justify-content:center;
@@ -50,11 +50,12 @@ _LOGIN_PAGE = """<!DOCTYPE html>
 </head>
 <body>
   <div class="card">
-    <h1>RTS Project Dashboard</h1>
+    <h1>RTS Assistant</h1>
     <p>Enter your access PIN to continue</p>
-    <form method="POST" action="/dashboard/login">
+    <form method="POST" action="/login">
+      <input type="hidden" name="next" value="{{ next }}"/>
       <input type="password" name="pin" placeholder="••••" autofocus autocomplete="off"/>
-      <button type="submit">Enter Dashboard</button>
+      <button type="submit">Continue</button>
       {% if error %}<div class="err">Incorrect PIN — try again</div>{% endif %}
     </form>
   </div>
@@ -85,43 +86,62 @@ def create_app() -> Flask:
     def index():
         return send_from_directory(app.static_folder, "index.html")
 
-    @app.route("/chat")
-    def standalone_chat():
-        return send_from_directory(app.static_folder, "chat.html")
-
-    @app.route("/wizard")
-    def wizard():
-        return send_from_directory(app.static_folder, "wizard.html")
-
-    # ── Dashboard with optional PIN protection ──────────────────
+    # ── Shared PIN auth helpers ──────────────────────────────────
     def _pin_required() -> bool:
         return bool(os.environ.get("DASHBOARD_PIN", "").strip())
 
     def _pin_ok() -> bool:
         return session.get("dashboard_auth") is True
 
+    @app.route("/login", methods=["GET", "POST"])
+    def login():
+        if not _pin_required():
+            return redirect(request.args.get("next") or "/")
+        next_url = request.args.get("next", "/")
+        error = False
+        if request.method == "POST":
+            next_url = request.form.get("next", "/")
+            if request.form.get("pin", "") == os.environ.get("DASHBOARD_PIN", ""):
+                session["dashboard_auth"] = True
+                # only allow relative redirects for safety
+                if next_url.startswith("/") and not next_url.startswith("//"):
+                    return redirect(next_url)
+                return redirect("/")
+            error = True
+        return render_template_string(_LOGIN_PAGE, error=error, next=next_url)
+
+    @app.route("/logout")
+    def logout():
+        session.pop("dashboard_auth", None)
+        return redirect("/login")
+
+    @app.route("/chat")
+    def standalone_chat():
+        if _pin_required() and not _pin_ok():
+            return redirect("/login?next=/chat")
+        return send_from_directory(app.static_folder, "chat.html")
+
+    @app.route("/wizard")
+    def wizard():
+        if _pin_required() and not _pin_ok():
+            return redirect("/login?next=/wizard")
+        return send_from_directory(app.static_folder, "wizard.html")
+
     @app.route("/dashboard")
     def dashboard():
         if _pin_required() and not _pin_ok():
-            return redirect("/dashboard/login")
+            return redirect("/login?next=/dashboard")
         return send_from_directory(app.static_folder, "dashboard.html")
 
+    # Legacy login/logout aliases so old bookmarks still work
     @app.route("/dashboard/login", methods=["GET", "POST"])
     def dashboard_login():
-        if not _pin_required():
-            return redirect("/dashboard")
-        error = False
-        if request.method == "POST":
-            if request.form.get("pin", "") == os.environ.get("DASHBOARD_PIN", ""):
-                session["dashboard_auth"] = True
-                return redirect("/dashboard")
-            error = True
-        return render_template_string(_LOGIN_PAGE, error=error)
+        return redirect("/login?next=/dashboard")
 
     @app.route("/dashboard/logout")
     def dashboard_logout():
         session.pop("dashboard_auth", None)
-        return redirect("/dashboard/login")
+        return redirect("/login?next=/dashboard")
 
     return app
 
