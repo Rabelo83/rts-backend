@@ -18,6 +18,12 @@ How to use:
 ---
 
 ### 2026-03-19
+- Type: `fix`
+- Summary: First LLM-judged QA baseline — 17/36 PASS (47%). Fixed M02/M06 route-context disambiguation: system prompt rule had `stop_id` typo instead of `stop_name`, causing agent to call `search_stops` and show a stop picker when route was already known. Fixed judge prompt to not penalize correct calendar dates or optional reduced service notes (S06/GPT20 were false FAILs). Fixed all Windows cp1252 unicode errors in `run_and_judge.py` and `qa_report.py`. Removed raw API links from dashboard Quick Links panel.
+- Files/Areas: `routes/agent_claude.py`, `tests/run_and_judge.py`, `tests/qa_report.py`, `public_html/dashboard.html`
+- Notes / Follow-up: Rerun targeted scenarios (M02, M06, S06, GPT20) after Render deploys to confirm fixes before full rerun.
+
+### 2026-03-19
 - Type: `feature`
 - Summary: Added `get_service_differences` tool — answers "which buses are affected by Reduced Service?" by comparing Weekday vs target service_id in GTFS. Returns suspended_routes, extra_routes, running_routes. Routes 55, 76, 118 suspended on Reduced Service. All agent versions (v2, gpt_v3, claude) updated with system prompt rule to call this tool instead of guessing or refusing. Fix pushed and deployed.
 - Files/Areas: `routes/agent_tools.py`, `routes/agent_claude.py`, `routes/agent_gpt_v3.py`

@@ -123,6 +123,14 @@ Closes the 10% gap the LLM judge cannot cover — factual accuracy of times, sto
 - [x] `--all` flag: dedupes across all result files; `--dry-run`: preview without writing
 - Usage: `python tests/promote_to_scenario.py` · `--file <path>` · `--all` · `--dry-run` · `--non-interactive`
 
+### First LLM-Judged Baseline ✅ DONE (2026-03-19)
+- [x] First full run with GPT-4o-mini judge: **17/36 PASS (47%)** — baseline established
+- [x] Fixed M02/M06: route-context disambiguation — `stop_id` typo in prompt → agent now calls `get_schedule(route_id, stop_name)` directly instead of showing stop picker
+- [x] Fixed judge prompt: no longer penalizes correct calendar dates or optional reduced service notes (was causing false FAILs on S06, GPT20)
+- [x] Fixed all Windows cp1252 unicode errors in `run_and_judge.py` and `qa_report.py`
+- [ ] Rerun M02, M06, S06, GPT20 to confirm fixes (targeted, low cost)
+- [ ] Full rerun after confirmation → new baseline expected ~55-65%
+
 ### Level 2 — Production Feedback Loop ✅ DONE (2026-03-19)
 - [x] Real user queries logged to `data/analytics.sqlite`
 - [x] Built `tests/replay_from_logs.py` — replays last N real conversations, scores PASS/FAIL
