@@ -90,10 +90,13 @@ Note: The initial list below was inferred from the current repository contents a
 - **Known gap:** Cannot verify factual accuracy of times/stops (no GTFS knowledge) — addressed in Level 1b
 - Usage: `python tests/run_and_judge.py` · `--retry-fails` · `--no-judge` · `--ids S01,S07`
 
-### Level 1b — Wire LLM Judge into replay_from_logs.py (Next — quick win)
-- [ ] Replace keyword signals in `replay_from_logs.py` with same GPT-4o-mini judge from `run_and_judge.py`
-- [ ] Real user queries + real verdicts = strongest regression signal available
-- [ ] ~30 lines of change — reuse `llm_judge()` from `run_and_judge.py`
+### Level 1b — Wire LLM Judge into replay_from_logs.py ✅ DONE (2026-03-19)
+- [x] Replaced keyword signals with GPT-4o-mini inline judge in `replay_from_logs.py`
+- [x] Keyword signals kept as fast pre-filter (skip LLM call on obvious failures)
+- [x] Dropped ambiguous WARN verdict — now PASS/FAIL only, cleaner results
+- [x] `--no-judge` flag for fast offline runs; auto-disables if no OPENAI_API_KEY
+- [x] Judge prompt tuned for open-ended transit queries (no expected_behavior — quality judge, not correctness judge)
+- Usage: `python tests/replay_from_logs.py` · `--last 100` · `--no-judge` · `--fails-only`
 
 ### Level 1c — GTFS-Grounded Verifier (Planned — high value)
 Closes the 10% gap the LLM judge cannot cover — factual accuracy of times, stops, headsigns.
