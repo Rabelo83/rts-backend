@@ -366,6 +366,34 @@
     .qlink-star:hover { border-color: var(--purple); }
     .qlink-api { font-family: monospace; font-size: .76rem; }
 
+    /* ── activity timeline strip ──────────────────────────────── */
+    .timeline-wrap {
+      margin-bottom: 14px;
+    }
+    .timeline-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px; padding: 0 2px;
+    }
+    .timeline-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+    .timeline-scroll {
+      display: flex; gap: 10px;
+      overflow-x: auto; padding-bottom: 6px;
+      scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    }
+    .timeline-scroll::-webkit-scrollbar { height: 3px; }
+    .timeline-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .tl-card {
+      flex: 0 0 220px; padding: 12px 14px;
+      background: var(--s1); border: 1px solid var(--border); border-radius: var(--r);
+      display: flex; flex-direction: column; gap: 6px;
+      transition: border-color .15s, background .15s;
+    }
+    .tl-card:hover { border-color: var(--border2); background: var(--s2); }
+    .tl-top { display: flex; align-items: center; gap: 7px; }
+    .tl-date { font-size: .68rem; color: var(--muted); margin-left: auto; flex-shrink: 0; }
+    .tl-summary { font-size: .76rem; color: rgba(255,255,255,.5); line-height: 1.5;
+                  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
     /* ── misc ─────────────────────────────────────────────────── */
     .empty-state { text-align: center; padding: 24px; color: var(--muted); font-size: .85rem; }
     .err-msg { padding: 12px; background: rgba(248,81,73,.08); border: 1px solid rgba(248,81,73,.25);
@@ -480,6 +508,17 @@
     <div class="stat s-block"   data-f="blocked"><div class="stat-label">Blocked</div><div class="stat-value" id="cBlock">–</div></div>
   </div>
 
+  <!-- recent activity — horizontal scrollable timeline -->
+  <div class="timeline-wrap">
+    <div class="timeline-header">
+      <span class="timeline-label">Recent Activity</span>
+      <span class="refresh-badge"><div class="refresh-dot"></div> <span style="font-size:.68rem;color:var(--muted)">from project log</span></span>
+    </div>
+    <div class="timeline-scroll" id="activityFeed">
+      <div style="color:var(--muted);font-size:.8rem;padding:12px;">Loading…</div>
+    </div>
+  </div>
+
   <!-- main layout -->
   <div class="layout">
 
@@ -513,14 +552,6 @@
 
     <!-- sidebar -->
     <div class="sidebar">
-
-      <!-- recent activity -->
-      <div class="panel">
-        <div class="panel-head"><h2>Recent Activity</h2><small>from project log</small></div>
-        <div id="activityFeed" class="activity-list">
-          <div class="empty-state">Loading…</div>
-        </div>
-      </div>
 
       <!-- by area -->
       <div class="panel">
@@ -747,22 +778,22 @@
     }, 80);
   }
 
-  // ── activity feed ────────────────────────────────────────────
+  // ── activity timeline (horizontal cards) ────────────────────
   function renderActivity(entries) {
     const el = $("activityFeed");
     if (!entries || !entries.length) {
-      el.innerHTML = '<div class="empty-state">No log entries.</div>'; return;
+      el.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:12px;">No log entries.</div>';
+      return;
     }
     el.innerHTML = entries.map(e => {
       const bclass = BADGE[e.type] || "badge-update";
-      return `
-        <div class="activity-item">
-          <div class="activity-top">
-            <span class="activity-badge ${bclass}">${esc(e.type)}</span>
-            <span class="activity-date">${esc(e.date)}</span>
-          </div>
-          <div class="activity-summary">${esc(e.summary)}</div>
-        </div>`;
+      return `<div class="tl-card">
+        <div class="tl-top">
+          <span class="activity-badge ${bclass}">${esc(e.type)}</span>
+          <span class="tl-date">${esc(e.date)}</span>
+        </div>
+        <div class="tl-summary">${esc(e.summary)}</div>
+      </div>`;
     }).join("");
   }
 
