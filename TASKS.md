@@ -115,16 +115,20 @@ Closes the 10% gap the LLM judge cannot cover — factual accuracy of times, sto
 - [x] Dashboard QA panel — shows scenario pass %, replay pass %, sparkline trend; hidden when no data yet
 - Usage: `python tests/qa_report.py` · `--scenarios` · `--diff` · `--last 10`
 
-### Planned — promote_to_scenario.py helper
-- [ ] Build `tests/promote_to_scenario.py` — takes a query from a replay FAIL result and scaffolds it into a new scenario entry with pre-filled `expected_behavior` draft
-- [ ] Closes the feedback loop: real user FAIL → reviewed → permanent scenario
-- [ ] Low effort, high value for keeping the test suite growing from production traffic
+### promote_to_scenario.py ✅ DONE (2026-03-19)
+- [x] Built `tests/promote_to_scenario.py` — closes feedback loop: FAIL → reviewed → permanent scenario
+- [x] Reads any `judged_*.json` or `replay_*.json` results file, surfaces FAILs not already in suite
+- [x] Interactive mode: shows query + response + judge reason, prompts for `expected_behavior`, category, description
+- [x] `--non-interactive` flag: auto-promotes FAILs that already have `expected_behavior` (CI use)
+- [x] `--all` flag: dedupes across all result files; `--dry-run`: preview without writing
+- Usage: `python tests/promote_to_scenario.py` · `--file <path>` · `--all` · `--dry-run` · `--non-interactive`
 
 ### Level 2 — Production Feedback Loop ✅ DONE (2026-03-19)
 - [x] Real user queries logged to `data/analytics.sqlite`
-- [x] Built `tests/replay_from_logs.py` — replays last N real conversations, flags PASS/WARN/FAIL
-- [ ] Upgrade scoring to use LLM judge (Level 1b above)
-- [ ] Run weekly or after any GTFS data refresh
+- [x] Built `tests/replay_from_logs.py` — replays last N real conversations, scores PASS/FAIL
+- [x] LLM judge (Level 1b) wired into replay scoring
+- [x] `promote_to_scenario.py` closes the loop: replay FAIL → scenario suite
+- Usage: run weekly or after any GTFS data refresh
 
 ### Level 3 — Adversarial Scenario Generation (Low priority / quarterly)
 - [ ] Build `tests/generate_scenarios.py` — feeds route/stop list to GPT, returns 50 tricky test cases

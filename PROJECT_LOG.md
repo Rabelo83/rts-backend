@@ -17,6 +17,20 @@ How to use:
 
 ---
 
+### 2026-03-19
+- Type: `feature`
+- Summary: Added `get_service_differences` tool — answers "which buses are affected by Reduced Service?" by comparing Weekday vs target service_id in GTFS. Returns suspended_routes, extra_routes, running_routes. Routes 55, 76, 118 suspended on Reduced Service. All agent versions (v2, gpt_v3, claude) updated with system prompt rule to call this tool instead of guessing or refusing. Fix pushed and deployed.
+- Files/Areas: `routes/agent_tools.py`, `routes/agent_claude.py`, `routes/agent_gpt_v3.py`
+- Notes / Follow-up: Tool works for Saturday/Sunday service differences too.
+
+### 2026-03-19
+- Type: `feature`
+- Summary: Built `tests/promote_to_scenario.py` — closes the production feedback loop. Reads FAIL entries from any judged_*.json or replay_*.json result file, deduplicates against existing suite, then walks user through writing expected_behavior + category + description and appends the new scenario to scenarios_v2.json. Interactive by default; --non-interactive auto-promotes FAILs that already have expected_behavior (for CI). Flags: --file, --all, --dry-run, --non-interactive.
+- Files/Areas: `tests/promote_to_scenario.py`
+- Notes / Follow-up: Completes the QA architecture: real FAIL → reviewed → permanent scenario. Run after any replay or judged run that reveals new bugs.
+
+---
+
 ### 2026-02-24
 - Type: `feature`, `docs`
 - Summary: Added project task tracking system and dashboard page for status visibility.
