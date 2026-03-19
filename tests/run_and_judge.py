@@ -162,6 +162,10 @@ Rules:
 - Slight wording differences are fine; factual errors or missing key info = FAIL
 - If the response asks a clarifying question that matches the expected flow = PASS
 - If the response makes up times, stops, or routes not in the tool results = FAIL
+- Do NOT verify specific calendar dates (e.g. whether "March 20" is really tomorrow).
+  The agent runs in real-time and its dates are correct. Only check structure and behavior.
+- Do NOT penalize a response for not mentioning reduced service unless the expected
+  behavior explicitly requires it.
 
 Return JSON only, no prose:
 {"verdict": "PASS" or "FAIL", "reason": "one sentence max"}
