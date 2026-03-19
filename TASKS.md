@@ -85,20 +85,18 @@ Note: The initial list below was inferred from the current repository contents a
 
 Three levels of improvement, in priority order:
 
-### Level 1 — Inline LLM-as-Judge (High priority)
+### Level 1 — Inline LLM-as-Judge ✅ DONE (2026-03-19)
 Replace fragile `pass_signals`/`fail_signals` keyword arrays with a real model verdict per scenario.
-After each agent response, call GPT-4o-mini: *"Did the agent correctly answer: '{expected_behavior}'? PASS or FAIL + one sentence why."*
-- [ ] Rewrite scoring in `run_v2_scenarios.py` to call GPT inline per scenario
-- [ ] Remove `pass_signals`/`fail_signals` from `scenarios_v2.json` (or keep as hints only)
-- [ ] Collapse `run_v2_scenarios.py` + `auto_analyze.py` into a single `run_and_judge.py` command
-- [ ] Benefit: eliminates all false-positive signal failures; verdict quality improves significantly
+- [x] Built `tests/run_and_judge.py` — single command: runs all scenarios + calls GPT-4o-mini inline per scenario for a real PASS/FAIL verdict
+- [x] `pass_signals`/`fail_signals` kept in `scenarios_v2.json` as hints only; judge uses `expected_behavior` as the truth source
+- [x] `run_v2_scenarios.py` + `auto_analyze.py` retained for reference; `run_and_judge.py` replaces the two-step workflow
+- Usage: `python tests/run_and_judge.py` (prod v3 default) or `--env local`, `--retry-fails`, `--no-judge`, `--ids S01,S07`
 
-### Level 2 — Production Feedback Loop (Medium priority)
+### Level 2 — Production Feedback Loop ✅ DONE (2026-03-19)
 Replay real user queries as regression tests instead of relying only on hand-written scenarios.
-- [ ] Log every real user query to `data/analytics.sqlite` (anonymized — no PII)
-- [ ] Build `tests/replay_from_logs.py` — queries the last N real conversations, replays them, flags errors/hallucinations
-- [ ] Run weekly or after any GTFS data refresh
-- [ ] Benefit: catches bugs that hand-written scenarios never anticipated
+- [x] Real user queries logged to `data/analytics.sqlite` (anonymized — no PII)
+- [x] Built `tests/replay_from_logs.py` — replays last N real conversations, flags PASS/WARN/FAIL
+- [ ] Run weekly or after any GTFS data refresh (run manually after production traffic accumulates)
 
 ### Level 3 — Adversarial Scenario Generation (Low priority / quarterly)
 Use GPT to auto-generate new edge-case scenarios from live GTFS data.
