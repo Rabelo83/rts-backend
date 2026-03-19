@@ -18,6 +18,12 @@ How to use:
 ---
 
 ### 2026-03-19
+- Type: `decision`
+- Summary: User ratings feature planned — thumbs up/down on each chat response stored in analytics.sqlite. Powers Level 0 QA: negatively-rated sessions auto-prioritized in replay_from_logs.py, can be promoted to scenarios via promote_to_scenario.py. Dashboard will show satisfaction % metric. Closes the full feedback loop with zero manual triage.
+- Files/Areas: `public_html/chat` (UI), new `/api/feedback` endpoint, `analytics.sqlite`, `tests/replay_from_logs.py`, dashboard
+- Notes / Follow-up: Build after targeted QA rerun confirms M02/M06 fix.
+
+### 2026-03-19
 - Type: `fix`
 - Summary: First LLM-judged QA baseline — 17/36 PASS (47%). Fixed M02/M06 route-context disambiguation: system prompt rule had `stop_id` typo instead of `stop_name`, causing agent to call `search_stops` and show a stop picker when route was already known. Fixed judge prompt to not penalize correct calendar dates or optional reduced service notes (S06/GPT20 were false FAILs). Fixed all Windows cp1252 unicode errors in `run_and_judge.py` and `qa_report.py`. Removed raw API links from dashboard Quick Links panel.
 - Files/Areas: `routes/agent_claude.py`, `tests/run_and_judge.py`, `tests/qa_report.py`, `public_html/dashboard.html`

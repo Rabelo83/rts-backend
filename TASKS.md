@@ -138,6 +138,15 @@ Closes the 10% gap the LLM judge cannot cover — factual accuracy of times, sto
 - [x] `promote_to_scenario.py` closes the loop: replay FAIL → scenario suite
 - Usage: run weekly or after any GTFS data refresh
 
+### User Ratings (Thumbs Up/Down) — Planned
+- [ ] Add thumbs up/down button under each chat response in the chat UI
+- [ ] `POST /api/feedback` endpoint — stores rating (1/-1) + session_id + message_index + optional comment in `analytics.sqlite`
+- [ ] Dashboard shows satisfaction % alongside success rate
+- [ ] `replay_from_logs.py` prioritizes negatively-rated sessions automatically
+- [ ] `promote_to_scenario.py` can pull from thumbs-down sessions directly
+- [ ] Closes the full loop: user rates down → replayed by QA → FAIL → promoted to scenario → fixed → deployed
+- **Why:** Real user signal with zero manual triage — Level 0 QA feeding directly into the existing pipeline
+
 ### Level 3 — Adversarial Scenario Generation (Low priority / quarterly)
 - [ ] Build `tests/generate_scenarios.py` — feeds route/stop list to GPT, returns 50 tricky test cases
 - [ ] Auto-append to `scenarios_v2.json` after human review
