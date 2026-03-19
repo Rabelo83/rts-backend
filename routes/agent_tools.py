@@ -523,6 +523,29 @@ def _tool_get_realtime_predictions(stop_id: str) -> dict:
 
 # ── Tool 3: get_schedule ─────────────────────────────────────────────────────
 
+def _route_never_serves_stop(route_id: str, stop_id: str) -> bool:
+    """Return True if the route has zero stop_times entries at the given stop."""
+    try:
+        conn = _sched.connect_db()
+        try:
+            # stop_times uses unpadded stop_id; strip leading zeros for the query
+            unpadded = stop_id.lstrip("0") or "0"
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS cnt FROM trips t
+                JOIN routes r ON r.route_id = t.route_id
+                JOIN stop_times st ON st.trip_id = t.trip_id
+                WHERE r.route_short_name = ? AND (st.stop_id = ? OR st.stop_id = ?)
+                """,
+                (route_id, stop_id, unpadded),
+            ).fetchone()
+            return (row["cnt"] == 0) if row else True
+        finally:
+            conn.close()
+    except Exception:
+        return False
+
+
 def _tool_get_schedule(
     route_id: str | None = None,
     stop_id: str | None = None,
@@ -674,6 +697,20 @@ def _tool_get_schedule(
     # kind == "next"
     rows = data.get("next_by_direction") or []
     if not rows:
+        # Distinguish "no more trips today" from "route never serves this stop"
+        if stop_id:
+            never_serves = _route_never_serves_stop(route_id, stop_id)
+            if never_serves:
+                return {
+                    "status": "route_not_at_stop",
+                    "route": route_id,
+                    "stop": data.get("stop") or stop_id,
+                    "message": (
+                        f"Route {route_id} does not serve stop {stop_id} "
+                        f"({data.get('stop') or stop_id}). "
+                        "Check the stop ID or use get_route_stops to see which stops it serves."
+                    ),
+                }
         return {
             "status": "no_trips",
             "route": route_id,
