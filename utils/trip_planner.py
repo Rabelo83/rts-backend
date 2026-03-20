@@ -192,6 +192,19 @@ def _find_with_transfer(conn, origin_ids: list[int], dest_ids: list[int],
         if dep1 < depart_min or dep1 > limit_min:
             continue
 
+        # Skip if leg1's trip already reaches the destination directly —
+        # in that case _find_direct handles it and no transfer is needed.
+        d_ph_inner = ",".join("?" * len(dest_ids))
+        already_direct = conn.execute(f"""
+            SELECT 1 FROM stop_times
+            WHERE trip_id = ?
+              AND CAST(stop_id AS INTEGER) IN ({d_ph_inner})
+              AND CAST(stop_sequence AS INTEGER) > CAST(? AS INTEGER)
+            LIMIT 1
+        """, (leg1["trip_id"], *dest_ids, leg1["seq"])).fetchone()
+        if already_direct:
+            continue
+
         # All subsequent stops on this trip (potential transfer points)
         transfer_stops = conn.execute("""
             SELECT CAST(stop_id AS INTEGER) AS stop_id, arrival_time, stop_sequence
@@ -509,8 +522,10 @@ def _find_with_transfer_arrive_by(conn, origin_ids: list[int], dest_ids: list[in
             SELECT r.route_short_name AS route,
                    r.route_long_name  AS route_name,
                    t.trip_headsign    AS headsign,
+                   t.trip_id,
                    CAST(st1.stop_id AS INTEGER) AS from_stop_id,
                    st1.departure_time AS depart,
+                   st1.stop_sequence  AS seq,
                    st2.arrival_time   AS arrive
             FROM   stop_times st1
             JOIN   stop_times st2 ON  st2.trip_id = st1.trip_id
@@ -530,6 +545,18 @@ def _find_with_transfer_arrive_by(conn, origin_ids: list[int], dest_ids: list[in
             arr1 = _gtfs_to_min(leg1["arrive"])
             if arr1 < dep1:
                 continue   # bad GTFS row
+
+            # Skip if leg1's trip already reaches the destination directly
+            already_direct = conn.execute(f"""
+                SELECT 1 FROM stop_times
+                WHERE trip_id = ?
+                  AND CAST(stop_id AS INTEGER) IN ({d_ph})
+                  AND CAST(stop_sequence AS INTEGER) > CAST(? AS INTEGER)
+                LIMIT 1
+            """, (leg1["trip_id"], *dest_ids, leg1["seq"])).fetchone()
+            if already_direct:
+                continue
+
             wait_min = dep2 - arr1
             if wait_min < 0 or wait_min > 30:
                 continue
