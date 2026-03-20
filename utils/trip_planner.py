@@ -245,6 +245,10 @@ def _find_with_transfer(conn, origin_ids: list[int], dest_ids: list[int],
                   ts["arrival_time"]]).fetchall()
 
             for leg2 in leg2_rows:
+                # Skip same-route transfers (e.g. Route 37 → Route 37 via Butler Plaza)
+                if leg2["route"] == leg1["route"]:
+                    continue
+
                 dep2 = _gtfs_to_min(leg2["depart"])
                 arr2 = _gtfs_to_min(leg2["arrive"])
                 wait_min = dep2 - arr1_min
@@ -555,6 +559,10 @@ def _find_with_transfer_arrive_by(conn, origin_ids: list[int], dest_ids: list[in
                 LIMIT 1
             """, (leg1["trip_id"], *dest_ids, leg1["seq"])).fetchone()
             if already_direct:
+                continue
+
+            # Skip same-route transfers
+            if leg1["route"] == leg2["route"]:
                 continue
 
             wait_min = dep2 - arr1
