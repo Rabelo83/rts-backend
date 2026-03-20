@@ -17,6 +17,26 @@ How to use:
 
 ---
 
+### 2026-03-20 (session 2)
+- Type: `fix, feature`
+- Summary: Trip Planner — 5 critical bug fixes + 5 UI improvements deployed.
+
+  **Critical fixes:**
+  1. `stop_sequence TEXT comparison` — root cause of all cross-city routing failures. `stop_sequence` stored as TEXT in GTFS SQLite; `'29' > '3'` = FALSE lexicographically, silently truncating every route at stop 9. Rosa Parks (seq 29) was invisible to the router. Fixed: `CAST(stop_sequence AS INTEGER)` in all 5 SQL queries. Archer Rd → NW 34th Blvd now returns 3 options.
+  2. `Leave Now timezone` — `_now_min()` used `datetime.now()` (UTC on Render), searching 4 hours in the future for EST users. Fixed: `datetime.now(ZoneInfo("America/New_York"))`.
+  3. `Only 1 result returned` — dedup key `(r1, xfer, r2)` collapsed same route at different times into one. Fixed: added 30-min departure bucket. Also raised `_MAX_RESULTS` 3→5, `_SEARCH_WINDOW_MIN` 90→120 min.
+  4. `Feedback buttons hidden` — `scrollDown()` fired before rating row was appended. Fixed: second scroll after `addRatingButtons()`.
+  5. NW 34th Blvd confirmed working (stops 89m away, Routes 6+8 serving them) — "no options" was time-of-day (after 9 PM Reduced Service), not a bug.
+
+  **UI improvements:**
+  1. Vertical timeline stepper — 3-column layout (time | colored dots | content), BOARD/EXIT/ARRIVE AT action tags, solid route pills.
+  2. Journey strip in card header — `🚶›[75]›⇄›[1]›🚶` + full dep→arr time range for at-a-glance comparison.
+  3. Collapsible cards — first card open, rest collapsed; chevron toggle.
+  4. Card gap fix — `#trip-results { gap:14px }`.
+
+- Files/Areas: `utils/trip_planner.py`, `public_html/chat.html`, `public_html/trip_planner.js`, `public_html/chat_v2.js`
+- Notes / Follow-up: Consider adding "service ends at X PM" to no-routes error message for better UX when user queries after last bus.
+
 ### 2026-03-20
 - Type: `feature`
 - Summary: Trip Planner v1.5 — smart ranking, time modes, date picker, architecture refactor.

@@ -1,6 +1,6 @@
 # RTS Project Task Tracker
 
-Last updated: 2026-03-20
+Last updated: 2026-03-20 (session 2)
 
 This file is a project task tracker for the RTS backend/web assistant project. It captures:
 - what has already been completed to reach the current state
@@ -311,9 +311,19 @@ Current sort is by `total_min` only. Replace with weighted penalty score (lower 
 - [ ] `tp-v1.5-12` **Sort toggle UI** — "Best Match" / "Least Walking" / "Fewest Transfers" buttons reorder results client-side without re-querying backend
 
 #### 5e — Bug Fixes (2026-03-20)
-- [x] `tp-fix-1` **Suburban address "No bus stops found"** — Increased `_MAX_WALK_M` from 500m to 1000m (~0.6 mi). Gainesville suburban areas (e.g. SW 96th St) have stops spaced further apart than the original radius allowed. Walk time is still displayed accurately in the itinerary card. (`utils/trip_planner.py`)
-- [x] `tp-fix-2` **Render geocoding offset "No bus stops found"** — Added 5km fallback scan when 1000m returns zero stops. Google geocoding on Render places some addresses slightly differently than Nominatim locally, pushing origin/dest coordinates just outside the 1km radius. Fallback limits to 1 nearest stop to keep routing conservative. (`utils/trip_planner.py`)
-- [x] `agent-fix-1` **"What time does bus X stop running?" unnecessary disambiguation** — Added `## ROUTE-LEVEL QUESTIONS` rule to `agent_claude.py` system prompt: route operating hour queries go directly to `get_route_overview`, no stop clarification asked. (`routes/agent_claude.py`)
+- [x] `tp-fix-1` **Suburban address "No bus stops found"** — Increased `_MAX_WALK_M` from 500m to 1000m (~0.6 mi). (`utils/trip_planner.py`)
+- [x] `tp-fix-2` **Render geocoding offset "No bus stops found"** — Added 5km fallback scan when 1000m returns zero stops. (`utils/trip_planner.py`)
+- [x] `agent-fix-1` **Route operating hours unnecessary disambiguation** — Added `## ROUTE-LEVEL QUESTIONS` rule, calls `get_route_overview` immediately. (`routes/agent_claude.py`)
+- [x] `tp-fix-3` **"Leave Now" searching 4 hours in future** — `_now_min()` used `datetime.now()` (UTC on Render). Fixed to `datetime.now(ZoneInfo("America/New_York"))`. Same fix applied to default date in `find_trips()`. (`utils/trip_planner.py`)
+- [x] `tp-fix-4` **CRITICAL: stop_sequence TEXT comparison truncating all routes at stop 9** — `stop_sequence` is stored as TEXT in GTFS SQLite. Lexicographic comparison made `'29' > '3'` = FALSE, silently cutting off Rosa Parks (seq 29) and all downstream stops. Fixed all 5 SQL JOINs/WHERE clauses with `CAST(stop_sequence AS INTEGER)`. Cross-city trips (e.g. Archer Rd → NW 34th Blvd) now return results. (`utils/trip_planner.py`)
+- [x] `tp-fix-5` **Only 1 trip option returned** — Dedup key `(r1, xfer, r2)` collapsed same route at different departure times into one result. Fixed: added 30-min departure bucket to key. Also: `_MAX_RESULTS` 3→5, `_SEARCH_WINDOW_MIN` 90→120 min, leg query limits increased. (`utils/trip_planner.py`)
+
+#### 5f — UI Improvements (2026-03-20 session 2)
+- [x] `tp-ui-1` **Feedback buttons hidden below viewport** — `scrollDown()` called before rating row appended. Fixed: second `scrollDown()` after `addRatingButtons()`. (`public_html/chat_v2.js`)
+- [x] `tp-ui-2` **Itinerary timeline stepper redesign** — Replaced flat leg rows with 3-column timeline (time | track | content). Colored dots: blue=board, amber=exit, green=arrive. BOARD/EXIT AT/ARRIVE AT action tags. Solid route number pills. Transfer as amber inset box. (`public_html/chat.html`, `public_html/trip_planner.js`)
+- [x] `tp-ui-3` **Cards bleeding together** — Added `#trip-results { display:flex; gap:14px }`. (`public_html/chat.html`)
+- [x] `tp-ui-4` **Journey strip + time range in card header** — Added `🚶›[75]›⇄›[1]›🚶` sequence strip and full dep→arr time range to every card header for at-a-glance comparison. (`public_html/trip_planner.js`, `public_html/chat.html`)
+- [x] `tp-ui-5` **Collapsible itinerary cards** — First card open, rest collapsed. Tap header to expand/collapse. Chevron rotates on open. (`public_html/chat.html`, `public_html/trip_planner.js`)
 
 ### Phase 6 — Agent Chat Tools (2026-03-20)
 Two new tools wired into the Claude agent so the chat can answer location and trip questions directly.
