@@ -1,14 +1,14 @@
 /**
- * trip_planner.js  v1
- * Trip Planner tab — autocomplete address inputs, trip results rendering.
+ * trip_planner.js  v2
+ * Trip Planner — time modes, smart ranking display, ft/mi, ETA badge.
  */
 
-/* ── Tab switching (shared with chat) ─────────────────────────────────── */
+/* ── Tab switching ────────────────────────────────────────────────────── */
 
 window.switchTab = function switchTab(tab) {
-  const chatEls  = ['chat-messages', 'starter-questions', 'chat-end-row', 'chat-input-row'];
-  const tripEl   = document.getElementById('trip-panel');
-  const isChat   = tab === 'chat';
+  const chatEls = ['chat-messages', 'starter-questions', 'chat-end-row', 'chat-input-row'];
+  const tripEl  = document.getElementById('trip-panel');
+  const isChat  = tab === 'chat';
 
   chatEls.forEach(id => {
     const el = document.getElementById(id);
@@ -25,7 +25,7 @@ window.switchTab = function switchTab(tab) {
 };
 
 
-/* ── Trip planner init ────────────────────────────────────────────────── */
+/* ── Init ─────────────────────────────────────────────────────────────── */
 
 document.addEventListener('DOMContentLoaded', () => {
   const panel = document.getElementById('trip-panel');
@@ -34,8 +34,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initAutocomplete('origin-input', 'origin-ac');
   initAutocomplete('dest-input',   'dest-ac');
   document.getElementById('trip-form').addEventListener('submit', onSubmit);
+  initTimeModeToggle();
 });
 
+
+/* ── Form HTML ────────────────────────────────────────────────────────── */
 
 function buildFormHTML() {
   return `
@@ -55,6 +58,16 @@ function buildFormHTML() {
         <div id="dest-ac" class="ac-dropdown hidden"></div>
       </div>
 
+      <!-- Time mode toggle -->
+      <div class="time-mode-row">
+        <button type="button" class="time-mode-btn active" data-mode="now">Leave Now</button>
+        <button type="button" class="time-mode-btn" data-mode="depart">Departing At</button>
+        <button type="button" class="time-mode-btn" data-mode="arrive">Arriving At</button>
+      </div>
+      <div id="time-picker-row" class="hidden">
+        <input id="trip-time" class="trip-input trip-time-input" type="time" />
+      </div>
+
       <button type="submit" class="trip-submit" id="trip-submit">Find Routes</button>
     </form>
 
@@ -63,26 +76,53 @@ function buildFormHTML() {
 }
 
 
+/* ── Time mode toggle ─────────────────────────────────────────────────── */
+
+function initTimeModeToggle() {
+  document.querySelectorAll('.time-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.time-mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const picker = document.getElementById('time-picker-row');
+      if (btn.dataset.mode === 'now') {
+        picker.classList.add('hidden');
+      } else {
+        picker.classList.remove('hidden');
+        // Default to current time
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById('trip-time').value = `${hh}:${mm}`;
+      }
+    });
+  });
+}
+
+function getActiveMode() {
+  const btn = document.querySelector('.time-mode-btn.active');
+  return btn ? btn.dataset.mode : 'now';
+}
+
+
 /* ── Autocomplete ─────────────────────────────────────────────────────── */
 
-const _acState = {};   // inputId → { lat, lon, display }
+const _acState = {};
 
 function initAutocomplete(inputId, dropdownId) {
   const input = document.getElementById(inputId);
   const drop  = document.getElementById(dropdownId);
   if (!input || !drop) return;
 
-  let debounceTimer = null;
+  let timer = null;
 
   input.addEventListener('input', () => {
     const q = input.value.trim();
-    _acState[inputId] = null;   // clear resolved coords on edit
-    clearTimeout(debounceTimer);
+    _acState[inputId] = null;
+    clearTimeout(timer);
     if (q.length < 3) { drop.classList.add('hidden'); drop.innerHTML = ''; return; }
-    debounceTimer = setTimeout(() => fetchSuggestions(q, input, drop, inputId), 280);
+    timer = setTimeout(() => fetchSuggestions(q, input, drop, inputId), 280);
   });
 
-  // Close dropdown when clicking outside
   document.addEventListener('click', (e) => {
     if (!input.contains(e.target) && !drop.contains(e.target)) {
       drop.classList.add('hidden');
@@ -96,8 +136,8 @@ async function fetchSuggestions(q, input, drop, inputId) {
     const list = await res.json();
     if (!list.length) { drop.classList.add('hidden'); drop.innerHTML = ''; return; }
 
-    drop.innerHTML = list.map((item, i) =>
-      `<div class="ac-item" data-i="${i}" data-lat="${item.lat}" data-lon="${item.lon}"
+    drop.innerHTML = list.map(item =>
+      `<div class="ac-item" data-lat="${item.lat}" data-lon="${item.lon}"
             data-display="${escHtml(item.display)}">${escHtml(item.display)}</div>`
     ).join('');
     drop.classList.remove('hidden');
@@ -105,11 +145,7 @@ async function fetchSuggestions(q, input, drop, inputId) {
     drop.querySelectorAll('.ac-item').forEach(el => {
       el.addEventListener('click', () => {
         input.value = el.dataset.display;
-        _acState[inputId] = {
-          lat:     parseFloat(el.dataset.lat),
-          lon:     parseFloat(el.dataset.lon),
-          display: el.dataset.display,
-        };
+        _acState[inputId] = { lat: parseFloat(el.dataset.lat), lon: parseFloat(el.dataset.lon), display: el.dataset.display };
         drop.classList.add('hidden');
         drop.innerHTML = '';
       });
@@ -141,22 +177,17 @@ async function onSubmit(e) {
 
   const body = {};
 
-  const originState = _acState['origin-input'];
-  const destState   = _acState['dest-input'];
+  const os = _acState['origin-input'];
+  const ds = _acState['dest-input'];
+  if (os && os.display === originVal) { body.origin_lat = os.lat; body.origin_lon = os.lon; }
+  else body.origin_address = originVal;
+  if (ds && ds.display === destVal)   { body.dest_lat = ds.lat;   body.dest_lon = ds.lon; }
+  else body.dest_address = destVal;
 
-  if (originState && originState.display === originVal) {
-    body.origin_lat = originState.lat;
-    body.origin_lon = originState.lon;
-  } else {
-    body.origin_address = originVal;
-  }
-
-  if (destState && destState.display === destVal) {
-    body.dest_lat = destState.lat;
-    body.dest_lon = destState.lon;
-  } else {
-    body.dest_address = destVal;
-  }
+  const mode     = getActiveMode();
+  const timeVal  = (document.getElementById('trip-time') || {}).value || '';
+  if (mode === 'depart' && timeVal) body.depart_after = timeVal;
+  if (mode === 'arrive' && timeVal) body.arrive_by    = timeVal;
 
   try {
     const res  = await fetch('/api/trip/plan', {
@@ -185,35 +216,59 @@ async function onSubmit(e) {
 /* ── Results rendering ────────────────────────────────────────────────── */
 
 function renderResults(data, container) {
-  const hasRealtime = data.itineraries.some(it => it.realtime);
+  const nowMin  = nowMinutes();
+  const isArrive = data.mode === 'arrive';
 
-  let html = `<div class="trip-results-label">
+  let html = '';
+
+  // Reduced Service banner
+  const svc = data.service_label || '';
+  if (svc && svc !== 'Weekday') {
+    html += `<div class="trip-service-banner">
+      &#x26A0;&#xFE0F; RTS is on <strong>${escHtml(svc)}</strong> — fewer trips may be available.
+    </div>`;
+  }
+
+  html += `<div class="trip-results-label">
     ${data.itineraries.length} option${data.itineraries.length > 1 ? 's' : ''} found
-    ${hasRealtime ? ' &nbsp;<span class="badge badge-realtime" style="vertical-align:middle"><span class="live-dot" style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#34d399"></span> Live</span>' : ''}
+    ${isArrive ? ' &nbsp;<span style="opacity:.5;font-size:.7rem">arriving by selected time</span>' : ''}
   </div>`;
 
-  data.itineraries.forEach((itin, idx) => {
-    const firstBus = itin.legs.find(l => l.type === 'bus');
-    const lastBus  = [...itin.legs].reverse().find(l => l.type === 'bus');
-    const routes   = itin.legs.filter(l => l.type === 'bus').map(l => l.route);
+  data.itineraries.forEach(itin => {
+    const buses      = itin.legs.filter(l => l.type === 'bus');
+    const xfers      = itin.legs.filter(l => l.type === 'transfer');
+    const firstBus   = buses[0];
+    const lastBus    = buses[buses.length - 1];
+    const totalMin   = Math.round(itin.total_min);
     const isTransfer = itin.type === 'transfer';
-    const totalMin = Math.round(itin.total_min);
+
+    // ETA badge: minutes until first departure
+    let etaHtml = '';
+    if (firstBus && !isArrive) {
+      const diffMin = firstBus.depart_min - nowMin;
+      if (diffMin >= 0 && diffMin <= 45) {
+        const rtDot = firstBus.realtime ? '<span class="rt-dot-inline"></span>' : '';
+        const label = diffMin === 0 ? 'DUE' : `in ${diffMin} min`;
+        etaHtml = `<span class="eta-badge">${rtDot}${label}</span>`;
+      }
+    }
 
     html += `<div class="itin-card">
       <div class="itin-header">
         <div class="itin-badges">
-          ${routes.map(r => `<span class="badge badge-route">${escHtml(r)}</span>`).join('')}
+          ${buses.map(l => `<span class="badge badge-route">${escHtml(l.route)}</span>`).join('')}
           ${isTransfer ? '<span class="badge badge-transfer">1 transfer</span>' : ''}
           ${itin.realtime ? '<span class="badge badge-realtime"><span class="rt-dot"></span>Live</span>' : ''}
           ${isTransfer && itin.same_side ? '<span class="badge badge-same-side">Same side</span>' : ''}
         </div>
-        <div class="itin-time">
-          ${totalMin} min
-          ${firstBus ? `<br><span>${firstBus.depart}</span>` : ''}
+        <div class="itin-time-col">
+          <span class="itin-total">${totalMin} min</span>
+          ${etaHtml}
+          ${firstBus ? `<span class="itin-dep-arr">${isArrive ? 'arr ' + escHtml(lastBus.arrive) : 'dep ' + escHtml(firstBus.depart)}</span>` : ''}
         </div>
       </div>
       <div class="itin-legs">
-        ${renderLegs(itin, data)}
+        ${renderLegs(itin)}
       </div>
     </div>`;
   });
@@ -221,44 +276,43 @@ function renderResults(data, container) {
   container.innerHTML = html;
 }
 
-function renderLegs(itin, data) {
+function renderLegs(itin) {
   let html = '';
 
-  // Walk to first stop
   if (itin.walk_to_stop && itin.walk_to_stop.walk_min > 0) {
     html += `<div class="leg-walk">
       ${walkIcon()}
-      <span>Walk ${itin.walk_to_stop.walk_min} min to <strong>${escHtml(itin.walk_to_stop.stop_name)}</strong> (${itin.walk_to_stop.distance_m}m)</span>
+      <span>Walk ${fmtDist(itin.walk_to_stop.distance_m)} to <strong>${escHtml(itin.walk_to_stop.stop_name)}</strong></span>
+      <span class="leg-walk-time">${itin.walk_to_stop.walk_min} min</span>
     </div>`;
   }
 
   itin.legs.forEach(leg => {
     if (leg.type === 'bus') {
-      const rtDot = leg.realtime ? '<span class="rt-dot"></span>' : '';
+      const rtDot = leg.realtime ? '<span class="rt-dot-inline"></span>' : '';
       html += `<div class="leg-bus">
         <div class="leg-bus-route">${escHtml(leg.route)}</div>
         <div class="leg-bus-info">
           <div class="leg-bus-headsign">${escHtml(leg.headsign || leg.route_name || '')}</div>
-          <div class="leg-bus-times">${rtDot}${escHtml(leg.depart)} &rarr; ${escHtml(leg.arrive)} (${leg.ride_min} min)</div>
+          <div class="leg-bus-times">${rtDot}${escHtml(leg.depart)} &rarr; ${escHtml(leg.arrive)} &nbsp;<span class="leg-ride-min">${leg.ride_min} min</span></div>
         </div>
       </div>`;
     } else if (leg.type === 'transfer') {
-      const shelter = leg.has_shelter
-        ? '<span class="shelter-icon" title="Shelter available">&#9924;</span>' : '';
-      const sideNote = leg.same_side ? 'Stay on same side' : 'Cross the street';
+      const shelter   = leg.has_shelter ? ' &#9924;' : '';
+      const sideLabel = leg.same_side ? 'Stay on same side' : '&#x26A0; Cross street';
       html += `<div class="leg-transfer">
         ${transferIcon()}
-        <span>Transfer at <strong>${escHtml(leg.at_stop_name)}</strong> — wait ${leg.wait_min} min${shelter}</span>
-        <span style="margin-left:auto;font-size:0.70rem;color:#94a3b8">${sideNote}</span>
+        <span>Transfer at <strong>${escHtml(leg.at_stop_name)}</strong>${shelter} &mdash; ${leg.wait_min} min wait</span>
+        <span class="leg-side-note">${sideLabel}</span>
       </div>`;
     }
   });
 
-  // Walk from last stop
   if (itin.walk_from_stop && itin.walk_from_stop.walk_min > 0) {
     html += `<div class="leg-walk">
       ${walkIcon()}
-      <span>Walk ${itin.walk_from_stop.walk_min} min from <strong>${escHtml(itin.walk_from_stop.stop_name)}</strong> (${itin.walk_from_stop.distance_m}m)</span>
+      <span>Walk ${fmtDist(itin.walk_from_stop.distance_m)} from <strong>${escHtml(itin.walk_from_stop.stop_name)}</strong></span>
+      <span class="leg-walk-time">${itin.walk_from_stop.walk_min} min</span>
     </div>`;
   }
 
@@ -266,27 +320,32 @@ function renderLegs(itin, data) {
 }
 
 
-/* ── Inline SVG icons ─────────────────────────────────────────────────── */
+/* ── Helpers ──────────────────────────────────────────────────────────── */
+
+function nowMinutes() {
+  const n = new Date();
+  return n.getHours() * 60 + n.getMinutes();
+}
+
+function fmtDist(meters) {
+  const feet = Math.round(meters * 3.28084);
+  if (feet < 500) return `${feet} ft`;
+  return `${(meters * 0.000621371).toFixed(1)} mi`;
+}
 
 function walkIcon() {
-  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:.6">
     <path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7z"/>
   </svg>`;
 }
 
 function transferIcon() {
-  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:.5">
     <path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/>
   </svg>`;
 }
 
-
-/* ── Utility ──────────────────────────────────────────────────────────── */
-
 function escHtml(str) {
   return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }

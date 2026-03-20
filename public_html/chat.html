@@ -622,6 +622,88 @@
 
     .hidden { display: none !important; }
 
+    /* ── Reduced service banner ──────────────────────────────── */
+    .trip-service-banner {
+      padding: 9px 13px;
+      background: rgba(245,158,11,0.1);
+      border: 1px solid rgba(245,158,11,0.25);
+      border-radius: 10px;
+      color: #fbbf24;
+      font-size: 0.80rem;
+    }
+
+    /* ── Time mode toggle ─────────────────────────────────────── */
+    .time-mode-row {
+      display: flex;
+      gap: 4px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 3px;
+    }
+
+    .time-mode-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 7px 4px;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      white-space: nowrap;
+    }
+
+    .time-mode-btn.active {
+      background: rgba(59,130,246,0.18);
+      color: #60a5fa;
+      font-weight: 600;
+    }
+
+    .trip-time-input { padding: 10px 14px; color-scheme: dark; }
+
+    /* ── Itinerary time column ────────────────────────────────── */
+    .itin-time-col {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .itin-total { font-size: 0.90rem; font-weight: 700; color: #f8fafc; white-space: nowrap; }
+    .itin-dep-arr { font-size: 0.70rem; color: var(--text-muted); white-space: nowrap; }
+
+    /* ── ETA badge ────────────────────────────────────────────── */
+    .eta-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: rgba(16,185,129,0.15);
+      border: 1px solid rgba(16,185,129,0.3);
+      color: #34d399;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    .rt-dot-inline {
+      display: inline-block;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #34d399;
+      animation: live-pulse 2s ease-in-out infinite;
+    }
+
+    .leg-walk-time { margin-left: auto; font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+    .leg-ride-min  { color: var(--text-muted); font-size: 0.72rem; }
+    .leg-side-note { margin-left: auto; font-size: 0.70rem; color: #94a3b8; white-space: nowrap; }
+
     /* ── Trip form ────────────────────────────────────────────── */
     .trip-form {
       display: flex;
@@ -963,6 +1045,6 @@
   </main>
 
   <script src="/static/chat_v2.js?v=8" defer></script>
-  <script src="/static/trip_planner.js?v=1" defer></script>
+  <script src="/static/trip_planner.js?v=2" defer></script>
 </body>
 </html>

@@ -53,6 +53,7 @@ def plan_trip():
         dest_lat, dest_lon = geo["lat"], geo["lon"]
 
     depart_after = data.get("depart_after")  # "HH:MM" or None
+    arrive_by    = data.get("arrive_by")     # "HH:MM" or None
 
     target_date = None
     if data.get("date"):
@@ -65,6 +66,7 @@ def plan_trip():
         float(origin_lat), float(origin_lon),
         float(dest_lat), float(dest_lon),
         depart_after=depart_after,
+        arrive_by=arrive_by,
         target_date=target_date,
     )
     return jsonify(result)
