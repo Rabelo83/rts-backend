@@ -30,6 +30,12 @@ How to use:
 - Notes / Follow-up: Build after targeted QA rerun confirms M02/M06 fix.
 
 ### 2026-03-20
+- Type: `decision, planning`
+- Summary: Trip Planner feature fully planned. Tab-based UI, mobile-first, results in panel. Nominatim geocoding (abstracted — swap to Google with one env var). Single-transfer routing v1. Key competitive advantages: real-time BusTime predictions for first leg; same-side-of-street transfer preference using directional stop names from bus_stops.geojson (1,609 stops with lat/lon, street, crossroad, amenities); dynamic transfer window. 16-task build plan (tp-1 through tp-16) added to TASKS.md. Estimated 4–5 days.
+- Files/Areas: `TASKS.md`, `Backend Basics/bus_stops/bus_stops.geojson` (data asset confirmed)
+- Notes / Follow-up: Start with tp-1 (load geojson to SQLite) + tp-2 (geocoding abstraction). Bus stop geojson is source of truth for coordinates — supersedes GTFS stops.txt for stop location data.
+
+### 2026-03-20
 - Type: `fix, feature`
 - Summary: New Claude Haiku baseline 21/36 = 58% (up from 47%). Ollama comparison: qwen3:8b scored 12/36 = 33% — too slow (15–100s/query), drops Spanish, hallucinates GTFS data, invents tool parameters. Claude Haiku stays as default. Added `--ollama` flag to run_and_judge.py for free local dev runs. Fixed agent_gpt_v3 model env var fallback. Added REAL-TIME FIRST RULE to system prompt — agent now prefers get_realtime_predictions over get_schedule for route+stop queries. Added "Useful?" label before 👍/👎 rating buttons. Identified 15 remaining failures grouped by fix category.
 - Files/Areas: `routes/agent_claude.py`, `tests/run_and_judge.py`, `routes/agent_gpt_v3.py`, `public_html/chat_v2.js`, `public_html/chat.html`

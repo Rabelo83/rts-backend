@@ -174,11 +174,110 @@ Prioritized by fix effort vs impact:
 - [ ] S03 — "next departures for route 10" returns only one time instead of list
 - [ ] S19 — route stop list truncated (28 stops, response cuts off)
 
-**New feature (trip planning):**
-- [ ] Add `geocode_location` tool (Nominatim/Google Places)
-- [ ] Add `find_nearest_stops(lat, lon)` tool
-- [ ] Add `find_direct_trip(origin_stop, dest_stop, depart_after)` tool
-- [ ] Trip Planner UI panel with address autocomplete (Google Places or Mapbox)
+**New feature (trip planning):** → See full plan below
+
+---
+
+## 🗺️ Trip Planner — Full Plan (2026-03-20)
+
+**Decision:** Tab-based UI, mobile-first, results in panel (not chat), Nominatim geocoding (free, abstracted so Google can replace with env var), single-transfer routing for v1.
+
+**Competitive advantages over Google Maps:**
+1. Real-time BusTime predictions for first leg (not just static GTFS schedule)
+2. Same-side-of-street transfer preference using directional stop names + lat/lon from `bus_stops.geojson`
+3. Dynamic transfer window — adjusts if first bus is running late
+4. Reduced Service awareness from live GTFS service type
+5. 1,609 stops with exact coordinates, street+crossroad, shelter/amenity data
+
+**Data assets:**
+- `Backend Basics/bus_stops/bus_stops.geojson` — 1,609 stops, lat/lon, street, crossroad, directional names, amenities
+- `gtfs.db` — trips, stop_times, routes, stops — for schedule-based routing
+- BusTime API (`rts_api`) — real-time vehicle positions and arrival predictions
+
+---
+
+### Phase 1 — Geocoding + Stop Resolution (Day 1)
+
+- [ ] `tp-1` Load `bus_stops.geojson` into SQLite at startup → `stops_geo` table (stop_id, name, lat, lon, street, crossroad, direction, status)
+- [ ] `tp-2` Build `utils/geocoding.py` — abstracted geocoder:
+  - `GEOCODING_PROVIDER=nominatim` (default) | `google` | `mapbox`
+  - `geocode(query, city="Gainesville, FL")` → `{lat, lon, formatted_address}`
+  - Nominatim: `https://nominatim.openstreetmap.org/search` with Gainesville bounding box
+  - 24h in-memory cache (same address → no repeat API call)
+- [ ] `tp-3` Build `utils/stop_finder.py`:
+  - `find_nearest_stops(lat, lon, radius_m=500, limit=5)` → stops ordered by walking distance
+  - Uses Haversine formula on `stops_geo` table
+  - Filters ACTIVE stops only
+- [ ] `tp-4` `GET /api/geocode/autocomplete?q=...` — calls geocoder, returns suggestions
+  - Frontend calls this; never exposes provider API key to browser
+  - Rate-limited (10 req/min per IP)
+
+### Phase 2 — Routing Engine (Day 2)
+
+- [ ] `tp-5` Build `utils/trip_planner.py` — `find_trips(origin_lat, origin_lon, dest_lat, dest_lon, depart_after, date, service_id)`:
+
+  **Direct routes:**
+  ```sql
+  SELECT r.route_short_name, st1.departure_time, st2.arrival_time, st1.stop_id, st2.stop_id
+  FROM stop_times st1
+  JOIN stop_times st2 ON st2.trip_id = st1.trip_id AND st2.stop_sequence > st1.stop_sequence
+  JOIN trips t ON t.trip_id = st1.trip_id
+  JOIN routes r ON r.route_id = t.route_id
+  WHERE st1.stop_id IN (origin_stops) AND st2.stop_id IN (dest_stops)
+    AND t.service_id = ? AND st1.departure_time >= ?
+  ORDER BY st1.departure_time LIMIT 3
+  ```
+
+  **Single transfer:**
+  - For each route from origin stops: find all intermediate stops
+  - For each intermediate stop: find routes to destination stops
+  - Calculate: walk_to_origin + ride1 + transfer_walk + wait + ride2 + walk_to_dest
+  - Transfer walk time = Haversine(alighting_stop, boarding_stop) / 1.2 m/s
+
+- [ ] `tp-6` Same-side transfer preference:
+  - Parse directional prefix from stop name (Northbound/Southbound/Eastbound/Westbound)
+  - If alighting stop and boarding stop at same crossroad AND same direction → `same_side: true`, walk_penalty = 0
+  - If opposite direction at same crossroad → `cross_street: true`, walk_penalty = +60s (signal wait)
+  - Prefer same-side transfers in ranking
+
+- [ ] `tp-7` Real-time hybrid: for the first departure, call `rts_api.get_predictions(stop_id)` and prefer real-time ETA over static schedule. Flag itinerary as `realtime: true/false`.
+
+- [ ] `tp-8` `POST /api/trip/plan` endpoint:
+  - Input: `{origin_address, destination_address, depart_at}` OR `{origin_lat, origin_lon, dest_lat, dest_lon, depart_at}`
+  - Returns: top 3 itineraries sorted by total_minutes
+  - Each itinerary: `{legs: [{type, route, from_stop, to_stop, depart, arrive, walk_m, same_side}], total_minutes, realtime}`
+
+### Phase 3 — UI (Day 3–4)
+
+- [ ] `tp-9` Tab system in `chat.html` — "💬 Chat" / "🗺️ Trip Planner" tabs, full-width, thumb-friendly
+- [ ] `tp-10` `public_html/trip_planner.js`:
+  - Address inputs with autocomplete (calls `/api/geocode/autocomplete` on each keystroke, debounced 300ms)
+  - Time selector: "Now" (default) or specific time picker
+  - Submit → POST `/api/trip/plan` → render results
+- [ ] `tp-11` Itinerary card component (mobile-first):
+  ```
+  ┌─ 18 min · Real-time ──────────────────┐
+  │ 🚶 3 min walk → Rosa Parks (Stop 1)   │
+  │ 🚌 Route 1 dep 8:42 AM               │
+  │ 🔄 Transfer @ Downtown (same side ✓)  │
+  │ 🚌 Route 5 dep 9:05 AM               │
+  │ 🚶 2 min walk to destination          │
+  └────────────────────────────────────── ┘
+  ```
+  - Same-side indicator (✓ no crossing / ⚠ cross street)
+  - Shelter indicator if transfer stop has a covered shelter
+  - Real-time badge on first leg when live data used
+- [ ] `tp-12` Error states: no routes found, geocoding failed, service not running
+
+### Phase 4 — Polish & QA (Day 5)
+- [ ] `tp-13` Add 5 trip planner scenarios to `scenarios_v2.json` — test direct + transfer + no-route cases
+- [ ] `tp-14` Mobile browser testing (Android Chrome, iOS Safari)
+- [ ] `tp-15` Cache trip results 60s (same origin+dest+time = no recompute)
+- [ ] `tp-16` Update README + deployment docs with `GEOCODING_PROVIDER` env var
+
+**To switch from Nominatim to Google later:** set `GEOCODING_PROVIDER=google` + `GOOGLE_GEOCODING_KEY=...` in Render env vars. Zero code changes.
+
+---
 
 ### Level 3 — Adversarial Scenario Generation (Low priority / quarterly)
 - [ ] Build `tests/generate_scenarios.py` — feeds route/stop list to GPT, returns 50 tricky test cases
