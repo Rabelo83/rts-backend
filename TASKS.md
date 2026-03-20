@@ -277,15 +277,42 @@ Prioritized by fix effort vs impact:
 
 **To switch from Nominatim to Google later:** set `GEOCODING_PROVIDER=google` + `GOOGLE_GEOCODING_KEY=...` in Render env vars. Zero code changes.
 
-### Phase 5 — Trip Planner v2 (Match RTS existing planner + go beyond)
-Inspired by the current RTS trip planner UI (observed 2026-03-20):
+### Phase 5 — Trip Planner v1.5 (Smart Ranking + Time Modes + UX)
+Priority upgrade before PWA. Targets the gap between "it works" and "it feels good."
 
-- [ ] `tp-v2-1` **"Depart At" time picker** — add time input to trip form; backend already accepts `depart_after` param, just needs UI
-- [ ] `tp-v2-2` **"Arrive By" mode** — reverse-plan from destination arrival time; requires routing backwards through GTFS
-- [ ] `tp-v2-3` **Sort options** — "Best Route" (default) / "Fewer Transfers" / "Less Walking" toggle buttons; reorder results client-side
-- [ ] `tp-v2-4` **Deduplicate itineraries** — filter near-duplicate results (same route pair, different stop IDs); key by `(route1, transfer_stop_name, route2)`
-- [ ] `tp-v2-5` **Reduced Service notice** — when `_service_ids_for_date()` resolves to a non-Weekday service type, show a banner in trip results: "Note: RTS is currently on Reduced Service — fewer trips may be available." Backend already knows this; just surface it in the response payload and render it in the UI.
-- [ ] `tp-v2-6` **PWA — Progressive Web App** — add `manifest.json` + service worker + meta tags so users can "Add to Home Screen" on iOS/Android. Behaves like a native app, no App Store needed. ~half session effort once web version is stable.
+#### 5a — Smart Route Ranking (composite score)
+Current sort is by `total_min` only. Replace with weighted penalty score (lower = better):
+
+| Factor | Penalty | Rationale |
+|---|---|---|
+| Walk distance | +1 min per 75m walked | People hate walking — this is the #1 complaint |
+| Total ride time | +1 min per min | Core metric |
+| Each transfer | +5 min flat | Transfers are stressful regardless of wait time |
+| Same-side transfer | -2 min bonus | No street crossing = less friction |
+| Real-time available | -1 min bonus | Prefer options with live data |
+
+- [ ] `tp-v1.5-1` Add `score` field to each itinerary in `find_trips()` using the formula above
+- [ ] `tp-v1.5-2` Sort by `score` instead of `total_min`; keep `total_min` for display only
+- [ ] `tp-v1.5-3` Deduplicate near-identical results — key by `(route1, transfer_stop_name, route2)`; keep lowest-score variant
+
+#### 5b — Time Modes (Leave Now / Departing At / Arriving At)
+- [ ] `tp-v1.5-4` **UI: time mode selector** — 3-button toggle: "Leave Now" (default) / "Departing At" / "Arriving At"
+- [ ] `tp-v1.5-5` **"Departing At" UI** — show time picker when selected; pass `depart_after` to backend (already supported)
+- [ ] `tp-v1.5-6` **"Arriving At" backend** — reverse routing: work backwards from `arrive_by` time through GTFS. Find trips where `st2.arrival_time <= arrive_by`, walk backwards to find latest valid departure from origin. Add `arrive_by` param to `find_trips()`.
+- [ ] `tp-v1.5-7` **"Arriving At" UI** — show time picker; pass `arrive_by` to backend; results show "latest departure" framing
+
+#### 5c — Distance & Time Display
+- [ ] `tp-v1.5-8` **Walk distance in feet/miles** — convert meters: < 500ft → show feet ("420 ft"), ≥ 500ft → show miles ("0.3 mi"). Replace all meter displays.
+- [ ] `tp-v1.5-9` **ETA badge on first leg** — if first departure is within 45 min, show "in 14 min" alongside the scheduled time. Use real-time data when available (live dot), fall back to static schedule.
+- [ ] `tp-v1.5-10` **Arrival time on each leg** — show both depart + arrive time for every bus leg. Currently shown; verify it's visible and formatted consistently (12h AM/PM).
+
+#### 5d — Other v1.5 improvements
+- [ ] `tp-v1.5-11` **Reduced Service notice** — banner in results when active service is not Weekday: "RTS is on Reduced Service — fewer trips available."
+- [ ] `tp-v1.5-12` **Sort toggle UI** — "Best Match" / "Least Walking" / "Fewest Transfers" buttons reorder results client-side without re-querying backend
+
+### Phase 6 — PWA & App Store
+- [ ] `tp-v2-1` **PWA** — `manifest.json` + service worker + meta tags → "Add to Home Screen" on iOS/Android
+- [ ] `tp-v2-2` **App Store** — wrap PWA with Capacitor for native iOS/Android packaging; submit to Apple App Store + Google Play Store
 
 **Long-term — App Store:**
 - Wrap PWA with Capacitor (preferred) or Expo Web for native iOS/Android packaging
