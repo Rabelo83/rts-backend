@@ -749,12 +749,12 @@ def find_trips(origin_lat: float, origin_lon: float,
 
     # Find stops served by today's active service_ids (avoids returning stops
     # that only exist on Weekday when today is Reduced_Service, or vice versa)
-    origin_stops = find_nearest_stops(origin_lat, origin_lon, radius_m=_MAX_WALK_M, limit=4,
+    origin_stops = find_nearest_stops(origin_lat, origin_lon, radius_m=_MAX_WALK_M, limit=16,
                                       service_ids=service_ids)
     if not origin_stops:
         origin_stops = find_nearest_stops(origin_lat, origin_lon, radius_m=5000, limit=1,
                                           service_ids=service_ids)
-    dest_stops = find_nearest_stops(dest_lat, dest_lon, radius_m=_MAX_WALK_M, limit=4,
+    dest_stops = find_nearest_stops(dest_lat, dest_lon, radius_m=_MAX_WALK_M, limit=16,
                                     service_ids=service_ids)
     if not dest_stops:
         dest_stops = find_nearest_stops(dest_lat, dest_lon, radius_m=5000, limit=1,
