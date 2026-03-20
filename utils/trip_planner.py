@@ -14,6 +14,9 @@ Algorithm:
 import math
 from datetime import date, datetime, time, timedelta
 from typing import Optional
+from zoneinfo import ZoneInfo
+
+_TZ = ZoneInfo("America/New_York")
 
 from routes.schedule_service import connect_db, get_active_service_label
 from utils.stop_finder import (
@@ -45,7 +48,7 @@ def _min_to_hhmm(minutes: int) -> str:
 
 
 def _now_min() -> int:
-    now = datetime.now()
+    now = datetime.now(_TZ)
     return now.hour * 60 + now.minute
 
 
@@ -662,7 +665,7 @@ def find_trips(origin_lat: float, origin_lon: float,
       }
     """
     if target_date is None:
-        target_date = date.today()
+        target_date = datetime.now(_TZ).date()
 
     # Determine mode and target minute
     mode = "depart"

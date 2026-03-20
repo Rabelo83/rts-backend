@@ -288,8 +288,9 @@ function renderResults(data, container) {
       isTransfer && itin.same_side ? '<span class="badge badge-same-side">✓ Same side</span>' : '',
     ].filter(Boolean).join('');
 
-    html += `<div class="itin-card">
-      <div class="itin-header">
+    const isFirst = html.indexOf('itin-card') === -1;
+    html += `<div class="itin-card${isFirst ? ' itin-open' : ''}">
+      <button class="itin-header" aria-expanded="${isFirst}" type="button">
         <div class="itin-header-left">
           <div class="journey-strip">${stripHtml}</div>
           ${metaBadges ? `<div class="itin-meta-badges">${metaBadges}</div>` : ''}
@@ -299,7 +300,8 @@ function renderResults(data, container) {
           ${etaHtml}
           ${timeRange}
         </div>
-      </div>
+        <span class="itin-chevron">›</span>
+      </button>
       <div class="itin-legs">
         ${renderLegs(itin)}
       </div>
@@ -307,6 +309,15 @@ function renderResults(data, container) {
   });
 
   container.innerHTML = html;
+
+  // Wire up collapsible headers
+  container.querySelectorAll('.itin-header').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card = btn.closest('.itin-card');
+      const isOpen = card.classList.toggle('itin-open');
+      btn.setAttribute('aria-expanded', isOpen);
+    });
+  });
 }
 
 function renderLegs(itin) {
