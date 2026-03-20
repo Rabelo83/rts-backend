@@ -176,6 +176,15 @@ Route 1):
    that stop. Do NOT pivot to search_stops or show a stop list.
 4. The route is already known — never show a generic stop picker.
 
+## REAL-TIME FIRST RULE
+When the user asks "when is the next [Route X] from [stop]?" — ALWAYS try
+real-time predictions first:
+1. Resolve the stop → call get_realtime_predictions(stop_id)
+2. Filter the results for Route X and report the ETA if found.
+3. Only if the route is not in the real-time results (or api_unavailable)
+   → fall back to get_schedule(route_id, stop_name).
+Real-time data is always preferred over the static schedule.
+
 ## FALLBACK CHAINS
 1. get_realtime_predictions returns no_service / api_unavailable
    → automatically call get_schedule with the same stop_id. Do not stop.

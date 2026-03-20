@@ -48,6 +48,10 @@ RESULTS_DIR = SCRIPT_DIR / "results"
 DEFAULT_SCENARIOS = SCRIPT_DIR / "scenarios_v2.json"
 _LOCAL_ENDPOINT   = "local:testclient"
 
+# Ensure repo root is on sys.path so 'from app import create_app' works
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 # Load .env.local (local dev keys — never committed)
 _env_local = REPO_ROOT / ".env.local"
 if _env_local.exists():
@@ -410,7 +414,14 @@ def main():
                         help="Only run GPT judge on heuristic-fail scenarios")
     parser.add_argument("--gtfs-verify", action="store_true",
                         help="Add GTFS-grounded factual verification layer (requires local GTFS DB)")
+    parser.add_argument("--ollama", action="store_true",
+                        help="Force agent to use local Ollama model (sets OPENAI_MODEL_V4=OPENAI_MODEL, implies --env local --agent v4)")
     args = parser.parse_args()
+
+    if args.ollama:
+        args.env   = "local"
+        args.agent = "v4"
+        os.environ["OPENAI_MODEL_V4"] = os.environ.get("OPENAI_MODEL", "qwen3:8b")
 
     global _LOCAL_AGENT_VERSION
     _LOCAL_AGENT_VERSION = args.agent

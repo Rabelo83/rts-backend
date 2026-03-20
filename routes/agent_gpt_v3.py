@@ -22,7 +22,7 @@ except ImportError:
 from routes.agent_tools import TOOLS as _OPENAI_TOOLS, dispatch_tool
 from routes.parsing_helpers import detect_language_simple
 
-_MODEL = os.getenv("OPENAI_MODEL_V4", "gpt-4o-mini")
+_MODEL = os.getenv("OPENAI_MODEL_V4") or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 # Reuse the same OPENAI_API_KEY already used by v2
 _API_KEY_ENV = "OPENAI_API_KEY_V4" if os.getenv("OPENAI_API_KEY_V4") else "OPENAI_API_KEY"
 _MAX_TOOL_ITERATIONS = 5
