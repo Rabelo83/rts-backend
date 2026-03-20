@@ -313,7 +313,31 @@ Current sort is by `total_min` only. Replace with weighted penalty score (lower 
 #### 5e — Bug Fixes (2026-03-20)
 - [x] `tp-fix-1` **Suburban address "No bus stops found"** — Increased `_MAX_WALK_M` from 500m to 1000m (~0.6 mi). Gainesville suburban areas (e.g. SW 96th St) have stops spaced further apart than the original radius allowed. Walk time is still displayed accurately in the itinerary card. (`utils/trip_planner.py`)
 
-### Phase 6 — PWA & App Store
+### Phase 6 — Agent Chat Tools (2026-03-20)
+Two new tools wired into the Claude agent so the chat can answer location and trip questions directly.
+
+#### 6a — Vehicle Location Tool
+- [ ] `agent-vl-1` Add `get_vehicle_location(route_id)` tool to `agent_tools.py` — calls `/api/vehicles` + `/api/predictions` for each vehicle; returns all active buses on the route with next stop name + minutes away
+- [ ] `agent-vl-2` Cap response at 4 vehicles sorted by next-stop ETA (soonest first); if 0 vehicles found return "no buses currently active on this route"
+- [ ] `agent-vl-3` Wire into `agent_claude.py` tool list + system prompt rule: *"For 'where is bus X' queries → call get_vehicle_location"*
+
+**Response format:**
+> Route 8 — 3 buses running:
+> • Bus 1204 → to Butler Plaza · 2 min from Stop 0473 (NW 13th & University Ave)
+> • Bus 1187 → to Butler Plaza · 11 min from Stop 0821 (SW Archer & SW 34th St)
+> • Bus 1093 → to Downtown · 4 min from Stop 0156 (Main St & 2nd Ave)
+
+#### 6b — Chat Trip Planning Tool
+- [ ] `agent-tp-1` Add `plan_trip(origin, destination)` tool to `agent_tools.py` — calls Google Geocoding API to resolve both addresses to lat/lon, then calls `find_trips()`; returns top 3 itineraries formatted for chat
+- [ ] `agent-tp-2` Agent asks clarifying question if origin/destination is ambiguous ("Where are you traveling from?")
+- [ ] `agent-tp-3` Wire into `agent_claude.py` tool list + system prompt rule: *"For trip planning queries → call plan_trip with origin and destination as the user described them"*
+
+**Notes:**
+- Uses same `GOOGLE_GEOCODING_KEY` already configured on Render
+- Returns plain-text itinerary summary (not full card UI) — agent formats it conversationally
+- If no routes found, agent says so and suggests checking the Trip Planner tab for more options
+
+### Phase 7 — PWA & App Store
 - [ ] `tp-v2-1` **PWA** — `manifest.json` + service worker + meta tags → "Add to Home Screen" on iOS/Android
 - [ ] `tp-v2-2` **App Store** — wrap PWA with Capacitor for native iOS/Android packaging; submit to Apple App Store + Google Play Store
 
@@ -321,6 +345,7 @@ Current sort is by `total_min` only. Replace with weighted penalty score (lower 
 - Wrap PWA with Capacitor (preferred) or Expo Web for native iOS/Android packaging
 - Submit to Apple App Store + Google Play Store
 - PWA first → validate adoption → then native wrapper
+
 
 ---
 

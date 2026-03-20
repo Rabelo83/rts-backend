@@ -31,6 +31,14 @@ How to use:
 - Notes / Follow-up: Next GTFS refresh → add geojson enrichment to `build_gtfs_db.py` so street/crossroad/direction/shelters baked into rts_gtfs.sqlite (eliminates geojson dependency entirely).
 
 ### 2026-03-20
+- Type: `feature` (planned)
+- Summary: Two new agent chat tools approved for implementation.
+  1. `get_vehicle_location(route_id)` — lists all active buses on a route with next stop name + ETA. Multiple vehicles shown sorted by soonest arrival; capped at 4. Uses existing `/api/vehicles` + `/api/predictions`.
+  2. `plan_trip(origin, destination)` — natural language trip planning in chat. Geocodes both addresses via Google API (already live on Render), calls `find_trips()`, returns conversational itinerary summary.
+- Files/Areas: `routes/agent_tools.py`, `routes/agent_claude.py`
+- Notes / Follow-up: plan_trip uses same `GOOGLE_GEOCODING_KEY` env var already set. Agent will ask clarifying question if origin/destination is ambiguous.
+
+### 2026-03-20
 - Type: `fix`
 - Summary: Trip Planner — "No bus stops found" for suburban addresses (SW 96th St area). Root cause: `_MAX_WALK_M` was 500m (~0.3 mi); Gainesville suburban stops (Route 75 corridor) can be 600–900m apart. Fix: raised radius to 1000m (~0.6 mi). Walk time still displayed correctly in itinerary card.
 - Files/Areas: `utils/trip_planner.py` (`_MAX_WALK_M = 1000`)

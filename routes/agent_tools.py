@@ -232,6 +232,67 @@ TOOLS: list[dict] = [
     {
         "type": "function",
         "function": {
+            "name": "get_vehicle_location",
+            "description": (
+                "Get the real-time location of all active buses on a route. "
+                "Use this when the user asks 'where is bus X', 'where is route X right now', "
+                "'is the bus near me', or 'how far is the bus'. "
+                "Returns all active vehicles with their next stop name and minutes until arrival."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "route_id": {
+                        "type": "string",
+                        "description": "Route number (e.g. '8', '75').",
+                    }
+                },
+                "required": ["route_id"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "plan_trip",
+            "description": (
+                "Plan a bus trip from one location to another. "
+                "Use this when the user asks 'how do I get from X to Y', "
+                "'what bus takes me to Y', 'how can I get to Y from X', "
+                "or any trip involving two locations. "
+                "Geocodes both addresses and returns up to 3 itineraries with routes, "
+                "departure times, walk times, and transfer details. "
+                "If the user did not mention an origin, ask for it before calling."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "origin": {
+                        "type": "string",
+                        "description": (
+                            "Starting location as the user described it. "
+                            "Examples: 'UF Reitz Union', '3006 NW 34th St', "
+                            "'Hidden Creek Apartments', 'Butler Plaza'. "
+                            "Do not guess — ask the user if origin is unknown."
+                        ),
+                    },
+                    "destination": {
+                        "type": "string",
+                        "description": (
+                            "Destination as the user described it. "
+                            "Examples: 'Rosa Parks', 'Santa Fe College', 'Shands Hospital'."
+                        ),
+                    },
+                },
+                "required": ["origin", "destination"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_service_differences",
             "description": (
                 "Compare which routes are suspended or added on a non-weekday service type "
@@ -458,6 +519,8 @@ def dispatch_tool(name: str, arguments: dict) -> dict:
         "get_route_overview": _tool_get_route_overview,
         "get_route_stops": _tool_get_route_stops,
         "get_service_differences": _tool_get_service_differences,
+        "get_vehicle_location": _tool_get_vehicle_location,
+        "plan_trip": _tool_plan_trip,
     }
     handler = handlers.get(name)
     if not handler:
@@ -897,3 +960,176 @@ def _tool_get_service_differences(service_type: str) -> dict:
         }
     finally:
         conn.close()
+
+
+# ── Tool 8: get_vehicle_location ─────────────────────────────────────────────
+
+def _tool_get_vehicle_location(route_id: str) -> dict:
+    """Return all active buses on a route with next-stop name and minutes away."""
+    route_id = _normalize_route_id(route_id) or route_id
+    try:
+        import rts_api
+        data = rts_api.get_vehicles(route_id)
+    except Exception as exc:
+        logger.warning("get_vehicles failed for route %s: %s", route_id, exc)
+        return {"status": "api_unavailable", "message": "Unable to reach real-time vehicle data."}
+
+    vehicles_raw = data.get("vehicle", []) or data.get("vehicles", []) or []
+    if not vehicles_raw:
+        return {
+            "status": "no_vehicles",
+            "route": route_id,
+            "message": f"No active buses found on Route {route_id} right now.",
+        }
+
+    results = []
+    for v in vehicles_raw:
+        vid = str(v.get("vid", "")).strip()
+        destination = str(v.get("des", "")).strip()
+        delayed = bool(v.get("dly", False))
+
+        # Get next-stop prediction for this vehicle using vid= param
+        next_stop_name = None
+        next_stop_id = None
+        minutes = None
+        try:
+            import rts_api as _rts
+            pred_data = _rts.call_bustime("getpredictions", {"vid": vid, "top": 1})
+            preds = pred_data.get("prd", []) or []
+            if preds:
+                p = preds[0]
+                next_stop_name = str(p.get("stpnm", "")).strip() or None
+                next_stop_id = str(p.get("stpid", "")).strip() or None
+                ctdn = str(p.get("prdctdn", "")).strip()
+                try:
+                    minutes = int(ctdn)
+                except ValueError:
+                    minutes = ctdn  # e.g. "DUE"
+        except Exception:
+            pass
+
+        results.append({
+            "vehicle_id": vid,
+            "destination": destination,
+            "next_stop_id": next_stop_id,
+            "next_stop_name": next_stop_name,
+            "minutes_to_next_stop": minutes,
+            "delayed": delayed,
+        })
+
+    # Sort: numeric minutes first (ascending), then non-numeric, then unknowns
+    def _sort_key(v):
+        m = v["minutes_to_next_stop"]
+        if isinstance(m, int):
+            return (0, m)
+        if m is not None:
+            return (1, 0)
+        return (2, 0)
+
+    results.sort(key=_sort_key)
+    return {
+        "status": "ok",
+        "route": route_id,
+        "vehicle_count": len(results),
+        "vehicles": results[:4],
+    }
+
+
+# ── Tool 9: plan_trip ─────────────────────────────────────────────────────────
+
+def _tool_plan_trip(origin: str, destination: str) -> dict:
+    """Geocode origin + destination and return up to 3 transit itineraries."""
+    try:
+        from utils.geocoding import geocode
+        from utils.trip_planner import find_trips
+    except Exception as exc:
+        logger.error("plan_trip import error: %s", exc)
+        return {"status": "error", "message": "Trip planner is temporarily unavailable."}
+
+    origin_geo = geocode(origin)
+    if not origin_geo:
+        return {
+            "status": "geocode_failed",
+            "message": f"Could not find '{origin}'. Try a more specific address or intersection.",
+        }
+
+    dest_geo = geocode(destination)
+    if not dest_geo:
+        return {
+            "status": "geocode_failed",
+            "message": f"Could not find '{destination}'. Try a more specific address or intersection.",
+        }
+
+    try:
+        result = find_trips(
+            origin_lat=origin_geo["lat"],
+            origin_lon=origin_geo["lon"],
+            dest_lat=dest_geo["lat"],
+            dest_lon=dest_geo["lon"],
+        )
+    except Exception as exc:
+        logger.error("find_trips error: %s", exc)
+        return {"status": "error", "message": "Trip planning encountered an error."}
+
+    if result.get("error"):
+        return {
+            "status": "no_routes",
+            "origin": origin_geo["formatted_address"],
+            "destination": dest_geo["formatted_address"],
+            "message": result["error"],
+        }
+
+    itins = result.get("itineraries", [])
+    if not itins:
+        return {
+            "status": "no_routes",
+            "origin": origin_geo["formatted_address"],
+            "destination": dest_geo["formatted_address"],
+            "message": "No routes found between these locations right now.",
+        }
+
+    formatted = []
+    for itin in itins[:3]:
+        legs_summary = []
+
+        walk_to = itin.get("walk_to_stop")
+        if walk_to and walk_to.get("walk_min", 0) > 0:
+            legs_summary.append(
+                f"Walk {walk_to['walk_min']} min to {walk_to['stop_name']}"
+            )
+
+        for leg in itin.get("legs", []):
+            if leg["type"] == "bus":
+                legs_summary.append(
+                    f"Route {leg['route']} to {leg.get('headsign', '')} "
+                    f"— dep {leg['depart']}, arr {leg['arrive']} ({leg['ride_min']} min ride)"
+                )
+            elif leg["type"] == "transfer":
+                side = "same side" if leg.get("same_side") else "cross street"
+                legs_summary.append(
+                    f"Transfer at {leg['at_stop_name']} — {leg['wait_min']} min wait ({side})"
+                )
+
+        walk_from = itin.get("walk_from_stop")
+        if walk_from and walk_from.get("walk_min", 0) > 0:
+            legs_summary.append(
+                f"Walk {walk_from['walk_min']} min from {walk_from['stop_name']}"
+            )
+
+        buses = [l for l in itin.get("legs", []) if l["type"] == "bus"]
+        formatted.append({
+            "total_min": round(itin["total_min"]),
+            "realtime": itin.get("realtime", False),
+            "transfers": len([l for l in itin.get("legs", []) if l["type"] == "transfer"]),
+            "departs": buses[0]["depart"] if buses else None,
+            "arrives": buses[-1]["arrive"] if buses else None,
+            "legs": legs_summary,
+        })
+
+    return {
+        "status": "ok",
+        "origin": origin_geo["formatted_address"],
+        "destination": dest_geo["formatted_address"],
+        "service_label": result.get("service_label", ""),
+        "itineraries": formatted,
+    }
