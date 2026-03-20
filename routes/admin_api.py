@@ -17,6 +17,7 @@ admin_bp = Blueprint("admin_api", __name__)
 _DATA_DIR     = Path(os.environ.get("DATA_DIR", str(Path(__file__).resolve().parents[1] / "data")))
 _ANALYTICS_DB = _DATA_DIR / "analytics.sqlite"
 _LOG_PATH     = Path(__file__).resolve().parents[1] / "PROJECT_LOG.md"
+_TASKS_PATH   = Path(__file__).resolve().parents[1] / "TASKS.md"
 _QA_HISTORY   = Path(__file__).resolve().parents[1] / "tests" / "qa_history.sqlite"
 
 
@@ -259,6 +260,22 @@ def export_analytics():
         })
     finally:
         conn.close()
+
+
+@admin_bp.route("/api/project/log")
+def project_log():
+    """Return PROJECT_LOG.md as raw markdown text."""
+    if not _LOG_PATH.exists():
+        return jsonify({"content": "_PROJECT_LOG.md not found._"})
+    return jsonify({"content": _LOG_PATH.read_text(encoding="utf-8")})
+
+
+@admin_bp.route("/api/project/tasks-md")
+def project_tasks_md():
+    """Return TASKS.md as raw markdown text."""
+    if not _TASKS_PATH.exists():
+        return jsonify({"content": "_TASKS.md not found._"})
+    return jsonify({"content": _TASKS_PATH.read_text(encoding="utf-8")})
 
 
 @admin_bp.route("/api/feedback", methods=["POST"])

@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RTS Project Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap");
 
@@ -391,6 +392,45 @@
     .pct-mid   { color:#d29922; } .bar-mid   { background:#d29922; }
     .pct-low   { color:#f85149; } .bar-low   { background:#f85149; }
 
+    /* ── docs viewer ──────────────────────────────────────────── */
+    .doc-tabs { display:flex; gap:6px; margin-left:auto; }
+    .doc-tab-btn {
+      padding: 4px 14px; border-radius: 999px; border: 1px solid var(--border);
+      background: var(--s1); color: var(--muted); font-size:.75rem; font-weight:600;
+      cursor:pointer; transition: border-color .2s, color .2s;
+    }
+    .doc-tab-btn.active, .doc-tab-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .doc-content {
+      padding: 4px 2px; font-size:.84rem; line-height:1.75;
+      color: rgba(255,255,255,.75); max-height: 600px; overflow-y: auto;
+    }
+    .doc-content h1,.doc-content h2 {
+      font-family:"Space Grotesk",sans-serif; color:#fff;
+      border-bottom:1px solid var(--border); padding-bottom:6px; margin:20px 0 10px;
+    }
+    .doc-content h3 { color: var(--accent); margin:16px 0 6px; font-size:.9rem; }
+    .doc-content h4 { color: var(--muted); margin:12px 0 4px; font-size:.82rem; text-transform:uppercase; letter-spacing:.04em; }
+    .doc-content p  { margin-bottom:8px; }
+    .doc-content ul,.doc-content ol { padding-left:20px; margin-bottom:8px; }
+    .doc-content li { margin-bottom:3px; }
+    .doc-content code {
+      background:rgba(255,255,255,.08); border-radius:4px;
+      padding:1px 5px; font-size:.82em; color: var(--blue);
+    }
+    .doc-content pre {
+      background:rgba(0,0,0,.3); border:1px solid var(--border); border-radius:8px;
+      padding:12px; overflow-x:auto; margin-bottom:10px;
+    }
+    .doc-content pre code { background:none; padding:0; color:var(--text); }
+    .doc-content blockquote {
+      border-left:3px solid var(--accent); padding-left:12px;
+      color:var(--muted); margin:8px 0;
+    }
+    .doc-content a { color:var(--accent); }
+    .doc-content hr { border:none; border-top:1px solid var(--border); margin:16px 0; }
+    .doc-content table { width:100%; border-collapse:collapse; margin-bottom:10px; font-size:.8rem; }
+    .doc-content th { background:rgba(255,255,255,.06); padding:6px 10px; text-align:left; }
+    .doc-content td { padding:5px 10px; border-top:1px solid var(--border); }
     /* ── activity timeline strip ──────────────────────────────── */
     .timeline-wrap {
       margin-bottom: 14px;
@@ -626,6 +666,23 @@
 
     </div>
   </div>
+
+  <!-- docs viewer -->
+  <div class="panel" style="margin-top:14px;">
+    <div class="panel-head" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <h2>Project Docs</h2>
+      <div class="doc-tabs">
+        <button class="doc-tab-btn" id="docTabLog"   onclick="loadDoc('log')">Project Log</button>
+        <button class="doc-tab-btn" id="docTabTasks" onclick="loadDoc('tasks')">Task Details</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div id="docContent" class="doc-content" style="color:var(--muted);padding:10px 0;">
+        Select a tab above to view the full project log or detailed task list.
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -982,6 +1039,29 @@
   loadMetrics();
   // Auto-refresh metrics every 30s
   setInterval(loadMetrics, 30_000);
+
+  // ── docs viewer ──────────────────────────────────────────────
+  let _docLoaded = null;
+
+  async function loadDoc(which) {
+    if (_docLoaded === which) return;
+    _docLoaded = which;
+
+    $("docTabLog").classList.toggle("active",   which === "log");
+    $("docTabTasks").classList.toggle("active", which === "tasks");
+
+    const el = $("docContent");
+    el.innerHTML = '<div style="color:var(--muted);padding:20px 0;">Loading…</div>';
+
+    const url = which === "log" ? "/api/project/log" : "/api/project/tasks-md";
+    try {
+      const res  = await fetch(url);
+      const data = await res.json();
+      el.innerHTML = marked.parse(data.content || "");
+    } catch(e) {
+      el.innerHTML = '<div style="color:var(--danger);padding:20px 0;">Failed to load document.</div>';
+    }
+  }
 </script>
 </body>
 </html>
