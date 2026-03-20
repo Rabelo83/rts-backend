@@ -677,7 +677,13 @@ def find_trips(origin_lat: float, origin_lon: float,
         target_min = _now_min()
 
     origin_stops = find_nearest_stops(origin_lat, origin_lon, radius_m=_MAX_WALK_M, limit=4)
+    if not origin_stops:
+        # Fallback: find the single nearest stop regardless of distance
+        origin_stops = find_nearest_stops(origin_lat, origin_lon, radius_m=5000, limit=1)
     dest_stops   = find_nearest_stops(dest_lat,   dest_lon,   radius_m=_MAX_WALK_M, limit=4)
+    if not dest_stops:
+        # Fallback: find the single nearest stop regardless of distance
+        dest_stops = find_nearest_stops(dest_lat, dest_lon, radius_m=5000, limit=1)
 
     if not origin_stops:
         return {"itineraries": [], "origin_stops": [], "dest_stops": dest_stops,
