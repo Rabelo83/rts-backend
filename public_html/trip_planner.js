@@ -285,45 +285,108 @@ function renderResults(data, container) {
 }
 
 function renderLegs(itin) {
-  let html = '';
+  const busLegs  = itin.legs.filter(l => l.type === 'bus');
+  const xferLegs = itin.legs.filter(l => l.type === 'transfer');
+  const w1 = itin.walk_to_stop;
+  const w2 = itin.walk_from_stop;
 
-  if (itin.walk_to_stop && itin.walk_to_stop.walk_min > 0) {
-    html += `<div class="leg-walk">
-      ${walkIcon()}
-      <span>Walk ${fmtDist(itin.walk_to_stop.distance_m)} to <strong>${escHtml(itin.walk_to_stop.stop_name)}</strong></span>
-      <span class="leg-walk-time">${itin.walk_to_stop.walk_min} min</span>
+  let html = '<div class="tp-timeline">';
+
+  // ── Walk to first stop ──────────────────────────────────────
+  if (w1 && w1.walk_min > 0) {
+    html += `
+    <div class="tp-row tp-row-walk">
+      <div class="tp-col-time"></div>
+      <div class="tp-col-track">
+        <div class="tp-dot tp-dot-origin"></div>
+        <div class="tp-line tp-line-walk"></div>
+      </div>
+      <div class="tp-col-body">
+        ${walkIcon()} Walk ${escHtml(fmtDist(w1.distance_m))} to <strong>${escHtml(w1.stop_name)}</strong>
+        <span class="tp-dur">&middot; ${w1.walk_min} min</span>
+      </div>
     </div>`;
   }
 
-  itin.legs.forEach(leg => {
-    if (leg.type === 'bus') {
-      const rtDot = leg.realtime ? '<span class="rt-dot-inline"></span>' : '';
-      html += `<div class="leg-bus">
-        <div class="leg-bus-route">${escHtml(leg.route)}</div>
-        <div class="leg-bus-info">
-          <div class="leg-bus-headsign">${escHtml(leg.headsign || leg.route_name || '')}</div>
-          <div class="leg-bus-times">${rtDot}${escHtml(leg.depart)} &rarr; ${escHtml(leg.arrive)} &nbsp;<span class="leg-ride-min">${leg.ride_min} min</span></div>
+  busLegs.forEach((leg, i) => {
+    const isLastBus  = i === busLegs.length - 1;
+    const exitStop   = xferLegs[i] ? xferLegs[i].at_stop_name : (w2 ? w2.stop_name : '');
+    const rtPulse    = leg.realtime ? '<span class="tp-rt-pulse"></span>' : '';
+
+    // ── Board ──────────────────────────────────────────────────
+    html += `
+    <div class="tp-row tp-row-board">
+      <div class="tp-col-time">${escHtml(leg.depart)}</div>
+      <div class="tp-col-track">
+        <div class="tp-dot tp-dot-board"></div>
+        <div class="tp-line tp-line-bus"></div>
+      </div>
+      <div class="tp-col-body">
+        <span class="tp-action-board">Board</span>
+        <span class="tp-route-num">${escHtml(leg.route)}</span>
+        <span class="tp-headsign">${escHtml(leg.headsign || leg.route_name || '')}</span>
+        ${rtPulse}
+      </div>
+    </div>`;
+
+    // ── Ride ───────────────────────────────────────────────────
+    html += `
+    <div class="tp-row tp-row-ride">
+      <div class="tp-col-time"></div>
+      <div class="tp-col-track"><div class="tp-line tp-line-bus" style="min-height:26px"></div></div>
+      <div class="tp-col-body">${busSvg()} ${leg.ride_min} min ride</div>
+    </div>`;
+
+    // ── Exit / Arrive ──────────────────────────────────────────
+    const hasWalkAfter = isLastBus && w2 && w2.walk_min > 0;
+    html += `
+    <div class="tp-row tp-row-exit">
+      <div class="tp-col-time">${escHtml(leg.arrive)}</div>
+      <div class="tp-col-track">
+        <div class="tp-dot ${isLastBus ? 'tp-dot-arrive' : 'tp-dot-exit'}"></div>
+        ${!isLastBus
+          ? '<div class="tp-line tp-line-xfer"></div>'
+          : (hasWalkAfter ? '<div class="tp-line tp-line-walk"></div>' : '')}
+      </div>
+      <div class="tp-col-body">
+        <span class="${isLastBus ? 'tp-action-arrive' : 'tp-action-exit'}">${isLastBus ? 'Arrive at' : 'Exit at'}</span>
+        <span class="tp-stop-name">${escHtml(exitStop)}</span>
+      </div>
+    </div>`;
+
+    // ── Transfer ───────────────────────────────────────────────
+    if (xferLegs[i]) {
+      const x = xferLegs[i];
+      const shelterHtml = x.has_shelter ? '<span class="tp-shelter">&#127968; Shelter</span>' : '';
+      const sideClass   = x.same_side ? 'tp-same-side' : 'tp-cross-street';
+      const sideLabel   = x.same_side ? '✓ Stay same side' : '⚠ Cross street';
+      html += `
+      <div class="tp-row tp-row-xfer">
+        <div class="tp-col-time"></div>
+        <div class="tp-col-track"><div class="tp-line tp-line-xfer"></div></div>
+        <div class="tp-col-body">
+          <span class="tp-xfer-wait">⏱ ${x.wait_min} min wait</span>
+          <span class="tp-xfer-side ${sideClass}">${sideLabel}${shelterHtml}</span>
         </div>
-      </div>`;
-    } else if (leg.type === 'transfer') {
-      const shelter   = leg.has_shelter ? ' &#9924;' : '';
-      const sideLabel = leg.same_side ? 'Stay on same side' : '&#x26A0; Cross street';
-      html += `<div class="leg-transfer">
-        ${transferIcon()}
-        <span>Transfer at <strong>${escHtml(leg.at_stop_name)}</strong>${shelter} &mdash; ${leg.wait_min} min wait</span>
-        <span class="leg-side-note">${sideLabel}</span>
       </div>`;
     }
   });
 
-  if (itin.walk_from_stop && itin.walk_from_stop.walk_min > 0) {
-    html += `<div class="leg-walk">
-      ${walkIcon()}
-      <span>Walk ${fmtDist(itin.walk_from_stop.distance_m)} from <strong>${escHtml(itin.walk_from_stop.stop_name)}</strong></span>
-      <span class="leg-walk-time">${itin.walk_from_stop.walk_min} min</span>
+  // ── Walk from last stop ────────────────────────────────────
+  if (w2 && w2.walk_min > 0) {
+    html += `
+    <div class="tp-row tp-row-walk">
+      <div class="tp-col-time"></div>
+      <div class="tp-col-track">
+        <div class="tp-dot tp-dot-dest"></div>
+      </div>
+      <div class="tp-col-body">
+        ${walkIcon()} Walk ${escHtml(fmtDist(w2.distance_m))} &middot; <span class="tp-dur">${w2.walk_min} min</span>
+      </div>
     </div>`;
   }
 
+  html += '</div>';
   return html;
 }
 
@@ -344,6 +407,12 @@ function fmtDist(meters) {
 function walkIcon() {
   return `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:.6">
     <path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7z"/>
+  </svg>`;
+}
+
+function busSvg() {
+  return `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:.55">
+    <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4S4 2.5 4 6v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
   </svg>`;
 }
 
