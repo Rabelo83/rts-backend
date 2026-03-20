@@ -310,6 +310,9 @@ Current sort is by `total_min` only. Replace with weighted penalty score (lower 
 - [x] `tp-v1.5-11` **Reduced Service notice** — amber banner when service_label != Weekday
 - [ ] `tp-v1.5-12` **Sort toggle UI** — "Best Match" / "Least Walking" / "Fewest Transfers" buttons reorder results client-side without re-querying backend
 
+#### 5e — Bug Fixes (2026-03-20)
+- [x] `tp-fix-1` **Suburban address "No bus stops found"** — Increased `_MAX_WALK_M` from 500m to 1000m (~0.6 mi). Gainesville suburban areas (e.g. SW 96th St) have stops spaced further apart than the original radius allowed. Walk time is still displayed accurately in the itinerary card. (`utils/trip_planner.py`)
+
 ### Phase 6 — PWA & App Store
 - [ ] `tp-v2-1` **PWA** — `manifest.json` + service worker + meta tags → "Add to Home Screen" on iOS/Android
 - [ ] `tp-v2-2` **App Store** — wrap PWA with Capacitor for native iOS/Android packaging; submit to Apple App Store + Google Play Store

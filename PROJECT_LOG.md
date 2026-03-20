@@ -31,6 +31,12 @@ How to use:
 - Notes / Follow-up: Next GTFS refresh → add geojson enrichment to `build_gtfs_db.py` so street/crossroad/direction/shelters baked into rts_gtfs.sqlite (eliminates geojson dependency entirely).
 
 ### 2026-03-20
+- Type: `fix`
+- Summary: Trip Planner — "No bus stops found" for suburban addresses (SW 96th St area). Root cause: `_MAX_WALK_M` was 500m (~0.3 mi); Gainesville suburban stops (Route 75 corridor) can be 600–900m apart. Fix: raised radius to 1000m (~0.6 mi). Walk time still displayed correctly in itinerary card.
+- Files/Areas: `utils/trip_planner.py` (`_MAX_WALK_M = 1000`)
+- Notes / Follow-up: None — walk distance is shown to the user so they can judge acceptability themselves.
+
+### 2026-03-20
 - Type: `decision`
 - Summary: Stop geo architecture — merge geojson data into rts_gtfs.sqlite at build time. Modify `build_gtfs_db.py` to read bus_stops.geojson alongside GTFS files, add street/crossroad/direction/shelters columns to stops table. One script, one database, one GTFS refresh step.
 - Files/Areas: `Backend Basics/db/build_gtfs_db.py`, `utils/stop_finder.py`
