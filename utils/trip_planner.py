@@ -636,7 +636,11 @@ def _dedup_and_rank(itineraries: list[dict]) -> list[dict]:
         if key not in seen or itin["score"] < seen[key]["score"]:
             seen[key] = itin
 
-    ranked = sorted(seen.values(), key=lambda x: x["score"])
+    def _first_dep(itin):
+        bus = next((l for l in itin["legs"] if l["type"] == "bus"), None)
+        return bus.get("depart_min", 0) if bus else 0
+
+    ranked = sorted(seen.values(), key=lambda x: (_first_dep(x), x["score"]))
     return ranked[:_MAX_RESULTS]
 
 
