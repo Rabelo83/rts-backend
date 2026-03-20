@@ -24,8 +24,8 @@ from utils.stop_finder import (
 _WALK_SPEED_MPS = 1.2
 _MAX_WALK_M = 1000         # max walk to/from a stop (~0.6 mi, needed for suburban stops)
 _MAX_TRANSFER_WALK_M = 300  # max walk between transfer stops
-_MAX_RESULTS = 3
-_SEARCH_WINDOW_MIN = 90    # look for departures within this window
+_MAX_RESULTS = 5
+_SEARCH_WINDOW_MIN = 120   # look for departures within this window
 
 
 # ── GTFS time helpers ─────────────────────────────────────────────────────────
@@ -178,7 +178,7 @@ def _find_with_transfer(conn, origin_ids: list[int], dest_ids: list[int],
           AND  st1.departure_time >= ?
           AND  st1.departure_time <= ?
         ORDER  BY st1.departure_time
-        LIMIT  20
+        LIMIT  50
     """, [*origin_ids, *service_ids, depart_gtfs, limit_gtfs]).fetchall()
 
     results = []
@@ -224,7 +224,7 @@ def _find_with_transfer(conn, origin_ids: list[int], dest_ids: list[int],
                   AND  t.service_id IN ({s_ph})
                   AND  st1.departure_time >= ?
                 ORDER  BY st1.departure_time
-                LIMIT  3
+                LIMIT  5
             """, [t_stop_id, *dest_ids, *service_ids,
                   ts["arrival_time"]]).fetchall()
 
@@ -484,7 +484,7 @@ def _find_with_transfer_arrive_by(conn, origin_ids: list[int], dest_ids: list[in
           AND  st2.arrival_time >= ?
           AND  st2.arrival_time >= st1.departure_time
         ORDER  BY st2.arrival_time DESC
-        LIMIT  20
+        LIMIT  50
     """, [*dest_ids, *service_ids, arrive_gtfs, window_gtfs]).fetchall()
 
     results = []
@@ -611,19 +611,25 @@ def _score_itinerary(itin: dict) -> float:
 
 
 def _dedup_and_rank(itineraries: list[dict]) -> list[dict]:
-    """Score, deduplicate by route signature, sort, return top _MAX_RESULTS."""
+    """Score, deduplicate, sort, return top _MAX_RESULTS.
+
+    Dedup key: (route1, xfer_stop, route2, dep_30min_bucket)
+    Trips with the same route combo but different departure windows (30-min buckets)
+    are kept as separate options — matches what the official RTS planner shows.
+    Within the same bucket, keep only the lowest-score variant.
+    """
     for itin in itineraries:
         itin["score"] = _score_itinerary(itin)
 
-    # Dedup key: (route1, transfer_stop_or_none, route2_or_none)
     seen: dict[tuple, dict] = {}
     for itin in itineraries:
-        bus_legs = [l for l in itin["legs"] if l["type"] == "bus"]
+        bus_legs  = [l for l in itin["legs"] if l["type"] == "bus"]
         xfer_legs = [l for l in itin["legs"] if l["type"] == "transfer"]
-        r1 = bus_legs[0]["route"] if bus_legs else ""
-        r2 = bus_legs[1]["route"] if len(bus_legs) > 1 else ""
+        r1   = bus_legs[0]["route"] if bus_legs else ""
+        r2   = bus_legs[1]["route"] if len(bus_legs) > 1 else ""
         xfer = xfer_legs[0].get("at_stop_name", "") if xfer_legs else ""
-        key = (r1, xfer, r2)
+        dep_bucket = bus_legs[0].get("depart_min", 0) // 30  # 30-min window
+        key = (r1, xfer, r2, dep_bucket)
         if key not in seen or itin["score"] < seen[key]["score"]:
             seen[key] = itin
 
