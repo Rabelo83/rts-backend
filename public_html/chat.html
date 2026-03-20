@@ -802,6 +802,13 @@
       text-align: center;
     }
 
+    #trip-results {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: 6px;
+    }
+
     .trip-results-label {
       font-size: 0.70rem;
       font-weight: 600;
@@ -814,7 +821,7 @@
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.09);
       border-radius: 14px;
-      padding: 14px;
+      padding: 14px 14px 6px;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -1076,6 +1083,9 @@
     .tp-row-walk .tp-col-body { font-size: 0.74rem; color: var(--text-muted); gap: 4px; }
     .tp-row-walk .tp-col-body strong { color: var(--text-dim); font-weight: 600; }
     .tp-dur { font-size: 0.69rem; color: var(--text-muted); }
+
+    /* Last row in timeline — trim excess bottom padding */
+    .tp-timeline .tp-row:last-child .tp-col-body { padding-bottom: 4px; }
 
     /* ── Responsive ──────────────────────────────────────────── */
     @media (max-width: 600px) {
