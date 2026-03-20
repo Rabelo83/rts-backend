@@ -249,6 +249,8 @@ function renderResults(data, container) {
     const lastBus    = buses[buses.length - 1];
     const totalMin   = Math.round(itin.total_min);
     const isTransfer = itin.type === 'transfer';
+    const w1 = itin.walk_to_stop;
+    const w2 = itin.walk_from_stop;
 
     // ETA badge: minutes until first departure
     let etaHtml = '';
@@ -261,18 +263,41 @@ function renderResults(data, container) {
       }
     }
 
+    // Journey strip: 🚶 › [75] › ⇄ › [1] › 🚶
+    const stripParts = [];
+    if (w1 && w1.walk_min > 0) stripParts.push(`<span class="js-walk">${walkMini()}</span>`);
+    itin.legs.forEach(leg => {
+      if (leg.type === 'bus') {
+        stripParts.push(`<span class="js-route">${escHtml(leg.route)}</span>`);
+      } else if (leg.type === 'transfer') {
+        stripParts.push(`<span class="js-xfer">${xferMini()}</span>`);
+      }
+    });
+    if (w2 && w2.walk_min > 0) stripParts.push(`<span class="js-walk">${walkMini()}</span>`);
+    const stripHtml = stripParts.join('<span class="js-arrow">›</span>');
+
+    // Time range: always dep → arr
+    const timeRange = firstBus && lastBus
+      ? `<span class="itin-timerange">${escHtml(firstBus.depart)}<span class="itin-tr-sep">→</span>${escHtml(lastBus.arrive)}</span>`
+      : '';
+
+    // Small meta badges: transfer, live, same side
+    const metaBadges = [
+      isTransfer ? '<span class="badge badge-transfer">1 transfer</span>' : '',
+      itin.realtime ? '<span class="badge badge-realtime"><span class="rt-dot"></span>Live</span>' : '',
+      isTransfer && itin.same_side ? '<span class="badge badge-same-side">✓ Same side</span>' : '',
+    ].filter(Boolean).join('');
+
     html += `<div class="itin-card">
       <div class="itin-header">
-        <div class="itin-badges">
-          ${buses.map(l => `<span class="badge badge-route">${escHtml(l.route)}</span>`).join('')}
-          ${isTransfer ? '<span class="badge badge-transfer">1 transfer</span>' : ''}
-          ${itin.realtime ? '<span class="badge badge-realtime"><span class="rt-dot"></span>Live</span>' : ''}
-          ${isTransfer && itin.same_side ? '<span class="badge badge-same-side">Same side</span>' : ''}
+        <div class="itin-header-left">
+          <div class="journey-strip">${stripHtml}</div>
+          ${metaBadges ? `<div class="itin-meta-badges">${metaBadges}</div>` : ''}
         </div>
         <div class="itin-time-col">
           <span class="itin-total">${totalMin} min</span>
           ${etaHtml}
-          ${firstBus ? `<span class="itin-dep-arr">${isArrive ? 'arr ' + escHtml(lastBus.arrive) : 'dep ' + escHtml(firstBus.depart)}</span>` : ''}
+          ${timeRange}
         </div>
       </div>
       <div class="itin-legs">
@@ -408,6 +433,14 @@ function walkIcon() {
   return `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;opacity:.6">
     <path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7z"/>
   </svg>`;
+}
+
+function walkMini() {
+  return `<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7z"/></svg>`;
+}
+
+function xferMini() {
+  return `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/></svg>`;
 }
 
 function busSvg() {
