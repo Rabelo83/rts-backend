@@ -22,7 +22,7 @@ from utils.stop_finder import (
 )
 
 _WALK_SPEED_MPS = 1.2
-_MAX_WALK_M = 500          # max walk to/from a stop
+_MAX_WALK_M = 1000         # max walk to/from a stop (~0.6 mi, needed for suburban stops)
 _MAX_TRANSFER_WALK_M = 300  # max walk between transfer stops
 _MAX_RESULTS = 3
 _SEARCH_WINDOW_MIN = 90    # look for departures within this window
