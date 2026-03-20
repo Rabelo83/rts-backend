@@ -29,6 +29,18 @@ How to use:
 - Files/Areas: `public_html/chat` (UI), new `/api/feedback` endpoint, `analytics.sqlite`, `tests/replay_from_logs.py`, dashboard
 - Notes / Follow-up: Build after targeted QA rerun confirms M02/M06 fix.
 
+### 2026-03-20
+- Type: `fix, feature`
+- Summary: New Claude Haiku baseline 21/36 = 58% (up from 47%). Ollama comparison: qwen3:8b scored 12/36 = 33% — too slow (15–100s/query), drops Spanish, hallucinates GTFS data, invents tool parameters. Claude Haiku stays as default. Added `--ollama` flag to run_and_judge.py for free local dev runs. Fixed agent_gpt_v3 model env var fallback. Added REAL-TIME FIRST RULE to system prompt — agent now prefers get_realtime_predictions over get_schedule for route+stop queries. Added "Useful?" label before 👍/👎 rating buttons. Identified 15 remaining failures grouped by fix category.
+- Files/Areas: `routes/agent_claude.py`, `tests/run_and_judge.py`, `routes/agent_gpt_v3.py`, `public_html/chat_v2.js`, `public_html/chat.html`
+- Notes / Follow-up: Next: quick-win prompt fixes (S14 greeting, S13 trip planning, S20 dates, M04 Spanish). Then trip planner UI with geocoding tools.
+
+### 2026-03-19
+- Type: `fix`
+- Summary: Targeted QA fixes — M02/M06/S06/GPT20 all now PASS (4/4). M02 expected_behavior corrected (Route 10 genuinely doesn't serve Butler Plaza — agent was correct). M06 disambiguation rule rewritten with CRITICAL/FORBIDDEN language; agent now calls get_schedule(route_id, stop_name) directly instead of search_stops. S06/GPT20 were judge false-FAILs: judge prompt hardened to trust service type from GTFS and not compare departure times against training knowledge; scenario expected_behaviors updated to accept Reduced Service and "Saturday, March 21" format. Added "Useful?" label before 👍/👎 rating buttons. Full suite rerun in progress.
+- Files/Areas: `routes/agent_claude.py`, `tests/run_and_judge.py`, `tests/scenarios_v2.json`, `public_html/chat_v2.js`, `public_html/chat.html`
+- Notes / Follow-up: New baseline expected ~55-65% (up from 47%).
+
 ### 2026-03-19
 - Type: `fix`
 - Summary: First LLM-judged QA baseline — 17/36 PASS (47%). Fixed M02/M06 route-context disambiguation: system prompt rule had `stop_id` typo instead of `stop_name`, causing agent to call `search_stops` and show a stop picker when route was already known. Fixed judge prompt to not penalize correct calendar dates or optional reduced service notes (S06/GPT20 were false FAILs). Fixed all Windows cp1252 unicode errors in `run_and_judge.py` and `qa_report.py`. Removed raw API links from dashboard Quick Links panel.

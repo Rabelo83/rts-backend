@@ -128,8 +128,13 @@ Closes the 10% gap the LLM judge cannot cover — factual accuracy of times, sto
 - [x] Fixed M02/M06: route-context disambiguation — `stop_id` typo in prompt → agent now calls `get_schedule(route_id, stop_name)` directly instead of showing stop picker
 - [x] Fixed judge prompt: no longer penalizes correct calendar dates or optional reduced service notes (was causing false FAILs on S06, GPT20)
 - [x] Fixed all Windows cp1252 unicode errors in `run_and_judge.py` and `qa_report.py`
-- [ ] Rerun M02, M06, S06, GPT20 to confirm fixes (targeted, low cost)
-- [ ] Full rerun after confirmation → new baseline expected ~55-65%
+- [x] Rerun M02, M06, S06, GPT20 — **4/4 PASS** after strengthened disambiguation rule + corrected scenario expected_behaviors
+- [x] Full rerun completed — **Claude Haiku: 21/36 = 58%** (new baseline, up from 47%)
+- [x] Ollama comparison run — **qwen3:8b: 12/36 = 33%** — too slow, drops Spanish, hallucinates; not production-ready
+- [x] `--ollama` flag added to `run_and_judge.py` — single command for free local test runs
+- [x] Fixed `OPENAI_MODEL_V4` fallback in `agent_gpt_v3.py` to respect `OPENAI_MODEL` env var
+- [x] Fixed `sys.path` for local Flask test client in `run_and_judge.py`
+- [x] Real-time first rule added to system prompt — agent now tries `get_realtime_predictions` before `get_schedule` for route+stop queries
 
 ### Level 2 — Production Feedback Loop ✅ DONE (2026-03-19)
 - [x] Real user queries logged to `data/analytics.sqlite`
@@ -138,14 +143,42 @@ Closes the 10% gap the LLM judge cannot cover — factual accuracy of times, sto
 - [x] `promote_to_scenario.py` closes the loop: replay FAIL → scenario suite
 - Usage: run weekly or after any GTFS data refresh
 
-### User Ratings (Thumbs Up/Down) — Planned
-- [ ] Add thumbs up/down button under each chat response in the chat UI
-- [ ] `POST /api/feedback` endpoint — stores rating (1/-1) + session_id + message_index + optional comment in `analytics.sqlite`
-- [ ] Dashboard shows satisfaction % alongside success rate
-- [ ] `replay_from_logs.py` prioritizes negatively-rated sessions automatically
-- [ ] `promote_to_scenario.py` can pull from thumbs-down sessions directly
-- [ ] Closes the full loop: user rates down → replayed by QA → FAIL → promoted to scenario → fixed → deployed
+### User Ratings (Thumbs Up/Down) ✅ DONE (2026-03-19)
+- [x] Thumbs up/down appear below every real bot response in chat UI (not greetings/session messages)
+- [x] `POST /api/feedback` stores rating (1/-1) + session_id + message_index + previews in `analytics.sqlite`
+- [x] `feedback` table auto-created on first use — zero migration needed
+- [x] Dashboard shows User Satisfaction card (7-day %) when feedback data exists
+- [x] `/api/dashboard/metrics` includes `satisfaction_pct` field
+- [x] "Useful?" label added before 👍/👎 buttons for clarity (chat_v2.js v8)
+- [ ] `replay_from_logs.py` — add `--rated-fails-only` flag to prioritize negatively-rated sessions
+- [ ] `promote_to_scenario.py` — add `--from-ratings` flag to pull thumbs-down sessions directly
 - **Why:** Real user signal with zero manual triage — Level 0 QA feeding directly into the existing pipeline
+
+### Remaining Claude Haiku Failures (15 scenarios, 2026-03-20 baseline)
+Prioritized by fix effort vs impact:
+
+**Quick wins (prompt rules):**
+- [ ] S14 — greeting adds transit suggestions; add "Hi/Hello → warm greeting only, no transit list" rule
+- [ ] S13 — trip planning implies it can help; strengthen OUT OF SCOPE rule
+- [ ] S20 — service week dates wrong; investigate injected context format
+- [ ] M05 — shows stop 473 instead of 0473; leading zero stripping rule
+
+**Multi-turn context (medium):**
+- [ ] M04 / GPT13 — Spanish follow-up drifts to English; add "stay in detected language" rule
+- [ ] GPT12 — real-time "after that?" repeats same predictions; need re-call logic
+- [ ] GPT15 / GPT17 — time-advance follow-ups ("an hour later?") not working
+- [ ] GPT15 — location switch on route context; related to M06 CRITICAL rule
+
+**Tool/data issues:**
+- [ ] S07 / S08 / S11 — `search_routes` returns incomplete lists; investigate tool response
+- [ ] S03 — "next departures for route 10" returns only one time instead of list
+- [ ] S19 — route stop list truncated (28 stops, response cuts off)
+
+**New feature (trip planning):**
+- [ ] Add `geocode_location` tool (Nominatim/Google Places)
+- [ ] Add `find_nearest_stops(lat, lon)` tool
+- [ ] Add `find_direct_trip(origin_stop, dest_stop, depart_after)` tool
+- [ ] Trip Planner UI panel with address autocomplete (Google Places or Mapbox)
 
 ### Level 3 — Adversarial Scenario Generation (Low priority / quarterly)
 - [ ] Build `tests/generate_scenarios.py` — feeds route/stop list to GPT, returns 50 tricky test cases
