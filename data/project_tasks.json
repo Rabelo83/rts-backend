@@ -693,6 +693,119 @@
       "area": "Backend",
       "priority": "medium",
       "details": "Done in Session 5. SDK max_retries=3 auto-retries 429/5xx with exponential backoff. See add-openai-retry-logic entry."
+    },
+    {
+      "id": "s20-trip-metrics-dashboard",
+      "title": "Session 20: Add trip planner metrics to dashboard",
+      "status": "completed",
+      "area": "Frontend",
+      "details": "trip_plans table added to analytics.sqlite. _log_trip_plan() logs every /api/trip/plan call. admin_api.py exposes trips_today, trips_week, trip_success_rate. Dashboard shows two new metric cards hidden until data exists."
+    },
+    {
+      "id": "s20-agent-tool-prompt-fix",
+      "title": "Session 20: Fix agent ignoring 5 tools — SYSTEM_PROMPT only listed 5 of 10",
+      "status": "completed",
+      "area": "AI / Agent",
+      "details": "SYSTEM_PROMPT hardcoded 'You have 5 tools' even though 10 existed. LLM never called get_route_vehicle_count, get_vehicle_location, plan_trip, get_route_stops, get_service_differences. Fixed: rewrote tool list as full markdown table with usage guidance. Agent now calls all tools correctly."
+    },
+    {
+      "id": "s20-agent-tool-descriptions",
+      "title": "Session 20: Update tool descriptions so 'how many buses' queries route correctly",
+      "status": "completed",
+      "area": "AI / Agent",
+      "details": "get_vehicle_location and get_route_vehicle_count descriptions updated to include exact phrasings users say ('how many buses are running on route X', 'how many route X are running'). LLM now selects the right tool for vehicle count queries."
+    },
+    {
+      "id": "s20-dropdown-css-fix",
+      "title": "Session 20: Fix itinerary cards never collapsing",
+      "status": "completed",
+      "area": "Frontend",
+      "details": "Duplicate CSS rule `.itin-legs { display: flex }` at line 997 of chat.html overrode `.itin-legs { display: none }` at line 843, keeping all cards permanently expanded. Removed the duplicate rule."
+    },
+    {
+      "id": "s20-dedup-sort-departure",
+      "title": "Session 20: Fix later-but-faster trips shown before earlier departures",
+      "status": "completed",
+      "area": "Backend",
+      "details": "_dedup_and_rank() sorted by score only. A 59-min trip at 3:30 PM scored better than a 75-min trip at 2:45 PM and was ranked first. Fixed: sort key changed to (depart_min, score) so earlier departures always appear first."
+    },
+    {
+      "id": "s20-same-route-transfer-filter",
+      "title": "Session 20: Fix useless same-route transfers (Route 37 → Butler Plaza → Route 37)",
+      "status": "completed",
+      "area": "Backend",
+      "details": "Transfer search was pairing outbound and inbound legs of the same route via shared stops. Added: if leg2['route'] == leg1['route']: continue in _find_with_transfer."
+    },
+    {
+      "id": "s20-already-direct-filter",
+      "title": "Session 20: Fix useless transfers when direct route already covers destination",
+      "status": "completed",
+      "area": "Backend",
+      "details": "Transfer search generated Route 5 → Route 10 options even when Route 5 already served the destination downstream. Added already_direct SQL subquery: if leg1 trip has destination stop after current sequence, skip as transfer candidate."
+    },
+    {
+      "id": "s20-enrich-realtime-fix",
+      "title": "Session 20: Fix _enrich_realtime silently dead since day 1",
+      "status": "completed",
+      "area": "Backend",
+      "details": "Two bugs: (1) get_predictions called with wrong keyword arg prmstpid= instead of positional stop_id. (2) Response dict was iterated as keys instead of using .get('prd'). Both fixed — real-time predictions now actually applied to first leg departure times."
+    },
+    {
+      "id": "s20-connection-leaks",
+      "title": "Session 20: Fix SQLite connection leaks in trip planner",
+      "status": "completed",
+      "area": "Backend",
+      "details": "conn.close() was not in try/finally blocks in _service_ids_for_date() and find_trips(). On any exception, connections were left open. Fixed with proper try/finally."
+    },
+    {
+      "id": "s20-service-label-date",
+      "title": "Session 20: Fix wrong service banner on future-date trip queries",
+      "status": "completed",
+      "area": "Backend",
+      "details": "get_active_service_label() was called with no argument, always using today's date. For future-date queries (e.g. 'arriving by Saturday 9am'), the banner showed today's service type. Fixed: pass target_date explicitly."
+    },
+    {
+      "id": "s20-find-direct-limit",
+      "title": "Session 20: Raise _find_direct LIMIT from 10 to 30",
+      "status": "completed",
+      "area": "Backend",
+      "details": "On busy routes or wide search windows, LIMIT 10 truncated results before all viable trips were seen. Raised to 30."
+    },
+    {
+      "id": "s20-tzdata-dependency",
+      "title": "Session 20: Add tzdata to requirements.txt",
+      "status": "completed",
+      "area": "Ops",
+      "details": "ZoneInfo('America/New_York') requires either system timezone data or the tzdata PyPI package. Linux containers (e.g. Render) may lack system tzdata. Added tzdata to requirements.txt as explicit dependency."
+    },
+    {
+      "id": "s20-service-aware-stop-finder",
+      "title": "Session 20: CRITICAL — Fix 'No routes found' on all non-Weekday service days",
+      "status": "completed",
+      "area": "Backend",
+      "details": "Root cause: find_nearest_stops() returned any stop present in stop_times regardless of service type. On Reduced_Service days, returned stops were Weekday-only — routing SQL filtered by service_id='Reduced_Service' and found nothing. Fix: service_ids computed first in find_trips(); find_nearest_stops() accepts optional service_ids and JOINs trips table to filter stops by active service. Both 1km and 5km fallback scans use the filter. Impacts every search on Reduced_Service, Saturday, and Sunday."
+    },
+    {
+      "id": "pending-github-secrets",
+      "title": "Add GitHub Secrets for analytics backup action",
+      "status": "next",
+      "area": "Ops",
+      "details": "Add RENDER_BACKEND_URL and DASHBOARD_PIN to GitHub repository secrets so analytics-backup.yml can run."
+    },
+    {
+      "id": "tp-v1.5-12-sort-toggle",
+      "title": "Trip Planner: Sort toggle UI (Best Match / Least Walking / Fewest Transfers)",
+      "status": "pending",
+      "area": "Frontend",
+      "details": "Client-side only — reorders rendered itinerary cards without re-querying backend. Three buttons: Best Match (default score), Least Walking (walk_to+walk_from), Fewest Transfers (transfer count)."
+    },
+    {
+      "id": "tp-pwa",
+      "title": "Phase 7: PWA — manifest.json + service worker",
+      "status": "pending",
+      "area": "Frontend",
+      "details": "manifest.json + sw.js + meta tags enable 'Add to Home Screen' on iOS/Android. Required before App Store wrapper."
     }
-  ]
+  ],
+  "updated_at": "2026-03-20"
 }
