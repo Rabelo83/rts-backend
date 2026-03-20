@@ -51,6 +51,10 @@ function buildFormHTML() {
         <div id="origin-ac" class="ac-dropdown hidden"></div>
       </div>
 
+      <div class="trip-swap-row">
+        <button type="button" class="trip-swap-btn" onclick="swapFields()" title="Swap origin and destination">⇅</button>
+      </div>
+
       <div class="trip-field">
         <label for="dest-input">To</label>
         <input id="dest-input" class="trip-input" type="text"
@@ -74,6 +78,20 @@ function buildFormHTML() {
 
     <div id="trip-results"></div>
   `;
+}
+
+
+/* ── Swap origin ↔ destination ────────────────────────────────────────── */
+
+function swapFields() {
+  const originInput = document.getElementById('origin-input');
+  const destInput   = document.getElementById('dest-input');
+  const tmpVal = originInput.value;
+  originInput.value = destInput.value;
+  destInput.value   = tmpVal;
+  const tmpState = _acState['origin-input'];
+  _acState['origin-input'] = _acState['dest-input'];
+  _acState['dest-input']   = tmpState;
 }
 
 

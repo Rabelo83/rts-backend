@@ -727,6 +727,29 @@
       position: relative;
     }
 
+    .trip-swap-row {
+      display: flex;
+      justify-content: flex-end;
+      margin: -4px 0;
+    }
+
+    .trip-swap-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+      padding: 4px 10px;
+      transition: background .15s, color .15s;
+    }
+
+    .trip-swap-btn:hover {
+      background: rgba(255,255,255,0.12);
+      color: var(--text);
+    }
+
     .trip-field label {
       display: block;
       font-size: 0.70rem;

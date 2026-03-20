@@ -671,13 +671,13 @@ def _dedup_and_rank(itineraries: list[dict]) -> list[dict]:
 
     seen: dict[tuple, dict] = {}
     for itin in itineraries:
-        bus_legs  = [l for l in itin["legs"] if l["type"] == "bus"]
-        xfer_legs = [l for l in itin["legs"] if l["type"] == "transfer"]
-        r1   = bus_legs[0]["route"] if bus_legs else ""
-        r2   = bus_legs[1]["route"] if len(bus_legs) > 1 else ""
-        xfer = xfer_legs[0].get("at_stop_name", "") if xfer_legs else ""
+        bus_legs = [l for l in itin["legs"] if l["type"] == "bus"]
+        r1 = bus_legs[0]["route"] if bus_legs else ""
+        r2 = bus_legs[1]["route"] if len(bus_legs) > 1 else ""
         dep_bucket = (bus_legs[0].get("depart_min", 0) if bus_legs else 0) // 30
-        key = (r1, xfer, r2, dep_bucket)
+        # Key on route sequence only — different transfer stops for the same
+        # route combo in the same time window are dominated variants; keep best score.
+        key = (r1, r2, dep_bucket)
         if key not in seen or itin["score"] < seen[key]["score"]:
             seen[key] = itin
 
