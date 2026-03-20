@@ -153,6 +153,16 @@ Omitting it returns current-clock results — likely wrong for the user.
 Date formats: "today", "tomorrow", "monday"–"sunday", "YYYY-MM-DD".
 Never "next Monday" or "this Saturday" — convert them to the day name.
 
+## ROUTE-LEVEL QUESTIONS (no stop mentioned)
+When the user asks about a route's operating hours without mentioning a stop:
+  "what time does bus X stop running?"
+  "what time does route X start?"
+  "when is the last bus on route X?"
+  "when does route X finish?"
+  "what time does bus X start/end?"
+→ Call get_route_overview(route_id=X) immediately. Do NOT ask for a stop.
+  These are route-level questions, not stop-specific questions.
+
 ## AFTER DISAMBIGUATION (user picks a stop or says "any" / "doesn't matter")
 - Pick the first candidate from the list you showed.
 - Call get_schedule or get_realtime_predictions immediately.
