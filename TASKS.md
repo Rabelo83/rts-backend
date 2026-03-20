@@ -284,7 +284,8 @@ Inspired by the current RTS trip planner UI (observed 2026-03-20):
 - [ ] `tp-v2-2` **"Arrive By" mode** — reverse-plan from destination arrival time; requires routing backwards through GTFS
 - [ ] `tp-v2-3` **Sort options** — "Best Route" (default) / "Fewer Transfers" / "Less Walking" toggle buttons; reorder results client-side
 - [ ] `tp-v2-4` **Deduplicate itineraries** — filter near-duplicate results (same route pair, different stop IDs); key by `(route1, transfer_stop_name, route2)`
-- [ ] `tp-v2-5` **PWA — Progressive Web App** — add `manifest.json` + service worker + meta tags so users can "Add to Home Screen" on iOS/Android. Behaves like a native app, no App Store needed. ~half session effort once web version is stable.
+- [ ] `tp-v2-5` **Reduced Service notice** — when `_service_ids_for_date()` resolves to a non-Weekday service type, show a banner in trip results: "Note: RTS is currently on Reduced Service — fewer trips may be available." Backend already knows this; just surface it in the response payload and render it in the UI.
+- [ ] `tp-v2-6` **PWA — Progressive Web App** — add `manifest.json` + service worker + meta tags so users can "Add to Home Screen" on iOS/Android. Behaves like a native app, no App Store needed. ~half session effort once web version is stable.
 
 **Long-term — App Store:**
 - Wrap PWA with Capacitor (preferred) or Expo Web for native iOS/Android packaging
