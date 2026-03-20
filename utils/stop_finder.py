@@ -84,10 +84,12 @@ def ensure_stops_db() -> None:
 
 
 def find_nearest_stops(lat: float, lon: float,
-                       radius_m: int = 500, limit: int = 5) -> list[dict]:
+                       radius_m: int = 500, limit: int = 5,
+                       service_ids: list[str] | None = None) -> list[dict]:
     """
     Return nearest active stops within radius_m, sorted by walking distance.
-    Active = appears in GTFS stop_times. Enriched with geojson data if available.
+    Active = appears in GTFS stop_times for the given service_ids (if provided).
+    Enriched with geojson data if available.
     """
     _load_geo_extra()
 
@@ -96,21 +98,39 @@ def find_nearest_stops(lat: float, lon: float,
     dlon = radius_m * deg / max(math.cos(math.radians(lat)), 0.001)
 
     c = _conn()
-    # Only return stops that actually appear in stop_times (active stops)
-    rows = c.execute("""
-        SELECT DISTINCT CAST(s.stop_id AS INTEGER) AS stop_id,
-               s.stop_name,
-               CAST(s.stop_lat AS REAL) AS lat,
-               CAST(s.stop_lon AS REAL) AS lon
-        FROM   stops s
-        WHERE  CAST(s.stop_lat AS REAL) BETWEEN ? AND ?
-          AND  CAST(s.stop_lon AS REAL) BETWEEN ? AND ?
-          AND  EXISTS (
-              SELECT 1 FROM stop_times st
-              WHERE CAST(st.stop_id AS INTEGER) = CAST(s.stop_id AS INTEGER)
-              LIMIT 1
-          )
-    """, (lat - dlat, lat + dlat, lon - dlon, lon + dlon)).fetchall()
+    if service_ids:
+        s_ph = ",".join("?" * len(service_ids))
+        rows = c.execute(f"""
+            SELECT DISTINCT CAST(s.stop_id AS INTEGER) AS stop_id,
+                   s.stop_name,
+                   CAST(s.stop_lat AS REAL) AS lat,
+                   CAST(s.stop_lon AS REAL) AS lon
+            FROM   stops s
+            WHERE  CAST(s.stop_lat AS REAL) BETWEEN ? AND ?
+              AND  CAST(s.stop_lon AS REAL) BETWEEN ? AND ?
+              AND  EXISTS (
+                  SELECT 1 FROM stop_times st
+                  JOIN trips t ON t.trip_id = st.trip_id
+                  WHERE CAST(st.stop_id AS INTEGER) = CAST(s.stop_id AS INTEGER)
+                    AND t.service_id IN ({s_ph})
+                  LIMIT 1
+              )
+        """, (lat - dlat, lat + dlat, lon - dlon, lon + dlon, *service_ids)).fetchall()
+    else:
+        rows = c.execute("""
+            SELECT DISTINCT CAST(s.stop_id AS INTEGER) AS stop_id,
+                   s.stop_name,
+                   CAST(s.stop_lat AS REAL) AS lat,
+                   CAST(s.stop_lon AS REAL) AS lon
+            FROM   stops s
+            WHERE  CAST(s.stop_lat AS REAL) BETWEEN ? AND ?
+              AND  CAST(s.stop_lon AS REAL) BETWEEN ? AND ?
+              AND  EXISTS (
+                  SELECT 1 FROM stop_times st
+                  WHERE CAST(st.stop_id AS INTEGER) = CAST(s.stop_id AS INTEGER)
+                  LIMIT 1
+              )
+        """, (lat - dlat, lat + dlat, lon - dlon, lon + dlon)).fetchall()
     c.close()
 
     results = []

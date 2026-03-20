@@ -734,27 +734,9 @@ def find_trips(origin_lat: float, origin_lon: float,
     else:
         target_min = _now_min()
 
-    origin_stops = find_nearest_stops(origin_lat, origin_lon, radius_m=_MAX_WALK_M, limit=4)
-    if not origin_stops:
-        # Fallback: find the single nearest stop regardless of distance
-        origin_stops = find_nearest_stops(origin_lat, origin_lon, radius_m=5000, limit=1)
-    dest_stops   = find_nearest_stops(dest_lat,   dest_lon,   radius_m=_MAX_WALK_M, limit=4)
-    if not dest_stops:
-        # Fallback: find the single nearest stop regardless of distance
-        dest_stops = find_nearest_stops(dest_lat, dest_lon, radius_m=5000, limit=1)
-
-    if not origin_stops:
-        return {"itineraries": [], "origin_stops": [], "dest_stops": dest_stops,
-                "service_label": None, "mode": mode,
-                "error": "No bus stops found near your starting point."}
-    if not dest_stops:
-        return {"itineraries": [], "origin_stops": origin_stops, "dest_stops": [],
-                "service_label": None, "mode": mode,
-                "error": "No bus stops found near your destination."}
-
     service_ids = _service_ids_for_date(target_date)
     if not service_ids:
-        return {"itineraries": [], "origin_stops": origin_stops, "dest_stops": dest_stops,
+        return {"itineraries": [], "origin_stops": [], "dest_stops": [],
                 "service_label": None, "mode": mode,
                 "error": "No service available on that date."}
 
@@ -764,6 +746,28 @@ def find_trips(origin_lat: float, origin_lon: float,
         service_label = get_active_service_label(target_date)
     except Exception:
         service_label = None
+
+    # Find stops served by today's active service_ids (avoids returning stops
+    # that only exist on Weekday when today is Reduced_Service, or vice versa)
+    origin_stops = find_nearest_stops(origin_lat, origin_lon, radius_m=_MAX_WALK_M, limit=4,
+                                      service_ids=service_ids)
+    if not origin_stops:
+        origin_stops = find_nearest_stops(origin_lat, origin_lon, radius_m=5000, limit=1,
+                                          service_ids=service_ids)
+    dest_stops = find_nearest_stops(dest_lat, dest_lon, radius_m=_MAX_WALK_M, limit=4,
+                                    service_ids=service_ids)
+    if not dest_stops:
+        dest_stops = find_nearest_stops(dest_lat, dest_lon, radius_m=5000, limit=1,
+                                        service_ids=service_ids)
+
+    if not origin_stops:
+        return {"itineraries": [], "origin_stops": [], "dest_stops": dest_stops or [],
+                "service_label": service_label, "mode": mode,
+                "error": "No bus stops with service found near your starting point."}
+    if not dest_stops:
+        return {"itineraries": [], "origin_stops": origin_stops, "dest_stops": [],
+                "service_label": service_label, "mode": mode,
+                "error": "No bus stops with service found near your destination."}
 
     origin_ids = [s["stop_id"] for s in origin_stops]
     dest_ids   = [s["stop_id"] for s in dest_stops]
