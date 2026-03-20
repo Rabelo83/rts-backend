@@ -783,7 +783,17 @@ def find_trips(origin_lat: float, origin_lon: float,
     if not all_trips:
         return {"itineraries": [], "origin_stops": origin_stops, "dest_stops": dest_stops,
                 "service_label": service_label, "mode": mode,
-                "error": "No routes found between these locations at that time."}
+                "error": "No routes found between these locations at that time.",
+                "_debug": {
+                    "target_min": target_min,
+                    "target_time": _min_to_hhmm(target_min),
+                    "target_date": str(target_date),
+                    "service_ids": service_ids,
+                    "origin_stop_ids": origin_ids,
+                    "dest_stop_ids": dest_ids,
+                    "window_end_min": target_min + _SEARCH_WINDOW_MIN,
+                    "window_end_time": _min_to_hhmm(target_min + _SEARCH_WINDOW_MIN),
+                }}
 
     all_trips = _enrich_realtime(all_trips, origin_ids)
     all_trips = _add_walk_legs(all_trips, origin_lat, origin_lon, dest_lat, dest_lon)
