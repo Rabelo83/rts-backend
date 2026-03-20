@@ -84,6 +84,18 @@ How to use:
 - Notes / Follow-up: Start with tp-1 (load geojson to SQLite) + tp-2 (geocoding abstraction). Bus stop geojson is source of truth for coordinates — supersedes GTFS stops.txt for stop location data.
 
 ### 2026-03-20
+- Type: `feature, fix`
+- Summary: Phase 6 agent tools — all implemented and pushed to main.
+  1. `get_vehicle_location(route_id)` — lists active buses on a route with next-stop name + ETA; capped at 4, sorted soonest first. Uses BusTime `getvehicles` + `getpredictions?vid=X` per vehicle.
+  2. `plan_trip(origin, destination)` — natural language trip planning in chat. Geocodes both addresses via Google API, calls `find_trips()`, formats top itineraries conversationally. Agent asks for clarification if either address is ambiguous.
+  3. `get_route_vehicle_count(route_id, date?)` — GTFS-based deployment windows: how many buses are simultaneously active at any time. Uses +1/-1 event model on trip start/end times; 5-min gap merging for turnaround smoothing. Returns current count, peak count, and named windows.
+  4. BUSINESS/POI QUERIES rule — agent no longer guesses business locations from training data. Asks for road/area + origin, then calls `plan_trip` with Google Geocoding to resolve the real coordinates.
+  5. `tp-fix-2` — Added 5km fallback stop scan in `trip_planner.py` for addresses where Google geocoding on Render places coordinates just outside the 1km radius (e.g. NW 34th St, SE 13th Rd).
+  6. ROUTE-LEVEL QUESTIONS rule — "what time does bus X stop running?" calls `get_route_overview` immediately; no stop disambiguation asked.
+- Files/Areas: `routes/agent_tools.py`, `routes/agent_claude.py`, `utils/trip_planner.py`
+- Notes / Follow-up: All 6 items pushed to main (ac68334 + earlier commits). Verify on Render after deploy.
+
+### 2026-03-20
 - Type: `fix, feature`
 - Summary: New Claude Haiku baseline 21/36 = 58% (up from 47%). Ollama comparison: qwen3:8b scored 12/36 = 33% — too slow (15–100s/query), drops Spanish, hallucinates GTFS data, invents tool parameters. Claude Haiku stays as default. Added `--ollama` flag to run_and_judge.py for free local dev runs. Fixed agent_gpt_v3 model env var fallback. Added REAL-TIME FIRST RULE to system prompt — agent now prefers get_realtime_predictions over get_schedule for route+stop queries. Added "Useful?" label before 👍/👎 rating buttons. Identified 15 remaining failures grouped by fix category.
 - Files/Areas: `routes/agent_claude.py`, `tests/run_and_judge.py`, `routes/agent_gpt_v3.py`, `public_html/chat_v2.js`, `public_html/chat.html`

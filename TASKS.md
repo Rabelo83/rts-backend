@@ -1,6 +1,6 @@
 # RTS Project Task Tracker
 
-Last updated: 2026-03-19
+Last updated: 2026-03-20
 
 This file is a project task tracker for the RTS backend/web assistant project. It captures:
 - what has already been completed to reach the current state
@@ -312,14 +312,16 @@ Current sort is by `total_min` only. Replace with weighted penalty score (lower 
 
 #### 5e — Bug Fixes (2026-03-20)
 - [x] `tp-fix-1` **Suburban address "No bus stops found"** — Increased `_MAX_WALK_M` from 500m to 1000m (~0.6 mi). Gainesville suburban areas (e.g. SW 96th St) have stops spaced further apart than the original radius allowed. Walk time is still displayed accurately in the itinerary card. (`utils/trip_planner.py`)
+- [x] `tp-fix-2` **Render geocoding offset "No bus stops found"** — Added 5km fallback scan when 1000m returns zero stops. Google geocoding on Render places some addresses slightly differently than Nominatim locally, pushing origin/dest coordinates just outside the 1km radius. Fallback limits to 1 nearest stop to keep routing conservative. (`utils/trip_planner.py`)
+- [x] `agent-fix-1` **"What time does bus X stop running?" unnecessary disambiguation** — Added `## ROUTE-LEVEL QUESTIONS` rule to `agent_claude.py` system prompt: route operating hour queries go directly to `get_route_overview`, no stop clarification asked. (`routes/agent_claude.py`)
 
 ### Phase 6 — Agent Chat Tools (2026-03-20)
 Two new tools wired into the Claude agent so the chat can answer location and trip questions directly.
 
 #### 6a — Vehicle Location Tool
-- [ ] `agent-vl-1` Add `get_vehicle_location(route_id)` tool to `agent_tools.py` — calls `/api/vehicles` + `/api/predictions` for each vehicle; returns all active buses on the route with next stop name + minutes away
-- [ ] `agent-vl-2` Cap response at 4 vehicles sorted by next-stop ETA (soonest first); if 0 vehicles found return "no buses currently active on this route"
-- [ ] `agent-vl-3` Wire into `agent_claude.py` tool list + system prompt rule: *"For 'where is bus X' queries → call get_vehicle_location"*
+- [x] `agent-vl-1` Add `get_vehicle_location(route_id)` tool to `agent_tools.py` — calls `/api/vehicles` + `/api/predictions` for each vehicle; returns all active buses on the route with next stop name + minutes away
+- [x] `agent-vl-2` Cap response at 4 vehicles sorted by next-stop ETA (soonest first); if 0 vehicles found return "no buses currently active on this route"
+- [x] `agent-vl-3` Wire into `agent_claude.py` tool list + system prompt rule: *"For 'where is bus X' queries → call get_vehicle_location"*
 
 **Response format:**
 > Route 8 — 3 buses running:
@@ -333,13 +335,13 @@ Two new tools wired into the Claude agent so the chat can answer location and tr
 - [x] `agent-tp-3` Wire into `agent_claude.py` tool list + system prompt rule: *"For trip planning queries → call plan_trip with origin and destination as the user described them"*
 
 #### 6c — Vehicle Deployment Count Tool
-- [ ] `agent-vd-1` Add `get_route_vehicle_count(route_id, date?)` tool to `agent_tools.py` — queries GTFS trips + stop_times to calculate how many buses are simultaneously active at any point in the day; returns current count, peak count, and daily windows (e.g. "2 buses 7:30 AM – 11:25 AM")
-- [ ] `agent-vd-2` Wire into `agent_claude.py` + prompt rule: *"For 'how many buses on route X' or 'when will there be 2 buses' → call get_route_vehicle_count"*
+- [x] `agent-vd-1` Add `get_route_vehicle_count(route_id, date?)` tool to `agent_tools.py` — queries GTFS trips + stop_times to calculate how many buses are simultaneously active at any point in the day; returns current count, peak count, and daily windows (e.g. "2 buses 7:30 AM – 11:25 AM")
+- [x] `agent-vd-2` Wire into `agent_claude.py` + prompt rule: *"For 'how many buses on route X' or 'when will there be 2 buses' → call get_route_vehicle_count"*
 
 **Background:** Exercise across Routes 5, 8, 15, 37, 43, 75 confirmed the GTFS schedule reliably shows vehicle deployment windows. Customers ask this frequently. Key findings: Route 37 peaks at 4 buses (weekdays), Route 75 at 3, all others at 2. Sat/Sun almost always 1 bus. Vehicle count ≠ frequency (opposite-direction buses count separately) but IS useful for ops awareness.
 
 #### 6d — POI / Business Query Fix
-- [ ] `agent-poi-1` Add BUSINESS/POI QUERIES prompt rule to `agent_claude.py`: when user asks about a business by name, do NOT guess locations from training data — ask for the road/area + origin, then call `plan_trip` directly. Google Geocoding resolves "McDonald's Newberry Road" to real coordinates.
+- [x] `agent-poi-1` Add BUSINESS/POI QUERIES prompt rule to `agent_claude.py`: when user asks about a business by name, do NOT guess locations from training data — ask for the road/area + origin, then call `plan_trip` directly. Google Geocoding resolves "McDonald's Newberry Road" to real coordinates.
 
 **Root cause:** Agent hallucinated 3 McDonald's locations from training knowledge, violating GROUND TRUTH RULE. Then failed on Newberry Rd follow-up. Fix: engage conversationally → get enough specificity → delegate to plan_trip + geocoding.
 

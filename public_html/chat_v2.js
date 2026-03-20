@@ -1399,6 +1399,7 @@ async function sendAgentMessage(message) {
     // Rating buttons — only for real agent responses, not greetings or session messages
     if (finalData && !isGreetingMessage(finalAnswer) && !isSessionMessage(finalAnswer)) {
       addRatingButtons(botBubble, AppState.chatHistory.length - 1, message, finalAnswer);
+      scrollDown(); // re-scroll after rating row is appended
     }
 
   } catch (error) {
