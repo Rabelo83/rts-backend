@@ -5,7 +5,11 @@ Trip Planner API endpoints.
 GET  /api/geocode/autocomplete?q=...          → address suggestions
 POST /api/trip/plan                           → trip itineraries
 """
-from datetime import date, datetime
+import os
+import sqlite3
+import time
+from datetime import date, datetime, timezone
+from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
@@ -13,6 +17,45 @@ from utils.geocoding import autocomplete, geocode
 from utils.trip_planner import find_trips
 
 trip_bp = Blueprint("trip_api", __name__)
+
+_DATA_DIR     = Path(os.environ.get("DATA_DIR", str(Path(__file__).resolve().parents[1] / "data")))
+_ANALYTICS_DB = _DATA_DIR / "analytics.sqlite"
+
+
+def _log_trip_plan(origin_lat, origin_lon, dest_lat, dest_lon, success: bool, itinerary_count: int, duration_ms: int):
+    """Log a trip plan request to analytics.sqlite — fails silently."""
+    if not _ANALYTICS_DB.exists():
+        return
+    try:
+        conn = sqlite3.connect(_ANALYTICS_DB)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS trip_plans (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts_utc           TEXT,
+                origin_lat       REAL,
+                origin_lon       REAL,
+                dest_lat         REAL,
+                dest_lon         REAL,
+                success          INTEGER,
+                itinerary_count  INTEGER,
+                duration_ms      INTEGER
+            )
+        """)
+        conn.execute("""
+            INSERT INTO trip_plans
+                (ts_utc, origin_lat, origin_lon, dest_lat, dest_lon, success, itinerary_count, duration_ms)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            datetime.now(timezone.utc).isoformat(),
+            origin_lat, origin_lon, dest_lat, dest_lon,
+            1 if success else 0,
+            itinerary_count,
+            duration_ms,
+        ))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
 
 
 @trip_bp.route("/api/geocode/autocomplete")
@@ -62,11 +105,21 @@ def plan_trip():
         except Exception:
             pass
 
+    t0 = time.monotonic()
     result = find_trips(
         float(origin_lat), float(origin_lon),
         float(dest_lat), float(dest_lon),
         depart_after=depart_after,
         arrive_by=arrive_by,
         target_date=target_date,
+    )
+    duration_ms = int((time.monotonic() - t0) * 1000)
+    itineraries = result.get("itineraries") or []
+    _log_trip_plan(
+        float(origin_lat), float(origin_lon),
+        float(dest_lat), float(dest_lon),
+        success=len(itineraries) > 0,
+        itinerary_count=len(itineraries),
+        duration_ms=duration_ms,
     )
     return jsonify(result)

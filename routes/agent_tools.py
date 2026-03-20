@@ -237,6 +237,8 @@ TOOLS: list[dict] = [
                 "Get the scheduled number of buses simultaneously active on a route "
                 "throughout the day, based on the GTFS timetable. "
                 "Use this when the user asks 'how many buses are on route X right now', "
+                "'how many route X are running', 'how many buses does route X have', "
+                "'how many route X buses are there', "
                 "'when will there be 2 buses on route X', "
                 "'how many buses does route X run at peak', or "
                 "'is there more than one bus on route X'. "
@@ -270,8 +272,10 @@ TOOLS: list[dict] = [
             "description": (
                 "Get the real-time location of all active buses on a route. "
                 "Use this when the user asks 'where is bus X', 'where is route X right now', "
-                "'is the bus near me', or 'how far is the bus'. "
-                "Returns all active vehicles with their next stop name and minutes until arrival."
+                "'is the bus near me', 'how far is the bus', "
+                "'how many buses are running on route X', 'how many route X are running', "
+                "'is route X running now', or any question about the number or count of active vehicles. "
+                "Returns vehicle count plus each active vehicle's next stop and minutes until arrival."
             ),
             "parameters": {
                 "type": "object",

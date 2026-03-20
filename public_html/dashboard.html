@@ -73,7 +73,7 @@
     /* ── live metrics strip ───────────────────────────────────── */
     .metrics-strip {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
       gap: 10px;
       margin-bottom: 14px;
     }
@@ -436,11 +436,9 @@
       .layout { grid-template-columns: 1fr; }
       .stats  { grid-template-columns: repeat(3, 1fr); }
       .hero   { flex-direction: column; gap: 18px; padding: 24px; }
-      .metrics-strip { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 540px) {
       .stats { grid-template-columns: repeat(2, 1fr); }
-      .metrics-strip { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
@@ -500,6 +498,20 @@
       <div class="metric-body">
         <div class="metric-value" id="mSatisfaction">–</div>
         <div class="metric-label">User Satisfaction</div>
+      </div>
+    </div>
+    <div class="metric-card m-blue" id="mTripsCard" style="display:none">
+      <div class="metric-icon">🗺️</div>
+      <div class="metric-body">
+        <div class="metric-value" id="mTripsToday">–</div>
+        <div class="metric-label">Trips Planned Today</div>
+      </div>
+    </div>
+    <div class="metric-card m-green" id="mTripSuccessCard" style="display:none">
+      <div class="metric-icon">🚌</div>
+      <div class="metric-body">
+        <div class="metric-value" id="mTripSuccess">–</div>
+        <div class="metric-label">Trip Success Rate</div>
       </div>
     </div>
   </div>
@@ -907,6 +919,12 @@
       if (m.satisfaction_pct != null) {
         $("mSatisfaction").textContent   = m.satisfaction_pct + "%";
         $("mSatisfactionCard").style.display = "";
+      }
+      if (m.trips_week > 0 || m.trips_today > 0) {
+        animateCount($("mTripsToday"), m.trips_today || 0);
+        $("mTripsCard").style.display = "";
+        $("mTripSuccess").textContent = (m.trip_success_rate || 0) + "%";
+        $("mTripSuccessCard").style.display = "";
       }
       renderHealth(m.health || {});
       renderActivity(m.recent_log || []);

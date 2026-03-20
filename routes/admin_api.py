@@ -76,6 +76,41 @@ def _ensure_feedback_table(conn) -> bool:
         return False
 
 
+def _get_trip_stats(conn, today_start: str, week_start: str) -> dict:
+    """Return trip planner stats from trip_plans table."""
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS trip_plans (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts_utc           TEXT,
+                origin_lat       REAL,
+                origin_lon       REAL,
+                dest_lat         REAL,
+                dest_lon         REAL,
+                success          INTEGER,
+                itinerary_count  INTEGER,
+                duration_ms      INTEGER
+            )
+        """)
+        row = conn.execute("""
+            SELECT
+                SUM(CASE WHEN ts_utc >= ? THEN 1 ELSE 0 END)           AS today,
+                COUNT(*)                                                 AS week,
+                AVG(CASE WHEN success = 1 THEN 100.0 ELSE 0.0 END)     AS success_pct
+            FROM trip_plans
+            WHERE ts_utc >= ?
+        """, (today_start, week_start)).fetchone()
+        if row:
+            return {
+                "trips_today":       int(row[0] or 0),
+                "trips_week":        int(row[1] or 0),
+                "trip_success_rate": round(float(row[2] or 0), 1),
+            }
+    except Exception:
+        pass
+    return {"trips_today": 0, "trips_week": 0, "trip_success_rate": 0.0}
+
+
 def _get_satisfaction(conn, week_start: str) -> float | None:
     """Return 7-day satisfaction % from feedback table, or None if no data."""
     try:
@@ -121,6 +156,7 @@ def dashboard_metrics():
     success_rate = 0.0
     avg_response_ms = 0
     satisfaction_pct = None
+    trip_stats: dict = {}
 
     conn = _analytics_conn()
     if conn:
@@ -147,6 +183,7 @@ def dashboard_metrics():
 
             _ensure_feedback_table(conn)
             satisfaction_pct = _get_satisfaction(conn, week_start)
+            trip_stats = _get_trip_stats(conn, today_start, week_start)
         except Exception:
             pass
         finally:
@@ -182,6 +219,9 @@ def dashboard_metrics():
         "success_rate": success_rate,
         "avg_response_ms": avg_response_ms,
         "satisfaction_pct": satisfaction_pct,
+        "trips_today": trip_stats.get("trips_today", 0),
+        "trips_week": trip_stats.get("trips_week", 0),
+        "trip_success_rate": trip_stats.get("trip_success_rate", 0.0),
         "active_sessions": sess.get("active_sessions", 0),
         "health": {
             "claude_api": claude_ok,
