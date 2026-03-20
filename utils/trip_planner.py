@@ -108,7 +108,7 @@ def _find_direct(conn, origin_ids: list[int], dest_ids: list[int],
                st2.arrival_time    AS arrive
         FROM   stop_times st1
         JOIN   stop_times st2 ON  st2.trip_id = st1.trip_id
-                               AND st2.stop_sequence > st1.stop_sequence
+                               AND CAST(st2.stop_sequence AS INTEGER) > CAST(st1.stop_sequence AS INTEGER)
         JOIN   trips  t ON t.trip_id   = st1.trip_id
         JOIN   routes r ON r.route_id  = t.route_id
         WHERE  CAST(st1.stop_id AS INTEGER) IN ({o_ph})
@@ -196,8 +196,8 @@ def _find_with_transfer(conn, origin_ids: list[int], dest_ids: list[int],
         transfer_stops = conn.execute("""
             SELECT CAST(stop_id AS INTEGER) AS stop_id, arrival_time, stop_sequence
             FROM   stop_times
-            WHERE  trip_id = ? AND stop_sequence > ?
-            ORDER  BY stop_sequence
+            WHERE  trip_id = ? AND CAST(stop_sequence AS INTEGER) > CAST(? AS INTEGER)
+            ORDER  BY CAST(stop_sequence AS INTEGER)
         """, (leg1["trip_id"], leg1["seq"])).fetchall()
 
         for ts in transfer_stops:
@@ -219,7 +219,7 @@ def _find_with_transfer(conn, origin_ids: list[int], dest_ids: list[int],
                        st2.arrival_time   AS arrive
                 FROM   stop_times st1
                 JOIN   stop_times st2 ON  st2.trip_id = st1.trip_id
-                                       AND st2.stop_sequence > st1.stop_sequence
+                                       AND CAST(st2.stop_sequence AS INTEGER) > CAST(st1.stop_sequence AS INTEGER)
                 JOIN   trips  t ON t.trip_id  = st1.trip_id
                 JOIN   routes r ON r.route_id = t.route_id
                 WHERE  CAST(st1.stop_id AS INTEGER) = ?
@@ -410,7 +410,7 @@ def _find_direct_arrive_by(conn, origin_ids: list[int], dest_ids: list[int],
                st2.arrival_time    AS arrive
         FROM   stop_times st1
         JOIN   stop_times st2 ON  st2.trip_id = st1.trip_id
-                               AND st2.stop_sequence > st1.stop_sequence
+                               AND CAST(st2.stop_sequence AS INTEGER) > CAST(st1.stop_sequence AS INTEGER)
         JOIN   trips  t ON t.trip_id   = st1.trip_id
         JOIN   routes r ON r.route_id  = t.route_id
         WHERE  CAST(st1.stop_id AS INTEGER) IN ({o_ph})
@@ -478,7 +478,7 @@ def _find_with_transfer_arrive_by(conn, origin_ids: list[int], dest_ids: list[in
                st1.stop_sequence  AS seq
         FROM   stop_times st1
         JOIN   stop_times st2 ON  st2.trip_id = st1.trip_id
-                               AND st2.stop_sequence > st1.stop_sequence
+                               AND CAST(st2.stop_sequence AS INTEGER) > CAST(st1.stop_sequence AS INTEGER)
         JOIN   trips  t ON t.trip_id  = st1.trip_id
         JOIN   routes r ON r.route_id = t.route_id
         WHERE  CAST(st2.stop_id AS INTEGER) IN ({d_ph})
@@ -514,7 +514,7 @@ def _find_with_transfer_arrive_by(conn, origin_ids: list[int], dest_ids: list[in
                    st2.arrival_time   AS arrive
             FROM   stop_times st1
             JOIN   stop_times st2 ON  st2.trip_id = st1.trip_id
-                                   AND st2.stop_sequence > st1.stop_sequence
+                                   AND CAST(st2.stop_sequence AS INTEGER) > CAST(st1.stop_sequence AS INTEGER)
             JOIN   trips  t ON t.trip_id  = st1.trip_id
             JOIN   routes r ON r.route_id = t.route_id
             WHERE  CAST(st1.stop_id AS INTEGER) IN ({o_ph})
