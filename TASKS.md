@@ -198,7 +198,7 @@ Prioritized by fix effort vs impact:
 
 ### Phase 1 — Geocoding + Stop Resolution (Day 1)
 
-- [ ] `tp-1` Load `bus_stops.geojson` into SQLite at startup → `stops_geo` table (stop_id, name, lat, lon, street, crossroad, direction, status)
+- [x] `tp-1` Load `bus_stops.geojson` into SQLite at startup → `stops_geo` table (superseded: stop_finder now queries rts_gtfs.sqlite directly) (stop_id, name, lat, lon, street, crossroad, direction, status)
 - [ ] `tp-2` Build `utils/geocoding.py` — abstracted geocoder:
   - `GEOCODING_PROVIDER=nominatim` (default) | `google` | `mapbox`
   - `geocode(query, city="Gainesville, FL")` → `{lat, lon, formatted_address}`
@@ -291,23 +291,23 @@ Current sort is by `total_min` only. Replace with weighted penalty score (lower 
 | Same-side transfer | -2 min bonus | No street crossing = less friction |
 | Real-time available | -1 min bonus | Prefer options with live data |
 
-- [ ] `tp-v1.5-1` Add `score` field to each itinerary in `find_trips()` using the formula above
-- [ ] `tp-v1.5-2` Sort by `score` instead of `total_min`; keep `total_min` for display only
-- [ ] `tp-v1.5-3` Deduplicate near-identical results — key by `(route1, transfer_stop_name, route2)`; keep lowest-score variant
+- [x] `tp-v1.5-1` Add `score` field to each itinerary in `find_trips()` using the formula above
+- [x] `tp-v1.5-2` Sort by `score` instead of `total_min`; keep `total_min` for display only
+- [x] `tp-v1.5-3` Deduplicate near-identical results — key by `(route1, transfer_stop_name, route2)`; keep lowest-score variant
 
 #### 5b — Time Modes (Leave Now / Departing At / Arriving At)
-- [ ] `tp-v1.5-4` **UI: time mode selector** — 3-button toggle: "Leave Now" (default) / "Departing At" / "Arriving At"
-- [ ] `tp-v1.5-5` **"Departing At" UI** — show time picker when selected; pass `depart_after` to backend (already supported)
-- [ ] `tp-v1.5-6` **"Arriving At" backend** — reverse routing: work backwards from `arrive_by` time through GTFS. Find trips where `st2.arrival_time <= arrive_by`, walk backwards to find latest valid departure from origin. Add `arrive_by` param to `find_trips()`.
-- [ ] `tp-v1.5-7` **"Arriving At" UI** — show time picker; pass `arrive_by` to backend; results show "latest departure" framing
+- [x] `tp-v1.5-4` **UI: time mode selector** — 3-button toggle: "Leave Now" (default) / "Departing At" / "Arriving At"
+- [x] `tp-v1.5-5` **"Departing At" UI** — date + time pickers side by side; pass `depart_after` + `date` to backend
+- [x] `tp-v1.5-6` **"Arriving At" backend** — reverse routing through GTFS with `st2.arrival_time <= arrive_by`; `arrive_by` param added to `find_trips()`
+- [x] `tp-v1.5-7` **"Arriving At" UI** — date + time pickers; pass `arrive_by` + `date` to backend; results show "arriving by" framing
 
 #### 5c — Distance & Time Display
-- [ ] `tp-v1.5-8` **Walk distance in feet/miles** — convert meters: < 500ft → show feet ("420 ft"), ≥ 500ft → show miles ("0.3 mi"). Replace all meter displays.
-- [ ] `tp-v1.5-9` **ETA badge on first leg** — if first departure is within 45 min, show "in 14 min" alongside the scheduled time. Use real-time data when available (live dot), fall back to static schedule.
-- [ ] `tp-v1.5-10` **Arrival time on each leg** — show both depart + arrive time for every bus leg. Currently shown; verify it's visible and formatted consistently (12h AM/PM).
+- [x] `tp-v1.5-8` **Walk distance in feet/miles** — < 500ft → feet, ≥ 500ft → miles ("0.3 mi")
+- [x] `tp-v1.5-9` **ETA badge on first leg** — "in N min" when < 45 min away; live dot when realtime
+- [x] `tp-v1.5-10` **Arrival time on each leg** — depart → arrive shown on every bus leg (12h AM/PM)
 
 #### 5d — Other v1.5 improvements
-- [ ] `tp-v1.5-11` **Reduced Service notice** — banner in results when active service is not Weekday: "RTS is on Reduced Service — fewer trips available."
+- [x] `tp-v1.5-11` **Reduced Service notice** — amber banner when service_label != Weekday
 - [ ] `tp-v1.5-12` **Sort toggle UI** — "Best Match" / "Least Walking" / "Fewest Transfers" buttons reorder results client-side without re-querying backend
 
 ### Phase 6 — PWA & App Store

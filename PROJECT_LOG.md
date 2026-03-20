@@ -17,6 +17,31 @@ How to use:
 
 ---
 
+### 2026-03-20
+- Type: `feature`
+- Summary: Trip Planner v1.5 — smart ranking, time modes, date picker, architecture refactor.
+  - Backend: composite score ranking (walk×2, +5min/transfer, same-side bonus); deduplication by route signature; Arrive By reverse routing; service_label in response for reduced service banner.
+  - Frontend (v2→v3): Leave Now / Departing At / Arriving At toggle; date + time pickers side by side; ETA badge (<45min); walk distance in ft/mi; reduced service warning banner.
+  - Architecture: `stop_finder.py` rewritten to query `rts_gtfs.sqlite` directly — eliminates `stops_geo.sqlite` and startup build step. Geojson enrichment (same-side/shelters) loaded in-memory if file present, gracefully skipped if not.
+  - `bus_stops.geojson` removed from git — lives locally with GTFS source files, never deployed. Deploys are fast again.
+  - Google Maps API key configured on Render (`GEOCODING_PROVIDER=google`, `GOOGLE_GEOCODING_KEY`), restricted to Render IP + Geocoding API only.
+  - Starter question pills removed from chat UI.
+  - Tab renamed "Plan a Trip".
+- Files/Areas: `utils/trip_planner.py`, `utils/stop_finder.py`, `routes/trip_api.py`, `public_html/trip_planner.js`, `public_html/chat.html`, `public_html/chat_v2.js`
+- Notes / Follow-up: Next GTFS refresh → add geojson enrichment to `build_gtfs_db.py` so street/crossroad/direction/shelters baked into rts_gtfs.sqlite (eliminates geojson dependency entirely).
+
+### 2026-03-20
+- Type: `decision`
+- Summary: Stop geo architecture — merge geojson data into rts_gtfs.sqlite at build time. Modify `build_gtfs_db.py` to read bus_stops.geojson alongside GTFS files, add street/crossroad/direction/shelters columns to stops table. One script, one database, one GTFS refresh step.
+- Files/Areas: `Backend Basics/db/build_gtfs_db.py`, `utils/stop_finder.py`
+- Notes / Follow-up: Do this at next GTFS data refresh.
+
+### 2026-03-20
+- Type: `decision`
+- Summary: PWA first, then App Store. Plan a Trip tab is the foundation for the mobile app. PWA (manifest.json + service worker) enables "Add to Home Screen" on iOS/Android with zero store approval. Capacitor wrapper for App Store submission comes after PWA is validated.
+- Files/Areas: `public_html/` (future manifest.json, sw.js)
+- Notes / Follow-up: Tracked in TASKS.md Phase 6.
+
 ### 2026-03-19
 - Type: `feature`
 - Summary: User ratings (thumbs up/down) — full stack. Backend: `POST /api/feedback` stores rating (1/-1), session_id, message_index, user_message preview, answer_preview in `feedback` table (auto-created in `analytics.sqlite`). `satisfaction_pct` (7-day %) added to `/api/dashboard/metrics`. Frontend: 👍/👎 buttons rendered below every real bot response in chat UI; one-click, prevents double-vote, fails silently. Dashboard: User Satisfaction card shown when data exists. Committed and pushed (9aad939).
