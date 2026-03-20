@@ -64,7 +64,8 @@ function buildFormHTML() {
         <button type="button" class="time-mode-btn" data-mode="depart">Departing At</button>
         <button type="button" class="time-mode-btn" data-mode="arrive">Arriving At</button>
       </div>
-      <div id="time-picker-row" class="hidden">
+      <div id="time-picker-row" class="hidden trip-datetime-row">
+        <input id="trip-date" class="trip-input trip-date-input" type="date" />
         <input id="trip-time" class="trip-input trip-time-input" type="time" />
       </div>
 
@@ -93,6 +94,11 @@ function initTimeModeToggle() {
         const hh = String(now.getHours()).padStart(2, '0');
         const mm = String(now.getMinutes()).padStart(2, '0');
         document.getElementById('trip-time').value = `${hh}:${mm}`;
+        // Default date to today
+        const yyyy = now.getFullYear();
+        const mo = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        document.getElementById('trip-date').value = `${yyyy}-${mo}-${dd}`;
       }
     });
   });
@@ -184,10 +190,12 @@ async function onSubmit(e) {
   if (ds && ds.display === destVal)   { body.dest_lat = ds.lat;   body.dest_lon = ds.lon; }
   else body.dest_address = destVal;
 
-  const mode     = getActiveMode();
-  const timeVal  = (document.getElementById('trip-time') || {}).value || '';
+  const mode    = getActiveMode();
+  const timeVal = (document.getElementById('trip-time') || {}).value || '';
+  const dateVal = (document.getElementById('trip-date') || {}).value || '';
   if (mode === 'depart' && timeVal) body.depart_after = timeVal;
   if (mode === 'arrive' && timeVal) body.arrive_by    = timeVal;
+  if (dateVal) body.date = dateVal;
 
   try {
     const res  = await fetch('/api/trip/plan', {
