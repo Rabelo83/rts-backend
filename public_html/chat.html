@@ -569,6 +569,313 @@
     #chat-send.loading svg { animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg) translateX(0); } }
 
+    /* ── Panel tabs ──────────────────────────────────────────── */
+    .panel-tabs {
+      display: flex;
+      gap: 2px;
+      padding: 10px 14px 0;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      position: relative;
+      z-index: 2;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 6px 14px 8px;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: color .15s, border-color .15s;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover { color: var(--text-dim); }
+
+    .tab-btn.active {
+      color: #60a5fa;
+      border-bottom-color: #3b82f6;
+    }
+
+    /* ── Trip planner panel ───────────────────────────────────── */
+    #trip-panel {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #trip-panel::-webkit-scrollbar { width: 4px; }
+    #trip-panel::-webkit-scrollbar-track { background: transparent; }
+    #trip-panel::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+    }
+
+    .hidden { display: none !important; }
+
+    /* ── Trip form ────────────────────────────────────────────── */
+    .trip-form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .trip-field {
+      position: relative;
+    }
+
+    .trip-field label {
+      display: block;
+      font-size: 0.70rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .trip-input {
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.90rem;
+      padding: 11px 14px;
+      outline: none;
+      transition: border-color .2s, background .2s;
+    }
+
+    .trip-input::placeholder { color: #475569; }
+
+    .trip-input:focus {
+      background: rgba(255,255,255,0.07);
+      border-color: var(--border-focus);
+    }
+
+    .ac-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0; right: 0;
+      background: #0f172a;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      overflow: hidden;
+      z-index: 100;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
+    .ac-item {
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: background .1s;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .ac-item:last-child { border-bottom: none; }
+    .ac-item:hover { background: rgba(59,130,246,0.1); color: #93c5fd; }
+
+    .trip-submit {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+      letter-spacing: 0.01em;
+    }
+
+    .trip-submit:hover { opacity: 0.9; transform: translateY(-1px); }
+    .trip-submit:active { transform: scale(0.98); }
+    .trip-submit:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+    /* ── Itinerary cards ──────────────────────────────────────── */
+    .trip-error {
+      padding: 12px 14px;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.25);
+      border-radius: 12px;
+      color: #fca5a5;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+
+    .trip-results-label {
+      font-size: 0.70rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .itin-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      animation: msg-in 0.25s ease both;
+    }
+
+    .itin-card:hover { border-color: rgba(59,130,246,0.25); }
+
+    .itin-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .itin-badges {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .badge-route {
+      background: rgba(59,130,246,0.2);
+      border: 1px solid rgba(59,130,246,0.35);
+      color: #93c5fd;
+    }
+
+    .badge-realtime {
+      background: rgba(16,185,129,0.15);
+      border: 1px solid rgba(16,185,129,0.3);
+      color: #34d399;
+    }
+
+    .badge-transfer {
+      background: rgba(245,158,11,0.15);
+      border: 1px solid rgba(245,158,11,0.3);
+      color: #fbbf24;
+    }
+
+    .badge-same-side {
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3);
+      color: #a5b4fc;
+    }
+
+    .itin-time {
+      font-size: 0.80rem;
+      font-weight: 600;
+      color: #f8fafc;
+      white-space: nowrap;
+    }
+
+    .itin-time span {
+      color: var(--text-muted);
+      font-weight: 400;
+      font-size: 0.72rem;
+    }
+
+    .itin-legs {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .leg-walk {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .leg-walk svg { opacity: 0.55; flex-shrink: 0; }
+
+    .leg-bus {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+
+    .leg-bus-route {
+      font-size: 0.80rem;
+      font-weight: 700;
+      color: #60a5fa;
+      min-width: 28px;
+    }
+
+    .leg-bus-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .leg-bus-headsign {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .leg-bus-times {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .leg-bus-times .rt-dot {
+      display: inline-block;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #34d399;
+      margin-right: 3px;
+      vertical-align: middle;
+      animation: live-pulse 2s ease-in-out infinite;
+    }
+
+    .leg-transfer {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      padding-left: 4px;
+    }
+
+    .leg-transfer svg { opacity: 0.5; flex-shrink: 0; }
+
+    .shelter-icon { margin-left: 4px; opacity: 0.6; }
+
     /* ── Responsive ──────────────────────────────────────────── */
     @media (max-width: 600px) {
       .chat-main { padding: 10px 8px; }
@@ -577,6 +884,7 @@
       .live-badge { display: none; }
       #chat-messages { padding: 16px 12px 10px; }
       .bubble { font-size: 0.88rem; padding: 10px 13px; max-width: 88%; }
+      #trip-panel { padding: 12px; }
     }
   </style>
 </head>
@@ -617,11 +925,18 @@
   <main class="chat-main">
     <div id="chat-panel" class="open standalone">
 
+      <!-- Panel tabs -->
+      <div class="panel-tabs" role="tablist">
+        <button class="tab-btn active" role="tab" aria-selected="true"  data-tab="chat" onclick="switchTab('chat')">Chat</button>
+        <button class="tab-btn"        role="tab" aria-selected="false" data-tab="trip" onclick="switchTab('trip')">Plan Trip</button>
+      </div>
+
+      <!-- Chat tab content -->
       <div id="chat-messages" aria-live="polite" aria-label="Chat messages"></div>
 
       <div id="starter-questions" class="starter-questions" role="group" aria-label="Quick questions"></div>
 
-      <div class="chat-end-row">
+      <div id="chat-end-row" class="chat-end-row">
         <button id="chat-end" type="button">End session</button>
       </div>
 
@@ -641,9 +956,13 @@
         </button>
       </div>
 
+      <!-- Trip planner tab content -->
+      <div id="trip-panel" class="hidden" role="tabpanel" aria-label="Trip planner"></div>
+
     </div>
   </main>
 
   <script src="/static/chat_v2.js?v=8" defer></script>
+  <script src="/static/trip_planner.js?v=1" defer></script>
 </body>
 </html>

@@ -14,6 +14,7 @@ from routes.agent_api import bp as agent_bp
 from routes.schedule_api import schedule_bp
 from routes.project_status import project_status_bp
 from routes.admin_api import admin_bp
+from routes.trip_api import trip_bp
 
 # If you have web index routes, keep this import.
 try:
@@ -78,6 +79,14 @@ def create_app() -> Flask:
     app.register_blueprint(schedule_bp)
     app.register_blueprint(project_status_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(trip_bp)
+
+    # Pre-load stop geo index
+    try:
+        from utils.stop_finder import ensure_stops_db
+        ensure_stops_db()
+    except Exception:
+        pass
 
     if web_index_bp:
         app.register_blueprint(web_index_bp)

@@ -1,0 +1,455 @@
+"""
+utils/trip_planner.py
+Transit routing engine: direct routes + single transfer, with real-time hybrid.
+
+Algorithm:
+  1. Find stops near origin and destination (stop_finder.py)
+  2. Direct: GTFS stop_times query for trips covering origin→dest on same trip
+  3. Transfer: enumerate routes from origin, find common stops, match routes to dest
+  4. Real-time first: replace first leg departure with BusTime prediction when available
+  5. Rank by total_minutes, prefer same-side transfers, return top 3
+"""
+import math
+from datetime import date, datetime, time, timedelta
+from typing import Optional
+
+from routes.schedule_service import connect_db, get_active_service_label
+from utils.stop_finder import (
+    find_nearest_stops, get_stop_by_id,
+    haversine_m, walk_minutes, same_side_penalty_sec,
+)
+
+_WALK_SPEED_MPS = 1.2
+_MAX_WALK_M = 500          # max walk to/from a stop
+_MAX_TRANSFER_WALK_M = 300  # max walk between transfer stops
+_MAX_RESULTS = 3
+_SEARCH_WINDOW_MIN = 90    # look for departures within this window
+
+
+# ── GTFS time helpers ─────────────────────────────────────────────────────────
+
+def _gtfs_to_min(t: str) -> int:
+    """'HH:MM:SS' (possibly >24h) → minutes since midnight."""
+    h, m, s = (int(x) for x in t.split(":"))
+    return h * 60 + m
+
+
+def _min_to_hhmm(minutes: int) -> str:
+    h = (minutes % (24 * 60)) // 60
+    m = minutes % 60
+    suffix = "AM" if h < 12 else "PM"
+    h12 = h % 12 or 12
+    return f"{h12}:{m:02d} {suffix}"
+
+
+def _now_min() -> int:
+    now = datetime.now()
+    return now.hour * 60 + now.minute
+
+
+# ── Service ID for a date ─────────────────────────────────────────────────────
+
+def _service_ids_for_date(target_date: date) -> list[str]:
+    """Return active service_ids for target_date using GTFS calendar."""
+    conn = connect_db()
+    dow = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"][target_date.weekday()]
+    date_str = target_date.strftime("%Y%m%d")
+    rows = conn.execute(f"""
+        SELECT service_id FROM calendar
+        WHERE {dow} = 1 AND start_date <= ? AND end_date >= ?
+    """, (date_str, date_str)).fetchall()
+    base = {r["service_id"] for r in rows}
+
+    ex = conn.execute(
+        "SELECT service_id, exception_type FROM calendar_dates WHERE date = ?", (date_str,)
+    ).fetchall()
+    for r in ex:
+        if r["exception_type"] == 1:
+            base.add(r["service_id"])
+        else:
+            base.discard(r["service_id"])
+    conn.close()
+    return list(base)
+
+
+# ── Direct route search ───────────────────────────────────────────────────────
+
+def _min_to_gtfs(minutes: int) -> str:
+    """Convert minutes-since-midnight to GTFS 'HH:MM:00' string (supports >24h)."""
+    h = minutes // 60
+    m = minutes % 60
+    return f"{h:02d}:{m:02d}:00"
+
+
+def _find_direct(conn, origin_ids: list[int], dest_ids: list[int],
+                 service_ids: list[str], depart_min: int) -> list[dict]:
+    if not origin_ids or not dest_ids or not service_ids:
+        return []
+
+    o_ph = ",".join("?" * len(origin_ids))
+    d_ph = ",".join("?" * len(dest_ids))
+    s_ph = ",".join("?" * len(service_ids))
+    limit_min = depart_min + _SEARCH_WINDOW_MIN
+    depart_gtfs = _min_to_gtfs(depart_min)
+    limit_gtfs = _min_to_gtfs(limit_min)
+
+    rows = conn.execute(f"""
+        SELECT r.route_short_name  AS route,
+               r.route_long_name   AS route_name,
+               t.trip_headsign     AS headsign,
+               st1.stop_id         AS from_stop_id,
+               st2.stop_id         AS to_stop_id,
+               st1.departure_time  AS depart,
+               st2.arrival_time    AS arrive
+        FROM   stop_times st1
+        JOIN   stop_times st2 ON  st2.trip_id = st1.trip_id
+                               AND st2.stop_sequence > st1.stop_sequence
+        JOIN   trips  t ON t.trip_id   = st1.trip_id
+        JOIN   routes r ON r.route_id  = t.route_id
+        WHERE  CAST(st1.stop_id AS INTEGER) IN ({o_ph})
+          AND  CAST(st2.stop_id AS INTEGER) IN ({d_ph})
+          AND  t.service_id IN ({s_ph})
+          AND  st1.departure_time >= ?
+          AND  st1.departure_time <= ?
+        ORDER  BY st1.departure_time
+        LIMIT  10
+    """, [*origin_ids, *dest_ids, *service_ids, depart_gtfs, limit_gtfs]).fetchall()
+
+    results = []
+    for r in rows:
+        dep = _gtfs_to_min(r["depart"])
+        arr = _gtfs_to_min(r["arrive"])
+        if dep < depart_min or dep > limit_min:
+            continue
+        ride_min = arr - dep if arr >= dep else arr + 1440 - dep
+        results.append({
+            "type": "direct",
+            "legs": [{
+                "type": "bus",
+                "route": r["route"],
+                "route_name": r["route_name"],
+                "headsign": r["headsign"],
+                "from_stop_id": int(r["from_stop_id"]),
+                "to_stop_id": int(r["to_stop_id"]),
+                "depart_min": dep,
+                "arrive_min": arr,
+                "depart": _min_to_hhmm(dep),
+                "arrive": _min_to_hhmm(arr),
+                "ride_min": ride_min,
+            }],
+            "total_min": ride_min,
+            "realtime": False,
+            "same_side": True,
+        })
+    return results
+
+
+# ── Single-transfer search ────────────────────────────────────────────────────
+
+def _find_with_transfer(conn, origin_ids: list[int], dest_ids: list[int],
+                        service_ids: list[str], depart_min: int) -> list[dict]:
+    if not origin_ids or not dest_ids or not service_ids:
+        return []
+
+    o_ph = ",".join("?" * len(origin_ids))
+    d_ph = ",".join("?" * len(dest_ids))
+    s_ph = ",".join("?" * len(service_ids))
+    limit_min = depart_min + _SEARCH_WINDOW_MIN
+
+    depart_gtfs = _min_to_gtfs(depart_min)
+    limit_gtfs = _min_to_gtfs(limit_min)
+
+    # Leg 1: all departures from origin stops within window
+    leg1_rows = conn.execute(f"""
+        SELECT r.route_short_name AS route,
+               r.route_long_name  AS route_name,
+               t.trip_headsign    AS headsign,
+               t.trip_id,
+               st1.stop_id        AS from_stop_id,
+               st1.departure_time AS depart,
+               st1.stop_sequence  AS seq
+        FROM   stop_times st1
+        JOIN   trips  t ON t.trip_id  = st1.trip_id
+        JOIN   routes r ON r.route_id = t.route_id
+        WHERE  CAST(st1.stop_id AS INTEGER) IN ({o_ph})
+          AND  t.service_id IN ({s_ph})
+          AND  st1.departure_time >= ?
+          AND  st1.departure_time <= ?
+        ORDER  BY st1.departure_time
+        LIMIT  20
+    """, [*origin_ids, *service_ids, depart_gtfs, limit_gtfs]).fetchall()
+
+    results = []
+    seen = set()
+
+    for leg1 in leg1_rows:
+        dep1 = _gtfs_to_min(leg1["depart"])
+        if dep1 < depart_min or dep1 > limit_min:
+            continue
+
+        # All subsequent stops on this trip (potential transfer points)
+        transfer_stops = conn.execute("""
+            SELECT CAST(stop_id AS INTEGER) AS stop_id, arrival_time, stop_sequence
+            FROM   stop_times
+            WHERE  trip_id = ? AND stop_sequence > ?
+            ORDER  BY stop_sequence
+        """, (leg1["trip_id"], leg1["seq"])).fetchall()
+
+        for ts in transfer_stops:
+            t_stop_id = ts["stop_id"]
+            arr1_min = _gtfs_to_min(ts["arrival_time"])
+
+            # Check walking distance to a nearby dest stop from this transfer stop
+            t_stop = get_stop_by_id(t_stop_id)
+            if not t_stop:
+                continue
+
+            # Leg 2: routes from transfer stop to destination
+            leg2_rows = conn.execute(f"""
+                SELECT r.route_short_name AS route,
+                       r.route_long_name  AS route_name,
+                       t.trip_headsign    AS headsign,
+                       CAST(st2.stop_id AS INTEGER)  AS to_stop_id,
+                       st1.departure_time AS depart,
+                       st2.arrival_time   AS arrive
+                FROM   stop_times st1
+                JOIN   stop_times st2 ON  st2.trip_id = st1.trip_id
+                                       AND st2.stop_sequence > st1.stop_sequence
+                JOIN   trips  t ON t.trip_id  = st1.trip_id
+                JOIN   routes r ON r.route_id = t.route_id
+                WHERE  CAST(st1.stop_id AS INTEGER) = ?
+                  AND  CAST(st2.stop_id AS INTEGER) IN ({d_ph})
+                  AND  t.service_id IN ({s_ph})
+                  AND  st1.departure_time >= ?
+                ORDER  BY st1.departure_time
+                LIMIT  3
+            """, [t_stop_id, *dest_ids, *service_ids,
+                  ts["arrival_time"]]).fetchall()
+
+            for leg2 in leg2_rows:
+                dep2 = _gtfs_to_min(leg2["depart"])
+                arr2 = _gtfs_to_min(leg2["arrive"])
+                wait_min = dep2 - arr1_min
+                if wait_min < 0:
+                    continue  # missed connection
+                if wait_min > 30:
+                    continue  # too long a wait
+
+                # Same-side penalty
+                crossing_sec = same_side_penalty_sec(t_stop_id, t_stop_id)  # same stop
+                ride1 = arr1_min - dep1
+                ride2 = arr2 - dep2 if arr2 >= dep2 else arr2 + 1440 - dep2
+                total = ride1 + wait_min + ride2
+
+                key = (leg1["route"], leg1["from_stop_id"], leg2["route"], leg2["to_stop_id"], dep1)
+                if key in seen:
+                    continue
+                seen.add(key)
+
+                same_side = crossing_sec == 0
+                results.append({
+                    "type": "transfer",
+                    "legs": [
+                        {
+                            "type": "bus",
+                            "route": leg1["route"],
+                            "route_name": leg1["route_name"],
+                            "headsign": leg1["headsign"],
+                            "from_stop_id": int(leg1["from_stop_id"]),
+                            "to_stop_id": t_stop_id,
+                            "depart_min": dep1,
+                            "arrive_min": arr1_min,
+                            "depart": _min_to_hhmm(dep1),
+                            "arrive": _min_to_hhmm(arr1_min),
+                            "ride_min": ride1,
+                        },
+                        {
+                            "type": "transfer",
+                            "at_stop_id": t_stop_id,
+                            "at_stop_name": t_stop.get("stop_name", ""),
+                            "wait_min": wait_min,
+                            "same_side": same_side,
+                            "has_shelter": (t_stop.get("shelters") or 0) > 0,
+                        },
+                        {
+                            "type": "bus",
+                            "route": leg2["route"],
+                            "route_name": leg2["route_name"],
+                            "headsign": leg2["headsign"],
+                            "from_stop_id": t_stop_id,
+                            "to_stop_id": int(leg2["to_stop_id"]),
+                            "depart_min": dep2,
+                            "arrive_min": arr2,
+                            "depart": _min_to_hhmm(dep2),
+                            "arrive": _min_to_hhmm(arr2),
+                            "ride_min": ride2,
+                        },
+                    ],
+                    "total_min": total,
+                    "realtime": False,
+                    "same_side": same_side,
+                })
+
+    return results
+
+
+# ── Real-time enrichment ──────────────────────────────────────────────────────
+
+def _enrich_realtime(itineraries: list[dict], origin_stop_ids: list[int]) -> list[dict]:
+    """Replace first-leg departure with BusTime real-time prediction if available."""
+    try:
+        import rts_api
+        preds = rts_api.get_predictions(prmstpid=",".join(str(s) for s in origin_stop_ids))
+        if not preds:
+            return itineraries
+        # Build lookup: route → earliest ETA in minutes from now
+        rt_map: dict[str, int] = {}
+        now_min = _now_min()
+        for p in preds:
+            route = str(p.get("rt", ""))
+            prd_time = p.get("prdctdn", "")
+            if prd_time == "DUE":
+                eta = 0
+            else:
+                try:
+                    eta = int(prd_time)
+                except Exception:
+                    continue
+            actual_min = now_min + eta
+            if route not in rt_map or actual_min < rt_map[route]:
+                rt_map[route] = actual_min
+
+        for itin in itineraries:
+            first_bus = next((l for l in itin["legs"] if l["type"] == "bus"), None)
+            if first_bus and first_bus["route"] in rt_map:
+                rt_dep = rt_map[first_bus["route"]]
+                diff = rt_dep - first_bus["depart_min"]
+                first_bus["depart_min"] = rt_dep
+                first_bus["depart"] = _min_to_hhmm(rt_dep)
+                first_bus["realtime"] = True
+                # Shift downstream times by same diff
+                for leg in itin["legs"][1:]:
+                    if leg["type"] == "bus":
+                        leg["depart_min"] = leg.get("depart_min", 0) + diff
+                        leg["arrive_min"] = leg.get("arrive_min", 0) + diff
+                        leg["depart"] = _min_to_hhmm(leg["depart_min"])
+                        leg["arrive"] = _min_to_hhmm(leg["arrive_min"])
+                itin["realtime"] = True
+    except Exception:
+        pass
+    return itineraries
+
+
+# ── Walk legs ─────────────────────────────────────────────────────────────────
+
+def _add_walk_legs(itineraries: list[dict],
+                   origin_lat: float, origin_lon: float,
+                   dest_lat: float, dest_lon: float) -> list[dict]:
+    """Prepend/append walk legs and recalculate total_min."""
+    for itin in itineraries:
+        legs = itin["legs"]
+        bus_legs = [l for l in legs if l["type"] == "bus"]
+        if not bus_legs:
+            continue
+
+        first_stop = get_stop_by_id(bus_legs[0]["from_stop_id"])
+        last_stop = get_stop_by_id(bus_legs[-1]["to_stop_id"])
+
+        walk_to = 0.0
+        walk_from = 0.0
+
+        if first_stop:
+            d = haversine_m(origin_lat, origin_lon, first_stop["lat"], first_stop["lon"])
+            walk_to = walk_minutes(d)
+            itin["walk_to_stop"] = {
+                "stop_name": first_stop["stop_name"],
+                "distance_m": round(d),
+                "walk_min": walk_to,
+            }
+
+        if last_stop:
+            d = haversine_m(dest_lat, dest_lon, last_stop["lat"], last_stop["lon"])
+            walk_from = walk_minutes(d)
+            itin["walk_from_stop"] = {
+                "stop_name": last_stop["stop_name"],
+                "distance_m": round(d),
+                "walk_min": walk_from,
+            }
+
+        itin["total_min"] = round(walk_to + itin["total_min"] + walk_from, 1)
+    return itineraries
+
+
+# ── Main entry point ──────────────────────────────────────────────────────────
+
+def find_trips(origin_lat: float, origin_lon: float,
+               dest_lat: float, dest_lon: float,
+               depart_after: Optional[str] = None,
+               target_date: Optional[date] = None) -> dict:
+    """
+    Find transit options from (origin_lat, origin_lon) to (dest_lat, dest_lon).
+
+    depart_after: "HH:MM" 24h string, defaults to now
+    target_date:  date object, defaults to today
+
+    Returns:
+      {
+        "itineraries": [...],   # up to 3, sorted by total_min
+        "origin_stops": [...],  # resolved stops
+        "dest_stops": [...],    # resolved stops
+        "error": str | None
+      }
+    """
+    if target_date is None:
+        target_date = date.today()
+
+    if depart_after:
+        try:
+            h, m = (int(x) for x in depart_after.split(":")[:2])
+            depart_min = h * 60 + m
+        except Exception:
+            depart_min = _now_min()
+    else:
+        depart_min = _now_min()
+
+    origin_stops = find_nearest_stops(origin_lat, origin_lon, radius_m=_MAX_WALK_M, limit=4)
+    dest_stops = find_nearest_stops(dest_lat, dest_lon, radius_m=_MAX_WALK_M, limit=4)
+
+    if not origin_stops:
+        return {"itineraries": [], "origin_stops": [], "dest_stops": dest_stops,
+                "error": "No bus stops found near your starting point."}
+    if not dest_stops:
+        return {"itineraries": [], "origin_stops": origin_stops, "dest_stops": [],
+                "error": "No bus stops found near your destination."}
+
+    service_ids = _service_ids_for_date(target_date)
+    if not service_ids:
+        return {"itineraries": [], "origin_stops": origin_stops, "dest_stops": dest_stops,
+                "error": "No service available on that date."}
+
+    origin_ids = [s["stop_id"] for s in origin_stops]
+    dest_ids = [s["stop_id"] for s in dest_stops]
+
+    conn = connect_db()
+    direct = _find_direct(conn, origin_ids, dest_ids, service_ids, depart_min)
+    transfers = _find_with_transfer(conn, origin_ids, dest_ids, service_ids, depart_min)
+    conn.close()
+
+    all_trips = direct + transfers
+    if not all_trips:
+        return {"itineraries": [], "origin_stops": origin_stops, "dest_stops": dest_stops,
+                "error": "No routes found between these locations at that time."}
+
+    # Sort: prefer same_side, then total_min
+    all_trips.sort(key=lambda x: (not x["same_side"], x["total_min"]))
+    top = all_trips[:_MAX_RESULTS]
+
+    top = _enrich_realtime(top, origin_ids)
+    top = _add_walk_legs(top, origin_lat, origin_lon, dest_lat, dest_lon)
+
+    return {
+        "itineraries": top,
+        "origin_stops": origin_stops[:2],
+        "dest_stops": dest_stops[:2],
+        "error": None,
+    }
