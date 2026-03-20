@@ -277,6 +277,20 @@ Prioritized by fix effort vs impact:
 
 **To switch from Nominatim to Google later:** set `GEOCODING_PROVIDER=google` + `GOOGLE_GEOCODING_KEY=...` in Render env vars. Zero code changes.
 
+### Phase 5 — Trip Planner v2 (Match RTS existing planner + go beyond)
+Inspired by the current RTS trip planner UI (observed 2026-03-20):
+
+- [ ] `tp-v2-1` **"Depart At" time picker** — add time input to trip form; backend already accepts `depart_after` param, just needs UI
+- [ ] `tp-v2-2` **"Arrive By" mode** — reverse-plan from destination arrival time; requires routing backwards through GTFS
+- [ ] `tp-v2-3` **Sort options** — "Best Route" (default) / "Fewer Transfers" / "Less Walking" toggle buttons; reorder results client-side
+- [ ] `tp-v2-4` **Deduplicate itineraries** — filter near-duplicate results (same route pair, different stop IDs); key by `(route1, transfer_stop_name, route2)`
+- [ ] `tp-v2-5` **PWA — Progressive Web App** — add `manifest.json` + service worker + meta tags so users can "Add to Home Screen" on iOS/Android. Behaves like a native app, no App Store needed. ~half session effort once web version is stable.
+
+**Long-term — App Store:**
+- Wrap PWA with Capacitor (preferred) or Expo Web for native iOS/Android packaging
+- Submit to Apple App Store + Google Play Store
+- PWA first → validate adoption → then native wrapper
+
 ---
 
 ### Level 3 — Adversarial Scenario Generation (Low priority / quarterly)

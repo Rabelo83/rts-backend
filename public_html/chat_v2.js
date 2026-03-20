@@ -573,6 +573,7 @@ function startGreeting() {
 }
 
 function showStarterQuestions() {
+  return; // starter questions removed
   const container = document.getElementById('starter-questions');
   if (!container) return;
   container.innerHTML = '';
