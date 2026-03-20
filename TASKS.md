@@ -318,6 +318,18 @@ Current sort is by `total_min` only. Replace with weighted penalty score (lower 
 - [x] `tp-fix-4` **CRITICAL: stop_sequence TEXT comparison truncating all routes at stop 9** — `stop_sequence` is stored as TEXT in GTFS SQLite. Lexicographic comparison made `'29' > '3'` = FALSE, silently cutting off Rosa Parks (seq 29) and all downstream stops. Fixed all 5 SQL JOINs/WHERE clauses with `CAST(stop_sequence AS INTEGER)`. Cross-city trips (e.g. Archer Rd → NW 34th Blvd) now return results. (`utils/trip_planner.py`)
 - [x] `tp-fix-5` **Only 1 trip option returned** — Dedup key `(r1, xfer, r2)` collapsed same route at different departure times into one result. Fixed: added 30-min departure bucket to key. Also: `_MAX_RESULTS` 3→5, `_SEARCH_WINDOW_MIN` 90→120 min, leg query limits increased. (`utils/trip_planner.py`)
 
+#### 5g — Bug Fixes (2026-03-20 session 3)
+- [x] `tp-fix-10` **CRITICAL: "No routes found" on all non-Weekday service days** — `find_nearest_stops()` returned stops present in any `stop_times` row, ignoring service type. On Reduced_Service days, those stops had zero Reduced_Service trips, so every routing query returned empty. Fix: compute `service_ids` before the stop search; `find_nearest_stops()` now accepts `service_ids` and JOINs `trips` to filter stops by active service type. (`utils/stop_finder.py`, `utils/trip_planner.py`)
+- [x] `tp-fix-11` **`_enrich_realtime` dead since day 1** — wrong keyword arg `prmstpid=` (positional-only); response dict iterated as keys instead of `.get("prd")`. (`utils/trip_planner.py`)
+- [x] `tp-fix-12` **Connection leaks** — `conn.close()` missing from `try/finally` in `_service_ids_for_date` and `find_trips`. (`utils/trip_planner.py`)
+- [x] `tp-fix-13` **Wrong service banner on future-date queries** — `get_active_service_label()` always used today, ignored `target_date`. (`utils/trip_planner.py`)
+- [x] `tp-fix-14` **Same-route useless transfer (Route 37 → Butler Plaza → Route 37)** — added `if leg2["route"] == leg1["route"]: continue`. (`utils/trip_planner.py`)
+- [x] `tp-fix-15` **Useless transfer when direct route already covers destination** — added `already_direct` SQL subquery in `_find_with_transfer`. (`utils/trip_planner.py`)
+- [x] `tp-fix-16` **Earlier departure shown after later one** — `_dedup_and_rank` sorted by score only; now `(depart_min, score)`. (`utils/trip_planner.py`)
+- [x] `agent-fix-2` **Agent ignored 5 tools (vehicle count, location, trip planning, route stops, service diff)** — SYSTEM_PROMPT listed only 5 tools; LLM didn't know the others existed. Rewrote as 10-tool markdown table. (`routes/agent_v2.py`, `routes/agent_tools.py`)
+- [x] `tp-fix-17` **Itinerary cards always expanded** — duplicate CSS `.itin-legs { display: flex }` overrode `.itin-legs { display: none }`. Removed duplicate. (`public_html/chat.html`)
+- [x] `tp-fix-18` **`ZoneInfo` fails on Linux without system tzdata** — added `tzdata` to `requirements.txt`. (`requirements.txt`)
+
 #### 5f — UI Improvements (2026-03-20 session 2)
 - [x] `tp-ui-1` **Feedback buttons hidden below viewport** — `scrollDown()` called before rating row appended. Fixed: second `scrollDown()` after `addRatingButtons()`. (`public_html/chat_v2.js`)
 - [x] `tp-ui-2` **Itinerary timeline stepper redesign** — Replaced flat leg rows with 3-column timeline (time | track | content). Colored dots: blue=board, amber=exit, green=arrive. BOARD/EXIT AT/ARRIVE AT action tags. Solid route number pills. Transfer as amber inset box. (`public_html/chat.html`, `public_html/trip_planner.js`)

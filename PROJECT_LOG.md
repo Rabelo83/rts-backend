@@ -17,6 +17,31 @@ How to use:
 
 ---
 
+### 2026-03-20 (session 3)
+- Type: `fix`
+- Summary: Trip Planner — root cause of all "No routes found" failures on non-Weekday service days found and fixed. Multiple additional trip planner bug fixes from session 2 also documented.
+
+  **Critical fix — service-unaware stop finder:**
+  - **Root cause:** `find_nearest_stops()` returned any stop that appears in `stop_times`, regardless of service type. On Reduced_Service days (e.g. spring break), many stops are only served by Weekday trips. The routing SQL then filtered by `service_id IN ('Reduced_Service')` and found nothing — even though valid routes existed.
+  - **Diagnosis method:** Added `_debug` field to no-routes response (target_time, service_ids, origin/dest stop IDs) — revealed `service_ids: ["Reduced_Service"]` and stops that had no Reduced_Service trips.
+  - **Fix:** `service_ids` is now computed first in `find_trips()` (before the stop search). `find_nearest_stops()` accepts optional `service_ids` and filters the EXISTS clause to only return stops with active trips for today's service type. Both 1km and 5km fallback scans use the filter.
+  - **Impact:** Fixes "No routes found" for all searches on Reduced_Service / Saturday / Sunday days — any day the active service_id differs from Weekday.
+
+  **Supporting fixes (session 2 carry-over):**
+  1. `_enrich_realtime` silently dead since day 1 — wrong keyword arg `prmstpid=` (should be positional `stop_id`); response dict iterated as keys instead of `.get("prd")`. Both fixed.
+  2. Connection leaks — `conn.close()` not in `try/finally` in `_service_ids_for_date` and `find_trips`. Fixed.
+  3. Wrong service banner — `get_active_service_label()` always used today; now passes `target_date`. Fixed.
+  4. Useless same-route transfer (Route 37 → Butler Plaza → Route 37) — added `if leg2["route"] == leg1["route"]: continue`. Fixed.
+  5. Useless transfer when direct route already covers destination — added `already_direct` SQL check in `_find_with_transfer`. Fixed.
+  6. Earlier departure shown last — `_dedup_and_rank` sorted by score only; now sorts by `(depart_min, score)`. Fixed.
+  7. `_find_direct LIMIT 10 → 30` — raised to prevent truncation on busy routes.
+  8. Agent SYSTEM_PROMPT listed only 5 tools out of 10 — LLM never called vehicle count/location or trip planning tools. Rewrote prompt as full 10-tool markdown table. Fixed.
+  9. Itinerary cards never collapsed — duplicate CSS `.itin-legs { display: flex }` at line 997 overrode `.itin-legs { display: none }` at line 843. Removed duplicate. Fixed.
+  10. `tzdata` added to `requirements.txt` — required for `ZoneInfo("America/New_York")` on Linux containers without system timezone data.
+
+- Files/Areas: `utils/trip_planner.py`, `utils/stop_finder.py`, `requirements.txt`, `routes/agent_v2.py`, `routes/agent_tools.py`, `public_html/chat.html`
+- Notes / Follow-up: `_debug` field left in no-routes response for now — useful for ongoing diagnostics. Remove before v1 release.
+
 ### 2026-03-20 (session 2)
 - Type: `fix, feature`
 - Summary: Trip Planner — 5 critical bug fixes + 5 UI improvements deployed.
