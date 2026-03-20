@@ -57,24 +57,26 @@ def _now_min() -> int:
 def _service_ids_for_date(target_date: date) -> list[str]:
     """Return active service_ids for target_date using GTFS calendar."""
     conn = connect_db()
-    dow = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"][target_date.weekday()]
-    date_str = target_date.strftime("%Y%m%d")
-    rows = conn.execute(f"""
-        SELECT service_id FROM calendar
-        WHERE {dow} = 1 AND start_date <= ? AND end_date >= ?
-    """, (date_str, date_str)).fetchall()
-    base = {r["service_id"] for r in rows}
+    try:
+        dow = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"][target_date.weekday()]
+        date_str = target_date.strftime("%Y%m%d")
+        rows = conn.execute(f"""
+            SELECT service_id FROM calendar
+            WHERE {dow} = 1 AND start_date <= ? AND end_date >= ?
+        """, (date_str, date_str)).fetchall()
+        base = {r["service_id"] for r in rows}
 
-    ex = conn.execute(
-        "SELECT service_id, exception_type FROM calendar_dates WHERE date = ?", (date_str,)
-    ).fetchall()
-    for r in ex:
-        if r["exception_type"] == 1:
-            base.add(r["service_id"])
-        else:
-            base.discard(r["service_id"])
-    conn.close()
-    return list(base)
+        ex = conn.execute(
+            "SELECT service_id, exception_type FROM calendar_dates WHERE date = ?", (date_str,)
+        ).fetchall()
+        for r in ex:
+            if r["exception_type"] == 1:
+                base.add(r["service_id"])
+            else:
+                base.discard(r["service_id"])
+        return list(base)
+    finally:
+        conn.close()
 
 
 # ── Direct route search ───────────────────────────────────────────────────────
@@ -117,7 +119,7 @@ def _find_direct(conn, origin_ids: list[int], dest_ids: list[int],
           AND  st1.departure_time >= ?
           AND  st1.departure_time <= ?
         ORDER  BY st1.departure_time
-        LIMIT  10
+        LIMIT  30
     """, [*origin_ids, *dest_ids, *service_ids, depart_gtfs, limit_gtfs]).fetchall()
 
     results = []
@@ -321,10 +323,13 @@ def _enrich_realtime(itineraries: list[dict], origin_stop_ids: list[int]) -> lis
     """Replace first-leg departure with BusTime real-time prediction if available."""
     try:
         import rts_api
-        preds = rts_api.get_predictions(prmstpid=",".join(str(s) for s in origin_stop_ids))
+        # Correct call: positional stop_id arg, comma-separated for multi-stop
+        data = rts_api.get_predictions(",".join(str(s) for s in origin_stop_ids))
+        preds = data.get("prd") or []
         if not preds:
             return itineraries
-        # Build lookup: route → earliest ETA in minutes from now
+
+        # Build lookup: route → earliest predicted departure in minutes-since-midnight
         rt_map: dict[str, int] = {}
         now_min = _now_min()
         for p in preds:
@@ -343,20 +348,25 @@ def _enrich_realtime(itineraries: list[dict], origin_stop_ids: list[int]) -> lis
 
         for itin in itineraries:
             first_bus = next((l for l in itin["legs"] if l["type"] == "bus"), None)
-            if first_bus and first_bus["route"] in rt_map:
-                rt_dep = rt_map[first_bus["route"]]
-                diff = rt_dep - first_bus["depart_min"]
-                first_bus["depart_min"] = rt_dep
-                first_bus["depart"] = _min_to_hhmm(rt_dep)
-                first_bus["realtime"] = True
-                # Shift downstream times by same diff
-                for leg in itin["legs"][1:]:
-                    if leg["type"] == "bus":
-                        leg["depart_min"] = leg.get("depart_min", 0) + diff
-                        leg["arrive_min"] = leg.get("arrive_min", 0) + diff
-                        leg["depart"] = _min_to_hhmm(leg["depart_min"])
-                        leg["arrive"] = _min_to_hhmm(leg["arrive_min"])
-                itin["realtime"] = True
+            if not first_bus or first_bus["route"] not in rt_map:
+                continue
+            rt_dep = rt_map[first_bus["route"]]
+            diff = rt_dep - first_bus["depart_min"]
+            first_bus["depart_min"] = rt_dep
+            first_bus["depart"] = _min_to_hhmm(rt_dep)
+            first_bus["realtime"] = True
+            # Shift all downstream bus times and recalculate transfer wait_min
+            for leg in itin["legs"][1:]:
+                if leg["type"] == "bus":
+                    leg["depart_min"] = leg.get("depart_min", 0) + diff
+                    leg["arrive_min"] = leg.get("arrive_min", 0) + diff
+                    leg["depart"] = _min_to_hhmm(leg["depart_min"])
+                    leg["arrive"] = _min_to_hhmm(leg["arrive_min"])
+                elif leg["type"] == "transfer":
+                    # wait_min = leg2_depart - leg1_arrive; both shifted by diff → wait unchanged
+                    # but if diff is large enough that we miss the connection, flag it
+                    leg["wait_min"] = max(0, leg.get("wait_min", 0) - diff)
+            itin["realtime"] = True
     except Exception:
         pass
     return itineraries
@@ -666,7 +676,7 @@ def _dedup_and_rank(itineraries: list[dict]) -> list[dict]:
         r1   = bus_legs[0]["route"] if bus_legs else ""
         r2   = bus_legs[1]["route"] if len(bus_legs) > 1 else ""
         xfer = xfer_legs[0].get("at_stop_name", "") if xfer_legs else ""
-        dep_bucket = bus_legs[0].get("depart_min", 0) // 30  # 30-min window
+        dep_bucket = (bus_legs[0].get("depart_min", 0) if bus_legs else 0) // 30
         key = (r1, xfer, r2, dep_bucket)
         if key not in seen or itin["score"] < seen[key]["score"]:
             seen[key] = itin
@@ -748,10 +758,10 @@ def find_trips(origin_lat: float, origin_lon: float,
                 "service_label": None, "mode": mode,
                 "error": "No service available on that date."}
 
-    # Get service label for UI banner
+    # Get service label for the target date (not always today)
     try:
         from routes.schedule_service import get_active_service_label
-        service_label = get_active_service_label()
+        service_label = get_active_service_label(target_date)
     except Exception:
         service_label = None
 
@@ -759,13 +769,15 @@ def find_trips(origin_lat: float, origin_lon: float,
     dest_ids   = [s["stop_id"] for s in dest_stops]
 
     conn = connect_db()
-    if mode == "arrive":
-        direct    = _find_direct_arrive_by(conn, origin_ids, dest_ids, service_ids, target_min)
-        transfers = _find_with_transfer_arrive_by(conn, origin_ids, dest_ids, service_ids, target_min)
-    else:
-        direct    = _find_direct(conn, origin_ids, dest_ids, service_ids, target_min)
-        transfers = _find_with_transfer(conn, origin_ids, dest_ids, service_ids, target_min)
-    conn.close()
+    try:
+        if mode == "arrive":
+            direct    = _find_direct_arrive_by(conn, origin_ids, dest_ids, service_ids, target_min)
+            transfers = _find_with_transfer_arrive_by(conn, origin_ids, dest_ids, service_ids, target_min)
+        else:
+            direct    = _find_direct(conn, origin_ids, dest_ids, service_ids, target_min)
+            transfers = _find_with_transfer(conn, origin_ids, dest_ids, service_ids, target_min)
+    finally:
+        conn.close()
 
     all_trips = direct + transfers
     if not all_trips:

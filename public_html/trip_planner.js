@@ -346,7 +346,8 @@ function renderLegs(itin) {
 
   busLegs.forEach((leg, i) => {
     const isLastBus  = i === busLegs.length - 1;
-    const exitStop   = xferLegs[i] ? xferLegs[i].at_stop_name : (w2 ? w2.stop_name : '');
+    const exitStop   = xferLegs[i] ? xferLegs[i].at_stop_name
+                     : (w2 ? w2.stop_name : (isLastBus ? 'your destination' : ''));
     const rtPulse    = leg.realtime ? '<span class="tp-rt-pulse"></span>' : '';
 
     // ── Board ──────────────────────────────────────────────────
@@ -430,8 +431,10 @@ function renderLegs(itin) {
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
 function nowMinutes() {
+  // Use Eastern Time regardless of browser locale
   const n = new Date();
-  return n.getHours() * 60 + n.getMinutes();
+  const et = new Date(n.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  return et.getHours() * 60 + et.getMinutes();
 }
 
 function fmtDist(meters) {
