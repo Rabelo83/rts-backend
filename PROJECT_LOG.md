@@ -32,6 +32,15 @@ How to use:
 
 ### 2026-03-20
 - Type: `feature` (planned)
+- Summary: Three agent improvements planned after GTFS vehicle deployment analysis.
+  1. `get_route_vehicle_count(route_id, date?)` — GTFS-based tool showing how many buses are simultaneously active by time window. Validated manually across Routes 5, 8, 15, 37, 43, 75. Route 37 peaks at 4 buses, Route 75 at 3, others at 2. Sat/Sun almost always 1. Customers ask this frequently.
+  2. POI/Business query fix — agent was hallucinating business locations (e.g. listed fake McDonald's addresses from training data). Fix: new prompt rule directs agent to ask for road/area + origin, then call plan_trip. Google Geocoding resolves "McDonald's Newberry Road" to real coordinates — tested and confirmed working.
+  3. plan_trip + get_vehicle_location already deployed (2026-03-20 earlier).
+- Files/Areas: `routes/agent_tools.py`, `routes/agent_claude.py`
+- Notes / Follow-up: Vehicle count ≠ frequency (opposite-direction buses counted separately). Agent should say "X buses deployed" not "frequency doubles."
+
+### 2026-03-20
+- Type: `feature` (planned)
 - Summary: Two new agent chat tools approved for implementation.
   1. `get_vehicle_location(route_id)` — lists all active buses on a route with next stop name + ETA. Multiple vehicles shown sorted by soonest arrival; capped at 4. Uses existing `/api/vehicles` + `/api/predictions`.
   2. `plan_trip(origin, destination)` — natural language trip planning in chat. Geocodes both addresses via Google API (already live on Render), calls `find_trips()`, returns conversational itinerary summary.

@@ -328,9 +328,20 @@ Two new tools wired into the Claude agent so the chat can answer location and tr
 > • Bus 1093 → to Downtown · 4 min from Stop 0156 (Main St & 2nd Ave)
 
 #### 6b — Chat Trip Planning Tool
-- [ ] `agent-tp-1` Add `plan_trip(origin, destination)` tool to `agent_tools.py` — calls Google Geocoding API to resolve both addresses to lat/lon, then calls `find_trips()`; returns top 3 itineraries formatted for chat
-- [ ] `agent-tp-2` Agent asks clarifying question if origin/destination is ambiguous ("Where are you traveling from?")
-- [ ] `agent-tp-3` Wire into `agent_claude.py` tool list + system prompt rule: *"For trip planning queries → call plan_trip with origin and destination as the user described them"*
+- [x] `agent-tp-1` Add `plan_trip(origin, destination)` tool to `agent_tools.py` — calls Google Geocoding API to resolve both addresses to lat/lon, then calls `find_trips()`; returns top 3 itineraries formatted for chat
+- [x] `agent-tp-2` Agent asks clarifying question if origin/destination is ambiguous ("Where are you traveling from?")
+- [x] `agent-tp-3` Wire into `agent_claude.py` tool list + system prompt rule: *"For trip planning queries → call plan_trip with origin and destination as the user described them"*
+
+#### 6c — Vehicle Deployment Count Tool
+- [ ] `agent-vd-1` Add `get_route_vehicle_count(route_id, date?)` tool to `agent_tools.py` — queries GTFS trips + stop_times to calculate how many buses are simultaneously active at any point in the day; returns current count, peak count, and daily windows (e.g. "2 buses 7:30 AM – 11:25 AM")
+- [ ] `agent-vd-2` Wire into `agent_claude.py` + prompt rule: *"For 'how many buses on route X' or 'when will there be 2 buses' → call get_route_vehicle_count"*
+
+**Background:** Exercise across Routes 5, 8, 15, 37, 43, 75 confirmed the GTFS schedule reliably shows vehicle deployment windows. Customers ask this frequently. Key findings: Route 37 peaks at 4 buses (weekdays), Route 75 at 3, all others at 2. Sat/Sun almost always 1 bus. Vehicle count ≠ frequency (opposite-direction buses count separately) but IS useful for ops awareness.
+
+#### 6d — POI / Business Query Fix
+- [ ] `agent-poi-1` Add BUSINESS/POI QUERIES prompt rule to `agent_claude.py`: when user asks about a business by name, do NOT guess locations from training data — ask for the road/area + origin, then call `plan_trip` directly. Google Geocoding resolves "McDonald's Newberry Road" to real coordinates.
+
+**Root cause:** Agent hallucinated 3 McDonald's locations from training knowledge, violating GROUND TRUTH RULE. Then failed on Newberry Rd follow-up. Fix: engage conversationally → get enough specificity → delegate to plan_trip + geocoding.
 
 **Notes:**
 - Uses same `GOOGLE_GEOCODING_KEY` already configured on Render

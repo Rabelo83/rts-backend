@@ -232,6 +232,40 @@ TOOLS: list[dict] = [
     {
         "type": "function",
         "function": {
+            "name": "get_route_vehicle_count",
+            "description": (
+                "Get the scheduled number of buses simultaneously active on a route "
+                "throughout the day, based on the GTFS timetable. "
+                "Use this when the user asks 'how many buses are on route X right now', "
+                "'when will there be 2 buses on route X', "
+                "'how many buses does route X run at peak', or "
+                "'is there more than one bus on route X'. "
+                "Returns current count, peak count, and daily deployment windows."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "route_id": {
+                        "type": "string",
+                        "description": "Route number (e.g. '15', '37', '75').",
+                    },
+                    "date": {
+                        "type": "string",
+                        "description": (
+                            "Date to check. "
+                            "Accepts: 'today', 'tomorrow', 'monday'–'sunday', 'YYYY-MM-DD'. "
+                            "Omit to use today."
+                        ),
+                    },
+                },
+                "required": ["route_id"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_vehicle_location",
             "description": (
                 "Get the real-time location of all active buses on a route. "
@@ -519,6 +553,7 @@ def dispatch_tool(name: str, arguments: dict) -> dict:
         "get_route_overview": _tool_get_route_overview,
         "get_route_stops": _tool_get_route_stops,
         "get_service_differences": _tool_get_service_differences,
+        "get_route_vehicle_count": _tool_get_route_vehicle_count,
         "get_vehicle_location": _tool_get_vehicle_location,
         "plan_trip": _tool_plan_trip,
     }
@@ -962,7 +997,118 @@ def _tool_get_service_differences(service_type: str) -> dict:
         conn.close()
 
 
-# ── Tool 8: get_vehicle_location ─────────────────────────────────────────────
+# ── Tool 8: get_route_vehicle_count ──────────────────────────────────────────
+
+def _tool_get_route_vehicle_count(route_id: str, date: str | None = None) -> dict:
+    """Return scheduled concurrent bus count windows for a route on a given date."""
+    route_id = _normalize_route_id(route_id) or route_id
+
+    # Resolve date → service_id
+    date_str = None
+    if date:
+        parsed = _sched.parse_date(date)
+        date_str = parsed.isoformat() if parsed else None
+
+    from datetime import date as _dateobj, datetime
+    from zoneinfo import ZoneInfo
+    _TZ = ZoneInfo("America/New_York")
+    target_date = _dateobj.fromisoformat(date_str) if date_str else datetime.now(_TZ).date()
+    day_name = target_date.strftime("%A")
+
+    # Determine service_id from active label
+    label = _sched.get_active_service_label(target_date)
+    service_id = label.replace(" ", "_") if label else "Weekday"
+
+    conn = _sched.connect_db()
+    if not conn:
+        return {"status": "db_unavailable", "message": "Schedule database unavailable."}
+
+    try:
+        rows = conn.execute("""
+            SELECT MIN(st.departure_time) AS first_dep,
+                   MAX(st.arrival_time)   AS last_arr
+            FROM trips t
+            JOIN routes r ON r.route_id = t.route_id
+            JOIN stop_times st ON st.trip_id = t.trip_id
+            WHERE r.route_short_name = ? AND t.service_id = ?
+            GROUP BY t.trip_id
+            ORDER BY first_dep
+        """, (route_id, service_id)).fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        return {
+            "status": "no_service",
+            "route": route_id,
+            "date": target_date.strftime("%b %d"),
+            "day": day_name,
+            "message": f"Route {route_id} has no scheduled trips on {day_name}.",
+        }
+
+    def to_min(t):
+        h, m, s = (int(x) for x in t.split(":"))
+        return h * 60 + m
+
+    def fmt_min(m):
+        h, mn = divmod(m, 60)
+        sx = "AM" if h < 12 else "PM"
+        h12 = h % 12 or 12
+        return "%d:%02d %s" % (h12, mn, sx)
+
+    # Build +1/-1 events
+    events = []
+    for r in rows:
+        events.append((to_min(r[0]), +1))
+        events.append((to_min(r[1]), -1))
+    events.sort(key=lambda x: (x[0], x[1]))
+
+    # Walk events → build windows of stable count
+    active = 0
+    windows = []
+    window_start = None
+    for minute, delta in events:
+        if active > 0 and window_start is not None:
+            windows.append({"from": fmt_min(window_start), "to": fmt_min(minute), "buses": active})
+        active += delta
+        if active > 0:
+            window_start = minute
+
+    # Merge consecutive windows with same bus count and gap ≤ 5 min (turnaround)
+    merged = []
+    for w in windows:
+        if (merged and merged[-1]["buses"] == w["buses"]
+                and to_min(w["from"]) - to_min(merged[-1]["to"]) <= 5):
+            merged[-1]["to"] = w["to"]
+        else:
+            merged.append(dict(w))
+
+    peak = max(w["buses"] for w in merged) if merged else 0
+
+    # Current count based on now (Eastern time)
+    now_et = datetime.now(_TZ)
+    now_min = now_et.hour * 60 + now_et.minute
+    current = 0
+    if not date_str:  # only meaningful for today
+        for w in merged:
+            if to_min(w["from"]) <= now_min < to_min(w["to"]):
+                current = w["buses"]
+                break
+
+    return {
+        "status": "ok",
+        "route": route_id,
+        "date": target_date.strftime("%b %d"),
+        "day": day_name,
+        "service_type": service_id.replace("_", " "),
+        "current_count": current,
+        "peak_count": peak,
+        "total_trips": len(rows),
+        "windows": merged,
+    }
+
+
+# ── Tool 9: get_vehicle_location ──────────────────────────────────────────────
 
 def _tool_get_vehicle_location(route_id: str) -> dict:
     """Return all active buses on a route with next-stop name and minutes away."""
