@@ -17,6 +17,27 @@ How to use:
 
 ---
 
+### 2026-03-23 (session 6)
+- Type: `decision, feature` (planned)
+- Summary: Decided to replace the SQL-based trip planner with a full in-memory GTFS graph + RAPTOR algorithm. Root motivation: after 5 sessions of fixing individual SQL routing bugs, the architecture has hit its ceiling — SQL is the wrong tool for graph traversal, and every new edge case requires another SQL query pass. RAPTOR handles unlimited transfers in one pass, is used by Google Maps / OpenTripPlanner, and will benefit the chat agent (`plan_trip` tool) automatically with zero changes.
+
+  **Architecture decision:**
+  - `GTFSEngine` singleton: loads all GTFS at server startup (~8–10 MB RAM, ~2–3s load time)
+  - Spatial grid index (0.005° cells) replaces SQL bounding-box stop search → O(1) lookup
+  - Pre-computed transfer index: stop → nearby stops within 300m, built once at startup
+  - `service_ids_for_date()` with `@lru_cache` — zero repeated DB hits per day
+  - RAPTOR algorithm: multi-round, up to 4 transfers, journey reconstruction with walk legs
+  - Public API unchanged — `find_trips()` signature stays the same
+
+  **GTFS update workflow confirmed:** Replace `rts_gtfs.sqlite` → restart server → engine reloads automatically. `/api/gtfs-info` endpoint will show loaded_at, stop/trip counts, active service_ids.
+
+  **Service awareness:** RAPTOR inherits all existing service-type logic — weekday/weekend/reduced/holiday/first-last bus all work through `service_ids_for_date()` exactly as before, just faster.
+
+- Files/Areas: NEW `utils/gtfs_engine.py`, REWRITE `utils/trip_planner.py`, UPDATE `utils/stop_finder.py`, UPDATE `app.py`
+- Notes / Follow-up: 6 tasks tracked as `raptor-1` through `raptor-6` in TASKS.md. Start with `raptor-1` (gtfs_engine.py), then rewrite trip_planner.py, then QA.
+
+---
+
 ### 2026-03-23 (session 5)
 - Type: `fix, perf`
 - Summary: Major overhaul of the trip planner transfer search engine. Four compounding bugs were identified as the root cause of most "No routes found" failures.

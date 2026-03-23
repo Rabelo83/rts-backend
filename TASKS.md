@@ -318,6 +318,52 @@ Current sort is by `total_min` only. Replace with weighted penalty score (lower 
 - [x] `tp-fix-4` **CRITICAL: stop_sequence TEXT comparison truncating all routes at stop 9** — `stop_sequence` is stored as TEXT in GTFS SQLite. Lexicographic comparison made `'29' > '3'` = FALSE, silently cutting off Rosa Parks (seq 29) and all downstream stops. Fixed all 5 SQL JOINs/WHERE clauses with `CAST(stop_sequence AS INTEGER)`. Cross-city trips (e.g. Archer Rd → NW 34th Blvd) now return results. (`utils/trip_planner.py`)
 - [x] `tp-fix-5` **Only 1 trip option returned** — Dedup key `(r1, xfer, r2)` collapsed same route at different departure times into one result. Fixed: added 30-min departure bucket to key. Also: `_MAX_RESULTS` 3→5, `_SEARCH_WINDOW_MIN` 90→120 min, leg query limits increased. (`utils/trip_planner.py`)
 
+## 🔄 Active — Session 6 (2026-03-23): GTFSEngine + RAPTOR Rewrite
+
+**Decision:** Replace the SQL-based trip planner with a full in-memory GTFS graph + RAPTOR algorithm. This eliminates all SQL during routing, handles unlimited transfers natively, and benefits the chat agent automatically. Same public API — no breaking changes.
+
+**Architecture:**
+```
+GTFSEngine (loads at startup, ~8–10 MB RAM):
+├── stops:          dict[int, tuple]         # stop_id → (lat, lon, name)
+├── trip_stop_times: dict[str, list]         # trip_id → [(seq, stop_id, dep_min, arr_min)]
+├── stop_departures: dict[int, list]         # stop_id → [(dep_min, trip_id, seq)] sorted
+├── route_trips:    dict[str, list]          # route_id → [trip_ids] for label lookup
+├── transfers:      dict[int, list]          # stop_id → [(nearby_stop_id, walk_min)]
+├── spatial grid:   dict[tuple, list]        # (lat_bucket, lon_bucket) → [stop_ids]
+└── service_ids_for_date()  @lru_cache
+```
+
+**GTFS update workflow:** Replace `Backend Basics/db/rts_gtfs.sqlite` → restart server → engine reloads in ~2-3s. `/api/gtfs-info` endpoint shows loaded_at + stop/trip counts + active service_ids.
+
+**Files to create/modify:**
+- NEW `utils/gtfs_engine.py` (~300 lines) — GTFSEngine class + RAPTOR algorithm
+- REWRITE `utils/trip_planner.py` — thin wrapper using engine, same public API
+- UPDATE `utils/stop_finder.py` — use engine spatial index
+- UPDATE `app.py` — init engine singleton at startup
+- NEW `GET /api/gtfs-info` — loaded_at + stop/trip counts
+
+### Tasks
+
+- [x] `raptor-1` **Build `utils/gtfs_engine.py`** — GTFSEngine class:
+  - `_load()` — read stops, trips, stop_times, routes from SQLite into memory dicts
+  - `_build_spatial_index()` — 0.005° grid cells, O(1) stop lookup by lat/lon bucket
+  - `_build_transfer_index()` — pre-compute stop→nearby stops within 300m (walk_min)
+  - `service_ids_for_date(date)` with `@lru_cache` — queries calendar + calendar_dates
+  - `find_stops_near(lat, lon, radius_m, service_ids)` — spatial grid lookup + haversine filter
+  - RAPTOR algorithm: multi-round (up to 4 transfers), journey reconstruction
+  - Module-level singleton via `get_engine()` — initialized once at server startup
+- [x] `raptor-2` **Rewrite `utils/trip_planner.py`** — use engine instead of SQL:
+  - `find_trips()` calls `engine.route_depart()` / `engine.route_arrive()` instead of SQL
+  - Hub relay fallback (`TRANSFER_HUBS`) preserved for 2-transfer gaps
+  - Same public API: inputs/outputs unchanged for `routes/trip_api.py`
+- [x] `raptor-3` **Update `utils/stop_finder.py`** — delegate `find_nearest_stops` + `get_stop_by_id` to engine; SQL fallback kept for resilience
+- [x] `raptor-4` **Update `app.py`** — init GTFSEngine at startup via `get_engine()`; log load time + counts
+- [x] `raptor-5` **Add `GET /api/gtfs-info`** endpoint — `{"stops": N, "trips": N, "loaded_at": "..."}`
+- [ ] `raptor-6` **QA** — deploy to Render; retest 34 SE 13th Rd → 7200 SW 8th Ave + 5 other known routes; remove `_debug` field when confirmed working
+
+---
+
 #### 5i — Session 5 (2026-03-23) — Transfer Engine Overhaul
 - [x] `tp-fix-20` **Wait limit 30→90 min** — RTS routes run 40–80 min headways; 30 min silently dropped most valid connections. Changed `_MAX_WAIT_MIN = 90`. (`utils/trip_planner.py`)
 - [x] `tp-fix-21` **Transfer walk implemented** — `_MAX_TRANSFER_WALK_M = 300` was dead code. Transfer search now builds `boarding_map` / `feeder_map` of stops within 300m of every transfer point; handles directional stop pairs (NB/SB at same intersection). (`utils/trip_planner.py`)

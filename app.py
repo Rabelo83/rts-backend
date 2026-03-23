@@ -81,12 +81,29 @@ def create_app() -> Flask:
     app.register_blueprint(admin_bp)
     app.register_blueprint(trip_bp)
 
-    # Pre-load stop geo index
+    # Initialise GTFSEngine singleton at startup (loads GTFS into memory ~2-3s)
+    try:
+        from utils.gtfs_engine import get_engine
+        get_engine()
+    except Exception as e:
+        print(f"[app] GTFSEngine failed to load: {e}")
+
+    # Load geojson enrichment (street/crossroad/direction/shelters)
     try:
         from utils.stop_finder import ensure_stops_db
         ensure_stops_db()
     except Exception:
         pass
+
+    # GTFS info endpoint
+    @app.route("/api/gtfs-info")
+    def gtfs_info():
+        from flask import jsonify
+        try:
+            from utils.gtfs_engine import get_engine
+            return jsonify(get_engine().info())
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
 
     if web_index_bp:
         app.register_blueprint(web_index_bp)

@@ -1,10 +1,9 @@
 """
 utils/stop_finder.py
-Find bus stops near a lat/lon using GTFS stops table (rts_gtfs.sqlite).
+Find bus stops near a lat/lon — delegates to GTFSEngine for spatial lookups.
 
-Active stops = stops that appear in stop_times (GTFS-verified).
-Optional enrichment from bus_stops.geojson adds street/crossroad/direction/
-shelters for same-side transfer detection and amenity display. If the geojson
+Adds optional enrichment from bus_stops.geojson (street/crossroad/direction/
+shelters) for same-side transfer detection and amenity display. If the geojson
 is not present, routing still works — same-side detection degrades to "unknown".
 """
 import json
@@ -82,8 +81,13 @@ def walk_minutes(dist_m: float) -> float:
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def ensure_stops_db() -> None:
-    """No-op — stop data lives in rts_gtfs.sqlite, no separate DB needed."""
+    """Load geojson enrichment and warm the GTFSEngine singleton."""
     _load_geo_extra()
+    try:
+        from utils.gtfs_engine import get_engine
+        get_engine()   # initialises singleton (no-op if already done)
+    except Exception:
+        pass
 
 
 def find_nearest_stops(lat: float, lon: float,
@@ -91,16 +95,46 @@ def find_nearest_stops(lat: float, lon: float,
                        service_ids: list[str] | None = None) -> list[dict]:
     """
     Return nearest active stops within radius_m, sorted by walking distance.
-    Active = appears in GTFS stop_times for the given service_ids (if provided).
-    Enriched with geojson data if available.
+    Delegates spatial lookup to GTFSEngine; adds geojson enrichment if available.
     """
     _load_geo_extra()
+    try:
+        from utils.gtfs_engine import get_engine
+        engine = get_engine()
+        svc_tuple = tuple(service_ids) if service_ids else None
+        raw = engine.find_stops_near(lat, lon, radius_m, svc_tuple)
+    except Exception:
+        # Fallback to legacy SQL if engine unavailable
+        return _find_nearest_stops_sql(lat, lon, radius_m, limit, service_ids)
 
-    deg = 1 / 111_000
+    results = []
+    for s in raw[:limit]:
+        extra = _geo_extra.get(s["stop_id"], {})
+        results.append({
+            "stop_id":    s["stop_id"],
+            "stop_name":  s["stop_name"],
+            "lat":        s["lat"],
+            "lon":        s["lon"],
+            "street":     extra.get("street"),
+            "crossroad":  extra.get("crossroad"),
+            "direction":  extra.get("direction"),
+            "distance_m": s["distance_m"],
+            "walk_min":   s["walk_min"],
+            "has_shelter": (extra.get("shelters") or 0) > 0,
+            "is_uf":      extra.get("is_uf", False),
+        })
+        _stop_cache[s["stop_id"]] = results[-1]
+    return results
+
+
+def _find_nearest_stops_sql(lat: float, lon: float,
+                             radius_m: int, limit: int,
+                             service_ids: list[str] | None) -> list[dict]:
+    """Legacy SQL fallback — used only if GTFSEngine fails to load."""
+    deg  = 1 / 111_000
     dlat = radius_m * deg
     dlon = radius_m * deg / max(math.cos(math.radians(lat)), 0.001)
-
-    c = _conn()
+    c    = _conn()
     if service_ids:
         s_ph = ",".join("?" * len(service_ids))
         rows = c.execute(f"""
@@ -135,10 +169,9 @@ def find_nearest_stops(lat: float, lon: float,
               )
         """, (lat - dlat, lat + dlat, lon - dlon, lon + dlon)).fetchall()
     c.close()
-
     results = []
     for r in rows:
-        dist = haversine_m(lat, lon, r["lat"], r["lon"])
+        dist  = haversine_m(lat, lon, r["lat"], r["lon"])
         if dist <= radius_m:
             extra = _geo_extra.get(r["stop_id"], {})
             results.append({
@@ -154,20 +187,41 @@ def find_nearest_stops(lat: float, lon: float,
                 "has_shelter": (extra.get("shelters") or 0) > 0,
                 "is_uf":      extra.get("is_uf", False),
             })
-
     sorted_results = sorted(results, key=lambda x: x["distance_m"])[:limit]
-    # Warm the stop cache for free — we already have the data
     for item in sorted_results:
-        if item["stop_id"] not in _stop_cache:
-            _stop_cache[item["stop_id"]] = item
+        _stop_cache[item["stop_id"]] = item
     return sorted_results
 
 
 def get_stop_by_id(stop_id: int) -> dict | None:
-    """Look up a single stop by ID from GTFS stops table (cached after first call)."""
+    """Look up a single stop by ID (cached; delegates to GTFSEngine)."""
     if stop_id in _stop_cache:
         return _stop_cache[stop_id]
     _load_geo_extra()
+    try:
+        from utils.gtfs_engine import get_engine
+        engine = get_engine()
+        if stop_id not in engine.stops:
+            return None
+        slat, slon, sname = engine.stops[stop_id]
+        extra  = _geo_extra.get(stop_id, {})
+        result = {
+            "stop_id":   stop_id,
+            "stop_name": sname,
+            "lat":       slat,
+            "lon":       slon,
+            "street":    extra.get("street"),
+            "crossroad": extra.get("crossroad"),
+            "direction": extra.get("direction"),
+            "shelters":  extra.get("shelters", 0),
+            "is_uf":     extra.get("is_uf", False),
+        }
+        _stop_cache[stop_id] = result
+        return result
+    except Exception:
+        pass
+
+    # SQL fallback
     c = _conn()
     row = c.execute(
         "SELECT CAST(stop_id AS INTEGER) AS stop_id, stop_name, "
@@ -177,7 +231,7 @@ def get_stop_by_id(stop_id: int) -> dict | None:
     c.close()
     if not row:
         return None
-    extra = _geo_extra.get(stop_id, {})
+    extra  = _geo_extra.get(stop_id, {})
     result = {
         "stop_id":   row["stop_id"],
         "stop_name": row["stop_name"],
