@@ -249,7 +249,7 @@ function renderResults(data, container) {
 
   // Reduced Service banner
   const svc = data.service_label || '';
-  if (svc && svc !== 'Weekday') {
+  if (svc && !svc.toLowerCase().includes('weekday')) {
     html += `<div class="trip-service-banner">
       &#x26A0;&#xFE0F; RTS is on <strong>${escHtml(svc)}</strong> — fewer trips may be available.
     </div>`;
