@@ -318,6 +318,14 @@ Current sort is by `total_min` only. Replace with weighted penalty score (lower 
 - [x] `tp-fix-4` **CRITICAL: stop_sequence TEXT comparison truncating all routes at stop 9** — `stop_sequence` is stored as TEXT in GTFS SQLite. Lexicographic comparison made `'29' > '3'` = FALSE, silently cutting off Rosa Parks (seq 29) and all downstream stops. Fixed all 5 SQL JOINs/WHERE clauses with `CAST(stop_sequence AS INTEGER)`. Cross-city trips (e.g. Archer Rd → NW 34th Blvd) now return results. (`utils/trip_planner.py`)
 - [x] `tp-fix-5` **Only 1 trip option returned** — Dedup key `(r1, xfer, r2)` collapsed same route at different departure times into one result. Fixed: added 30-min departure bucket to key. Also: `_MAX_RESULTS` 3→5, `_SEARCH_WINDOW_MIN` 90→120 min, leg query limits increased. (`utils/trip_planner.py`)
 
+#### 5i — Session 5 (2026-03-23) — Transfer Engine Overhaul
+- [x] `tp-fix-20` **Wait limit 30→90 min** — RTS routes run 40–80 min headways; 30 min silently dropped most valid connections. Changed `_MAX_WAIT_MIN = 90`. (`utils/trip_planner.py`)
+- [x] `tp-fix-21` **Transfer walk implemented** — `_MAX_TRANSFER_WALK_M = 300` was dead code. Transfer search now builds `boarding_map` / `feeder_map` of stops within 300m of every transfer point; handles directional stop pairs (NB/SB at same intersection). (`utils/trip_planner.py`)
+- [x] `tp-fix-22` **Stop cache eliminates N×M DB connection storm** — `get_stop_by_id()` opened a new SQLite connection per call; transfer double-loop caused up to 1,500 connections per search. Added `_stop_cache` dict in `stop_finder.py`; O(1) after first call. `find_nearest_stops` warms cache for free. (`utils/stop_finder.py`)
+- [x] `tp-fix-23` **Batched leg2 query** — was one SQL query per (trip × transfer stop). Now collects all boarding stop IDs and runs one query; results matched in Python. ~100× fewer SQL round-trips. (`utils/trip_planner.py`)
+- [x] `tp-fix-24` **same_side_penalty_sec always returned 0** — called with same stop ID twice; now correctly passes alighting vs boarding stop so cross-street detection fires. (`utils/trip_planner.py`)
+- [ ] `tp-debug-1` **"No routes found" for 34 SE 13th Rd → 7200 SW 8th Ave** — retest after deploy with above fixes.
+
 #### 5h — Session 4 (2026-03-20)
 - [x] `tp-ui-6` **Swap button (↕) between From/To fields** — swaps text values + geocoded `_acState` lat/lon. (`public_html/trip_planner.js`, `public_html/chat.html`)
 - [x] `tp-fix-19` **Dominated itinerary shown (93 min when 23 min option exists)** — dedup key included transfer stop name, so same route combo via different transfer stops both surfaced. Changed key to `(r1, r2, dep_bucket)` — only best-scoring variant kept. (`utils/trip_planner.py`)

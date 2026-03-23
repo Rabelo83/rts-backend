@@ -17,6 +17,22 @@ How to use:
 
 ---
 
+### 2026-03-23 (session 5)
+- Type: `fix, perf`
+- Summary: Major overhaul of the trip planner transfer search engine. Four compounding bugs were identified as the root cause of most "No routes found" failures.
+
+  **Root causes fixed:**
+  1. **Wait limit too tight (30 min)** — RTS runs routes on 40–80 min headways. Any connection requiring >30 min wait was silently discarded. Changed to `_MAX_WAIT_MIN = 90`.
+  2. **Transfer walk never implemented** — `_MAX_TRANSFER_WALK_M = 300` was defined but dead code. Transfer search only matched leg1 exit and leg2 boarding at the exact same stop ID, missing all directional stop pairs (NB/SB stops at same intersection). Now builds a `boarding_map` / `feeder_map` of stops within 300m for every transfer point.
+  3. **N×M SQLite connection storm** — `get_stop_by_id()` opened a new DB connection on every call. Inside the transfer double-loop (50 trips × 30 stops = up to 1,500 calls per search), this caused severe performance degradation and likely silent timeouts. Fixed with `_stop_cache: dict[int, dict]` in `stop_finder.py`; `find_nearest_stops` warms the cache for free. O(1) after first call.
+  4. **Leg2 query inside double loop** — one SQL query per (trip × transfer stop). Now batched: one query for all boarding stops, matched in Python. ~100× fewer SQL round-trips.
+  5. **same_side_penalty_sec always returned 0** — called with same stop ID twice; function short-circuits to 0 for identical IDs. Fixed: now passes alighting stop vs boarding stop so cross-street detection actually fires.
+
+- Files/Areas: `utils/stop_finder.py`, `utils/trip_planner.py`
+- Notes / Follow-up: Deploy and retest 34 SE 13th Rd → 7200 SW 8th Ave. `_debug` field still in no-routes response for diagnosis.
+
+---
+
 ### 2026-03-20 (session 4)
 - Type: `fix, feature`
 - Summary: Swap button between trip planner From/To fields; dominated itinerary filter fix; dashboard Project Docs viewer.
