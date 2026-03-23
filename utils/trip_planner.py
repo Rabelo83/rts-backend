@@ -411,6 +411,9 @@ def find_trips(
             },
         }
 
+    # Drop any malformed itineraries (empty dicts from edge-case RAPTOR paths)
+    all_trips = [t for t in all_trips if t.get("legs")]
+
     all_trips = _enrich_realtime(all_trips, origin_ids)
     all_trips = _add_walk_legs(
         all_trips, origin_lat, origin_lon, dest_lat, dest_lon

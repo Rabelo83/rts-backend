@@ -106,13 +106,18 @@ def plan_trip():
             pass
 
     t0 = time.monotonic()
-    result = find_trips(
-        float(origin_lat), float(origin_lon),
-        float(dest_lat), float(dest_lon),
-        depart_after=depart_after,
-        arrive_by=arrive_by,
-        target_date=target_date,
-    )
+    try:
+        result = find_trips(
+            float(origin_lat), float(origin_lon),
+            float(dest_lat), float(dest_lon),
+            depart_after=depart_after,
+            arrive_by=arrive_by,
+            target_date=target_date,
+        )
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Routing error: {exc}", "itineraries": []}), 500
     duration_ms = int((time.monotonic() - t0) * 1000)
     itineraries = result.get("itineraries") or []
     _log_trip_plan(
