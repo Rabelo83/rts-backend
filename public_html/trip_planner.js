@@ -299,9 +299,11 @@ function renderResults(data, container) {
       ? `<span class="itin-timerange">${escHtml(firstBus.depart)}<span class="itin-tr-sep">→</span>${escHtml(lastBus.arrive)}</span>`
       : '';
 
-    // Small meta badges: transfer, live, same side
+    // Small meta badges: transfer count, live, same side
+    const xferCount  = xfers.length;
+    const xferLabel  = xferCount === 1 ? '1 transfer' : `${xferCount} transfers`;
     const metaBadges = [
-      isTransfer ? '<span class="badge badge-transfer">1 transfer</span>' : '',
+      isTransfer ? `<span class="badge badge-transfer">${xferLabel}</span>` : '',
       itin.realtime ? '<span class="badge badge-realtime"><span class="rt-dot"></span>Live</span>' : '',
       isTransfer && itin.same_side ? '<span class="badge badge-same-side">✓ Same side</span>' : '',
     ].filter(Boolean).join('');

@@ -377,16 +377,16 @@ def find_trips(
     origin_ids = [s["stop_id"] for s in origin_stops]
     dest_ids   = [s["stop_id"] for s in dest_stops]
 
-    # Route using in-memory RAPTOR
+    # Route using in-memory RAPTOR (max 2 transfers = 3 bus legs for clean UX)
     if mode == "arrive":
         all_trips = engine.route_arrive(
             origin_ids, dest_ids, service_ids, target_min,
-            window_min=_SEARCH_WIN_MIN, max_transfers=3
+            window_min=_SEARCH_WIN_MIN, max_transfers=2
         )
     else:
         all_trips = engine.route_depart(
             origin_ids, dest_ids, service_ids, target_min,
-            window_min=_SEARCH_WIN_MIN, max_transfers=3
+            window_min=_SEARCH_WIN_MIN, max_transfers=2
         )
 
     # Hub-relay fallback for 2-transfer gaps (e.g. SE 13th → SW 8th via Downtown)
