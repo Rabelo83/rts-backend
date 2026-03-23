@@ -23,6 +23,9 @@ _WALK_CROSSING_SEC = 60
 _geo_extra: dict[int, dict] = {}   # stop_id → {street, crossroad, direction, shelters, is_uf}
 _geo_loaded = False
 
+# Stop data cache — eliminates repeated SQLite round-trips in the transfer search
+_stop_cache: dict[int, dict] = {}  # stop_id → full stop dict
+
 
 # ── Geojson enrichment (optional) ─────────────────────────────────────────────
 
@@ -152,11 +155,19 @@ def find_nearest_stops(lat: float, lon: float,
                 "is_uf":      extra.get("is_uf", False),
             })
 
-    return sorted(results, key=lambda x: x["distance_m"])[:limit]
+    sorted_results = sorted(results, key=lambda x: x["distance_m"])[:limit]
+    # Warm the stop cache for free — we already have the data
+    for item in sorted_results:
+        if item["stop_id"] not in _stop_cache:
+            _stop_cache[item["stop_id"]] = item
+    return sorted_results
 
 
 def get_stop_by_id(stop_id: int) -> dict | None:
-    """Look up a single stop by ID from GTFS stops table."""
+    """Look up a single stop by ID from GTFS stops table (cached after first call)."""
+    if stop_id in _stop_cache:
+        return _stop_cache[stop_id]
+    _load_geo_extra()
     c = _conn()
     row = c.execute(
         "SELECT CAST(stop_id AS INTEGER) AS stop_id, stop_name, "
@@ -167,7 +178,7 @@ def get_stop_by_id(stop_id: int) -> dict | None:
     if not row:
         return None
     extra = _geo_extra.get(stop_id, {})
-    return {
+    result = {
         "stop_id":   row["stop_id"],
         "stop_name": row["stop_name"],
         "lat":       row["lat"],
@@ -178,6 +189,8 @@ def get_stop_by_id(stop_id: int) -> dict | None:
         "shelters":  extra.get("shelters", 0),
         "is_uf":     extra.get("is_uf", False),
     }
+    _stop_cache[stop_id] = result
+    return result
 
 
 def same_side_penalty_sec(stop_a_id: int, stop_b_id: int) -> int:
