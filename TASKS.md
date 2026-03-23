@@ -318,6 +318,12 @@ Current sort is by `total_min` only. Replace with weighted penalty score (lower 
 - [x] `tp-fix-4` **CRITICAL: stop_sequence TEXT comparison truncating all routes at stop 9** — `stop_sequence` is stored as TEXT in GTFS SQLite. Lexicographic comparison made `'29' > '3'` = FALSE, silently cutting off Rosa Parks (seq 29) and all downstream stops. Fixed all 5 SQL JOINs/WHERE clauses with `CAST(stop_sequence AS INTEGER)`. Cross-city trips (e.g. Archer Rd → NW 34th Blvd) now return results. (`utils/trip_planner.py`)
 - [x] `tp-fix-5` **Only 1 trip option returned** — Dedup key `(r1, xfer, r2)` collapsed same route at different departure times into one result. Fixed: added 30-min departure bucket to key. Also: `_MAX_RESULTS` 3→5, `_SEARCH_WINDOW_MIN` 90→120 min, leg query limits increased. (`utils/trip_planner.py`)
 
+#### 5h — Session 4 (2026-03-20)
+- [x] `tp-ui-6` **Swap button (↕) between From/To fields** — swaps text values + geocoded `_acState` lat/lon. (`public_html/trip_planner.js`, `public_html/chat.html`)
+- [x] `tp-fix-19` **Dominated itinerary shown (93 min when 23 min option exists)** — dedup key included transfer stop name, so same route combo via different transfer stops both surfaced. Changed key to `(r1, r2, dep_bucket)` — only best-scoring variant kept. (`utils/trip_planner.py`)
+- [x] `dashboard-docs-1` **Dashboard Project Docs viewer** — `GET /api/project/log` + `GET /api/project/tasks-md` endpoints serve raw markdown; dashboard panel with tab switcher + `marked.js` rendering. (`routes/admin_api.py`, `public_html/dashboard.html`)
+- [ ] `tp-debug-1` **"No routes found" for 34 SE 13th Rd → 7200 SW 8th Ave** — not yet diagnosed. Test Monday with "Departing At 2 PM" to rule out time-of-day. `_debug` field in response for diagnosis.
+
 #### 5g — Bug Fixes (2026-03-20 session 3)
 - [x] `tp-fix-10` **CRITICAL: "No routes found" on all non-Weekday service days** — `find_nearest_stops()` returned stops present in any `stop_times` row, ignoring service type. On Reduced_Service days, those stops had zero Reduced_Service trips, so every routing query returned empty. Fix: compute `service_ids` before the stop search; `find_nearest_stops()` now accepts `service_ids` and JOINs `trips` to filter stops by active service type. (`utils/stop_finder.py`, `utils/trip_planner.py`)
 - [x] `tp-fix-11` **`_enrich_realtime` dead since day 1** — wrong keyword arg `prmstpid=` (positional-only); response dict iterated as keys instead of `.get("prd")`. (`utils/trip_planner.py`)

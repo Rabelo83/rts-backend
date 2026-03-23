@@ -17,6 +17,36 @@ How to use:
 
 ---
 
+### 2026-03-20 (session 4)
+- Type: `fix, feature`
+- Summary: Swap button between trip planner From/To fields; dominated itinerary filter fix; dashboard Project Docs viewer.
+
+  **Swap button (origin ↔ destination):**
+  - Added `⇅` button between FROM and TO input fields in `buildFormHTML()`.
+  - Added `swapFields()` function — swaps both text values AND the `_acState` geocoded lat/lon state so coordinates stay consistent after swap.
+  - CSS added for `.trip-swap-row` / `.trip-swap-btn` in `chat.html`.
+
+  **Dominated itinerary filter fix:**
+  - **Bug:** Two itineraries with the same route sequence (e.g. 37→1) but different transfer stops (Center Dr vs Butler Plaza) had different dedup keys and both surfaced. Option 2 took 93 min vs option 1's 23 min — strictly dominated, but shown anyway.
+  - **Root cause:** Dedup key was `(r1, xfer_stop, r2, dep_bucket)` — the transfer stop differentiated what should be identical choices.
+  - **Fix:** Changed key to `(r1, r2, dep_bucket)` — same route combo in same 30-min departure window now collapses to best-scoring variant only.
+  - `utils/trip_planner.py` → `_dedup_and_rank()`
+
+  **Dashboard Project Docs viewer:**
+  - Two new API endpoints: `GET /api/project/log` and `GET /api/project/tasks-md` serve raw markdown.
+  - Project Docs panel added at bottom of dashboard with tab switcher (Project Log / Task Details).
+  - `marked.js` CDN used for client-side markdown rendering.
+  - `loadDoc(which)` JS function fetches from API and renders with `marked.parse()`.
+
+  **Open issue — "No routes found" for some addresses:**
+  - User tested 34 SE 13th Rd → 7200 SW 8th Ave and got "No routes found."
+  - Not yet diagnosed — could be time-of-day (late evening, no buses), or a genuine routing gap for those addresses on Reduced_Service. `_debug` field still present in no-routes response for diagnosis. Investigate Monday with "Departing At 2 PM" to isolate.
+
+- Files/Areas: `public_html/trip_planner.js`, `public_html/chat.html`, `utils/trip_planner.py`, `routes/admin_api.py`
+- Notes / Follow-up: Remove `_debug` field before v1 release. Check "No routes found" on Monday with specific departure time test.
+
+---
+
 ### 2026-03-20 (session 3)
 - Type: `fix`
 - Summary: Trip Planner — root cause of all "No routes found" failures on non-Weekday service days found and fixed. Multiple additional trip planner bug fixes from session 2 also documented.
