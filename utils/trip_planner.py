@@ -30,6 +30,17 @@ _MAX_TRANSFER_WALK_M = 300  # max walk between transfer stops (directional stop 
 _MAX_WAIT_MIN = 90          # max wait at a transfer — covers 80-min headways on low-frequency routes
 _MAX_RESULTS = 5
 _SEARCH_WINDOW_MIN = 120   # look for departures within this window
+_HUB_CONNECTION_MIN = 3    # minimum connection buffer at a major hub
+
+# Major transfer hubs — used as fallback relay points when no direct/1-transfer route exists.
+# Each hub is a major station where many routes converge, making it a natural relay point.
+TRANSFER_HUBS = [
+    {"stop_id": 1,    "name": "Rosa Parks RTS Downtown Station"},
+    {"stop_id": 1493, "name": "Butler Plaza Transfer Station"},
+    {"stop_id": 1097, "name": "Oaks Mall"},
+    {"stop_id": 473,  "name": "Reitz Union"},
+    {"stop_id": 13,   "name": "Beaty Towers"},
+]
 
 
 # ── GTFS time helpers ─────────────────────────────────────────────────────────
@@ -775,6 +786,111 @@ def _find_with_transfer_arrive_by(conn, origin_ids: list[int], dest_ids: list[in
     return results
 
 
+# ── Hub-relay fallback ────────────────────────────────────────────────────────
+
+def _itin_first_dep(itin: dict) -> int:
+    bus = next((l for l in itin["legs"] if l["type"] == "bus"), None)
+    return bus["depart_min"] if bus else 0
+
+def _itin_last_arr(itin: dict) -> int:
+    bus_legs = [l for l in itin["legs"] if l["type"] == "bus"]
+    return bus_legs[-1]["arrive_min"] if bus_legs else 0
+
+
+def _find_via_hub(conn, origin_ids: list[int], dest_ids: list[int],
+                  service_ids: list[str], depart_min: int) -> list[dict]:
+    """
+    Fallback when no direct/single-transfer route exists.
+    Tries routing origin → [major hub] → destination where each leg is
+    itself a direct or single-transfer trip.  Covers the common case where
+    two routes don't share any stop but both pass through a major hub.
+    """
+    results: list[dict] = []
+    seen: set[tuple] = set()
+
+    for hub in TRANSFER_HUBS:
+        hub_id   = hub["stop_id"]
+        hub_name = hub["name"]
+
+        # Skip redundant: if hub is already in origin or dest stop set
+        if hub_id in origin_ids or hub_id in dest_ids:
+            continue
+
+        # ── Leg 1: origin → hub ───────────────────────────────────────────
+        leg1_opts = (
+            _find_direct(conn, origin_ids, [hub_id], service_ids, depart_min) +
+            _find_with_transfer(conn, origin_ids, [hub_id], service_ids, depart_min)
+        )
+        if not leg1_opts:
+            continue
+
+        # Score and take the top 3 departure options to the hub
+        for l in leg1_opts:
+            l["score"] = _score_itinerary(l)
+        leg1_opts.sort(key=lambda x: (_itin_first_dep(x), x["score"]))
+
+        for leg1 in leg1_opts[:3]:
+            hub_arrive = _itin_last_arr(leg1)
+            leg2_start = hub_arrive + _HUB_CONNECTION_MIN
+
+            # ── Leg 2: hub → destination ──────────────────────────────────
+            leg2_opts = (
+                _find_direct(conn, [hub_id], dest_ids, service_ids, leg2_start) +
+                _find_with_transfer(conn, [hub_id], dest_ids, service_ids, leg2_start)
+            )
+            if not leg2_opts:
+                continue
+
+            for l in leg2_opts:
+                l["score"] = _score_itinerary(l)
+            leg2_opts.sort(key=lambda x: x["score"])
+            leg2 = leg2_opts[0]
+
+            leg2_first_dep = _itin_first_dep(leg2)
+            hub_wait = leg2_first_dep - hub_arrive
+            if hub_wait < 0 or hub_wait > _MAX_WAIT_MIN:
+                continue
+
+            # Dedup: first route in leg1, hub, last route in leg2, dep bucket
+            leg1_buses = [l for l in leg1["legs"] if l["type"] == "bus"]
+            leg2_buses = [l for l in leg2["legs"] if l["type"] == "bus"]
+            key = (
+                leg1_buses[0]["route"] if leg1_buses else "",
+                hub_id,
+                leg2_buses[-1]["route"] if leg2_buses else "",
+                _itin_first_dep(leg1) // 30,
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+
+            # Build the hub connector transfer leg
+            hub_transfer_leg = {
+                "type":               "transfer",
+                "at_stop_id":         hub_id,
+                "at_stop_name":       hub_name,
+                "boarding_stop_id":   hub_id,
+                "boarding_stop_name": hub_name,
+                "walk_min":           0.0,
+                "wait_min":           hub_wait,
+                "same_side":          True,
+                "has_shelter":        True,   # all major hubs have covered areas
+            }
+
+            total = _itin_last_arr(leg2) - _itin_first_dep(leg1)
+
+            results.append({
+                "type":      "hub_transfer",
+                "via_hub":   hub_name,
+                "legs":      leg1["legs"] + [hub_transfer_leg] + leg2["legs"],
+                "total_min": total,
+                "realtime":  leg1.get("realtime", False) or leg2.get("realtime", False),
+                "same_side": False,
+            })
+
+    return results
+
+
 # ── Scoring & deduplication ────────────────────────────────────────────────────
 
 def _score_itinerary(itin: dict) -> float:
@@ -810,13 +926,16 @@ def _dedup_and_rank(itineraries: list[dict]) -> list[dict]:
 
     seen: dict[tuple, dict] = {}
     for itin in itineraries:
-        bus_legs = [l for l in itin["legs"] if l["type"] == "bus"]
-        r1 = bus_legs[0]["route"] if bus_legs else ""
-        r2 = bus_legs[1]["route"] if len(bus_legs) > 1 else ""
+        bus_legs   = [l for l in itin["legs"] if l["type"] == "bus"]
         dep_bucket = (bus_legs[0].get("depart_min", 0) if bus_legs else 0) // 30
-        # Key on route sequence only — different transfer stops for the same
-        # route combo in the same time window are dominated variants; keep best score.
-        key = (r1, r2, dep_bucket)
+        # For hub-transfer itineraries (3+ bus legs) use full route sequence as key
+        # so different hub paths are kept distinct.
+        if len(bus_legs) > 2:
+            key = tuple(l["route"] for l in bus_legs) + (dep_bucket,)
+        else:
+            r1  = bus_legs[0]["route"] if bus_legs else ""
+            r2  = bus_legs[1]["route"] if len(bus_legs) > 1 else ""
+            key = (r1, r2, dep_bucket)
         if key not in seen or itin["score"] < seen[key]["score"]:
             seen[key] = itin
 
@@ -919,10 +1038,15 @@ def find_trips(origin_lat: float, origin_lon: float,
         else:
             direct    = _find_direct(conn, origin_ids, dest_ids, service_ids, target_min)
             transfers = _find_with_transfer(conn, origin_ids, dest_ids, service_ids, target_min)
+
+        all_trips = direct + transfers
+
+        # Fallback: no direct/1-transfer route — try routing via major hubs
+        if not all_trips and mode == "depart":
+            all_trips = _find_via_hub(conn, origin_ids, dest_ids, service_ids, target_min)
     finally:
         conn.close()
 
-    all_trips = direct + transfers
     if not all_trips:
         return {"itineraries": [], "origin_stops": origin_stops, "dest_stops": dest_stops,
                 "service_label": service_label, "mode": mode,
