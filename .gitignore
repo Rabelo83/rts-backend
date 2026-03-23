@@ -1,6 +1,30 @@
+# Python
 scripts/build_schedule_db.py
 __pycache__/
 *.pyc
-.claude/
+*.pyo
+.pytest_cache/
 
+# Environment
 .env.local
+.env
+
+# Runtime databases (never commit — large / auto-generated)
+*.sqlite
+*.db
+
+# Data directory (runtime files, not source)
+data/
+
+# Test results (generated output)
+tests/results/
+tests/qa_history.sqlite
+
+# Accidental files
+=0.40.0
+
+# Backups
+backups/
+
+# Claude Code session state
+.claude/
