@@ -1186,7 +1186,7 @@ def _tool_get_vehicle_location(route_id: str) -> dict:
         "status": "ok",
         "route": route_id,
         "vehicle_count": len(results),
-        "vehicles": results[:4],
+        "vehicles": results[:10],
     }
 
 
