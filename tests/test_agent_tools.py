@@ -24,3 +24,22 @@ class TestSearchStopsRouteAware:
         assert result["status"] == "multiple"
         stop_ids = {c["stop_id"] for c in result["candidates"]}
         assert {"0171", "0172", "0175", "1097"}.issubset(stop_ids)
+
+    def test_shands_route_43_includes_uf_health_alias_stops(self):
+        result = dispatch_tool("search_stops", {"name": "Shands", "route_id": "43"})
+
+        assert result["status"] == "multiple"
+        stop_ids = {c["stop_id"] for c in result["candidates"]}
+        assert {"0042", "0446", "0664"}.issubset(stop_ids)
+
+
+class TestScheduleRouteAwareAliases:
+    def test_route_43_schedule_from_shands_returns_route_scoped_candidates(self):
+        result = dispatch_tool(
+            "get_schedule",
+            {"route_id": "43", "stop_name": "Shands", "kind": "next", "time": "3pm"},
+        )
+
+        assert result["status"] == "multiple_stops"
+        stop_ids = {c["stop_id_padded"] for c in result["candidates"]}
+        assert {"0042", "0446", "0664"}.issubset(stop_ids)

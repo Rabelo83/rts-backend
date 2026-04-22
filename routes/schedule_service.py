@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "utils"))
 from agency_config import get_timezone
+from routes.parsing_helpers import expand_landmark_aliases
 
 TZ = ZoneInfo(get_timezone())
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -317,61 +318,83 @@ def find_stop_by_alias(text, defaults):
 
 
 def find_stops_like(conn, name_like, route_short_name=None):
-    params = {"like": f"%{name_like}%"}
-    if route_short_name:
-        sql = """
-        SELECT DISTINCT s.stop_id_padded, s.stop_name
-        FROM stops s
-        JOIN stop_times st ON st.stop_id = s.stop_id
-        JOIN trips t ON t.trip_id = st.trip_id
-        JOIN routes r ON r.route_id = t.route_id
-        WHERE TRIM(r.route_short_name) = :route
-          AND LOWER(TRIM(s.stop_name)) LIKE LOWER(:like)
-        ORDER BY s.stop_name;
-        """
-        params["route"] = route_short_name
-    else:
-        sql = """
-        SELECT stop_id_padded, stop_name
-        FROM stops
-        WHERE LOWER(TRIM(stop_name)) LIKE LOWER(:like)
-        ORDER BY stop_name;
-        """
-    rows = conn.execute(sql, params).fetchall()
-    return [{"stop_id_padded": r["stop_id_padded"], "stop_name": r["stop_name"]} for r in rows]
+    variants = expand_landmark_aliases(name_like) or [name_like]
+    seen: set[str] = set()
+    matches: list[dict] = []
+
+    for variant in variants:
+        params = {"like": f"%{variant}%"}
+        if route_short_name:
+            sql = """
+            SELECT DISTINCT s.stop_id_padded, s.stop_name
+            FROM stops s
+            JOIN stop_times st ON st.stop_id = s.stop_id
+            JOIN trips t ON t.trip_id = st.trip_id
+            JOIN routes r ON r.route_id = t.route_id
+            WHERE TRIM(r.route_short_name) = :route
+              AND LOWER(TRIM(s.stop_name)) LIKE LOWER(:like)
+            ORDER BY s.stop_name;
+            """
+            params["route"] = route_short_name
+        else:
+            sql = """
+            SELECT stop_id_padded, stop_name
+            FROM stops
+            WHERE LOWER(TRIM(stop_name)) LIKE LOWER(:like)
+            ORDER BY stop_name;
+            """
+        rows = conn.execute(sql, params).fetchall()
+        for row in rows:
+            stop_id = row["stop_id_padded"]
+            if stop_id in seen:
+                continue
+            seen.add(stop_id)
+            matches.append({"stop_id_padded": stop_id, "stop_name": row["stop_name"]})
+    return matches
 
 
 def find_stops_fuzzy(conn, name_text, route_short_name=None):
-    norm = normalize_text(name_text)
-    if not norm:
-        return []
-    pattern = "%" + "%".join(norm.split()) + "%"
-    params = {"pattern": pattern}
-    if route_short_name:
-        sql = """
-        SELECT DISTINCT s.stop_id_padded, s.stop_name
-        FROM fuzzy_lookup f
-        JOIN stops s ON s.stop_id = f.entity_id
-        JOIN stop_times st ON st.stop_id = s.stop_id
-        JOIN trips t ON t.trip_id = st.trip_id
-        JOIN routes r ON r.route_id = t.route_id
-        WHERE f.entity_type = 'stop'
-          AND f.normalized LIKE :pattern
-          AND TRIM(r.route_short_name) = :route
-        ORDER BY s.stop_name;
-        """
-        params["route"] = route_short_name
-    else:
-        sql = """
-        SELECT DISTINCT s.stop_id_padded, s.stop_name
-        FROM fuzzy_lookup f
-        JOIN stops s ON s.stop_id = f.entity_id
-        WHERE f.entity_type = 'stop'
-          AND f.normalized LIKE :pattern
-        ORDER BY s.stop_name;
-        """
-    rows = conn.execute(sql, params).fetchall()
-    return [{"stop_id_padded": r["stop_id_padded"], "stop_name": r["stop_name"]} for r in rows]
+    variants = expand_landmark_aliases(name_text) or [name_text]
+    seen: set[str] = set()
+    matches: list[dict] = []
+
+    for variant in variants:
+        norm = normalize_text(variant)
+        if not norm:
+            continue
+        pattern = "%" + "%".join(norm.split()) + "%"
+        params = {"pattern": pattern}
+        if route_short_name:
+            sql = """
+            SELECT DISTINCT s.stop_id_padded, s.stop_name
+            FROM fuzzy_lookup f
+            JOIN stops s ON s.stop_id = f.entity_id
+            JOIN stop_times st ON st.stop_id = s.stop_id
+            JOIN trips t ON t.trip_id = st.trip_id
+            JOIN routes r ON r.route_id = t.route_id
+            WHERE f.entity_type = 'stop'
+              AND f.normalized LIKE :pattern
+              AND TRIM(r.route_short_name) = :route
+            ORDER BY s.stop_name;
+            """
+            params["route"] = route_short_name
+        else:
+            sql = """
+            SELECT DISTINCT s.stop_id_padded, s.stop_name
+            FROM fuzzy_lookup f
+            JOIN stops s ON s.stop_id = f.entity_id
+            WHERE f.entity_type = 'stop'
+              AND f.normalized LIKE :pattern
+            ORDER BY s.stop_name;
+            """
+        rows = conn.execute(sql, params).fetchall()
+        for row in rows:
+            stop_id = row["stop_id_padded"]
+            if stop_id in seen:
+                continue
+            seen.add(stop_id)
+            matches.append({"stop_id_padded": stop_id, "stop_name": row["stop_name"]})
+    return matches
 
 
 def stop_on_route(conn, route_short_name, stop_id_padded):
@@ -825,22 +848,34 @@ def routes_serving_destination(destination: str, limit: int = 12) -> list[dict]:
     if not conn:
         return []
     try:
-        pattern = f"%{destination.lower()}%"
-        rows = conn.execute(
-            """
-            SELECT DISTINCT r.route_short_name AS route_id,
-                            r.route_long_name  AS route_long_name
-            FROM stops s
-            JOIN stop_times st ON st.stop_id = s.stop_id
-            JOIN trips t       ON t.trip_id  = st.trip_id
-            JOIN routes r      ON r.route_id = t.route_id
-            WHERE LOWER(s.stop_name) LIKE ?
-            ORDER BY CAST(r.route_short_name AS INTEGER), r.route_short_name
-            LIMIT ?
-            """,
-            (pattern, limit),
-        ).fetchall()
-        return [{"route_id": r["route_id"], "route_long_name": r["route_long_name"]} for r in rows]
+        variants = expand_landmark_aliases(destination) or [destination]
+        seen: set[str] = set()
+        results: list[dict] = []
+        for variant in variants:
+            pattern = f"%{variant.lower()}%"
+            rows = conn.execute(
+                """
+                SELECT DISTINCT r.route_short_name AS route_id,
+                                r.route_long_name  AS route_long_name
+                FROM stops s
+                JOIN stop_times st ON st.stop_id = s.stop_id
+                JOIN trips t       ON t.trip_id  = st.trip_id
+                JOIN routes r      ON r.route_id = t.route_id
+                WHERE LOWER(s.stop_name) LIKE ?
+                ORDER BY CAST(r.route_short_name AS INTEGER), r.route_short_name
+                LIMIT ?
+                """,
+                (pattern, limit),
+            ).fetchall()
+            for row in rows:
+                route_id = row["route_id"]
+                if route_id in seen:
+                    continue
+                seen.add(route_id)
+                results.append({"route_id": route_id, "route_long_name": row["route_long_name"]})
+                if len(results) >= limit:
+                    return results
+        return results
     except Exception:
         return []
     finally:

@@ -1,5 +1,7 @@
 import re
 
+from routes.parsing_helpers import extract_route_id_regex, extract_stop_id_regex, normalize_stop_id
+
 
 def session_context(session_ctx: dict | None) -> dict:
     if not isinstance(session_ctx, dict):
@@ -63,6 +65,60 @@ def maybe_answer_stop_id_followup(msg: str, session_ctx: dict | None, lang: str)
             },
         },
     }
+
+
+def _last_assistant_message(history: list[dict] | None) -> str:
+    for turn in reversed(history or []):
+        if (turn.get("role") or "").lower() == "assistant":
+            return turn.get("content") or ""
+    return ""
+
+
+def maybe_rewrite_route_stop_followup(
+    msg: str,
+    history: list[dict] | None,
+    session_ctx: dict | None,
+) -> str | None:
+    """
+    Preserve a known route when the user replies with only a stop ID after the
+    assistant asked about stops in a route-specific thread.
+    """
+    text = (msg or "").strip()
+    if not text or extract_route_id_regex(text):
+        return None
+
+    stop_id = extract_stop_id_regex(text)
+    if not stop_id and re.fullmatch(r"\d{3,4}", text):
+        stop_id = normalize_stop_id(text)
+    if not stop_id:
+        return None
+
+    ctx = session_context(session_ctx)
+    route_id = str(ctx.get("last_route_id") or "").strip()
+    if not route_id:
+        return None
+
+    last_assistant = _last_assistant_message(history).lower()
+    if not last_assistant:
+        return None
+
+    mentions_same_route = f"route {route_id}" in last_assistant
+    is_stop_prompt = any(
+        phrase in last_assistant
+        for phrase in (
+            "which stop",
+            "what stop",
+            "different stop",
+            "pick one",
+            "choose one",
+            "stop id",
+            "landmark",
+        )
+    )
+    if not (mentions_same_route and is_stop_prompt):
+        return None
+
+    return f"route {route_id} stop {stop_id}"
 
 
 def _display_stop_id(stop_id: str | None) -> str | None:

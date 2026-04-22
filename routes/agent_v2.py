@@ -36,6 +36,7 @@ from routes.tool_agent_context import (
     add_stop_id_to_answer,
     extract_context_updates,
     maybe_answer_stop_id_followup,
+    maybe_rewrite_route_stop_followup,
 )
 
 _MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -152,6 +153,11 @@ If the user gives a numeric stop ID (e.g. "stop 1", "stop 0001", "stop 5042"),
 use it DIRECTLY — do NOT call search_stops. Zero-pad to 4 digits if needed
 (e.g. "stop 1" → stop_id="0001", "stop 12" → stop_id="0012").
 
+If the recent conversation already established a specific route and the user
+replies with only a stop ID, treat that as the chosen stop for the SAME route.
+Preserve route/date/time context and call get_schedule with both route_id and
+stop_id. Do NOT drop to generic stop-wide ETA mode.
+
 If the user gives a place name (e.g. "Rosa Parks", "Santa Fe College"):
   → If this conversation already resolved that name to a stop_id, reuse the
     known stop_id directly. Do NOT call search_stops again.
@@ -190,6 +196,11 @@ When the user corrects a wrong parameter (e.g., "I said noon, not 8pm"):
     stop, and date from the conversation. Do NOT call search_routes.
   → The user's correction IS the full instruction — combine it with earlier
     context to form the complete query.
+
+If the user replies with only a stop ID after a route-specific question or
+after you asked them to choose a stop, keep the existing route context and call
+get_schedule(route_id=<known_route>, stop_id=<chosen stop>). Do NOT treat it
+as a generic "what arrives at this stop?" request unless there is no route context.
 
 ## DIRECTION FILTERING — "out of", "from", "leaving"
 
@@ -248,6 +259,10 @@ If get_realtime_predictions returns status "no_service" or "api_unavailable":
 2. Report the scheduled departures to the user.
 3. Do NOT tell the user "no predictions available" and stop — always provide
    the scheduled alternative automatically, without waiting for the user to ask.
+
+In route-specific hospital/campus contexts such as "Shands" or "UF Health",
+prefer route-scoped schedule resolution over a generic stop picker when real-time
+ETA cannot answer the route cleanly.
 
 ## WHEN get_schedule RETURNS no_trips
 
@@ -334,6 +349,10 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
     contextual = maybe_answer_stop_id_followup(msg, session_ctx, lang)
     if contextual:
         return contextual
+
+    rewritten = maybe_rewrite_route_stop_followup(msg, history, session_ctx)
+    if rewritten:
+        msg = rewritten
 
     if not _openai_enabled():
         if legacy_agent_handler:

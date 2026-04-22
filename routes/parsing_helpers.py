@@ -211,6 +211,13 @@ PLACE_SYNONYMS = {
     },
 }
 
+_LANDMARK_ALIAS_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"(?i)\buf health shands\b"), "Shands"),
+    (re.compile(r"(?i)\buf health\b"), "Shands"),
+    (re.compile(r"(?i)\bshands hospital\b"), "UF Health"),
+    (re.compile(r"(?i)\bshands\b"), "UF Health"),
+)
+
 
 def _normalize_place(text: str | None) -> str:
     if not text:
@@ -226,6 +233,42 @@ def _normalize_place(text: str | None) -> str:
             if vnorm in norm or norm in vnorm:
                 return canonical
     return norm
+
+
+def expand_landmark_aliases(text: str | None) -> list[str]:
+    """
+    Return the original text plus equivalent landmark variants.
+
+    This keeps stop/route resolution resilient when GTFS uses a different
+    naming convention than riders do, such as "Shands" vs "UF Health".
+    """
+    base = " ".join((text or "").split())
+    if not base:
+        return []
+
+    variants: list[str] = []
+    seen: set[str] = set()
+
+    def _add(value: str) -> None:
+        cleaned = " ".join((value or "").split())
+        key = cleaned.lower()
+        if cleaned and key not in seen:
+            seen.add(key)
+            variants.append(cleaned)
+
+    _add(base)
+    for pattern, replacement in _LANDMARK_ALIAS_PATTERNS:
+        if pattern.search(base):
+            _add(pattern.sub(replacement, base))
+
+    # "UF Health Shands" often appears in user phrasing, while GTFS may store
+    # only one of those tokens for a given stop.
+    if re.search(r"(?i)\buf health\b", base) and "shands" not in base.lower():
+        _add(re.sub(r"(?i)\buf health\b", "UF Health Shands", base))
+    if re.search(r"(?i)\bshands\b", base) and "uf health" not in base.lower():
+        _add(re.sub(r"(?i)\bshands\b", "UF Health Shands", base))
+
+    return variants
 
 
 def _filter_headsigns_by_origin(

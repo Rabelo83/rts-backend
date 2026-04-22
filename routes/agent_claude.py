@@ -39,6 +39,7 @@ from routes.tool_agent_context import (
     add_stop_id_to_answer,
     extract_context_updates,
     maybe_answer_stop_id_followup,
+    maybe_rewrite_route_stop_followup,
 )
 
 _MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
@@ -144,6 +145,10 @@ When the user provides BOTH a route number AND a stop ID/name:
 - User provides ONLY a stop ID with no other question (e.g. "stop 1492", "stop id 827")
   → treat it as "what's arriving at this stop?" — call get_realtime_predictions
   immediately. Do NOT ask a clarifying question.
+- EXCEPTION: if the recent conversation already established a specific route and
+  the rider replies with only a stop ID, treat that as the chosen stop for the
+  SAME route. Preserve route/date/time context and call get_schedule with both
+  route_id and stop_id. Do NOT drop to generic stop-wide ETA mode.
 - When displaying stop IDs to the user, always strip leading zeros:
   show "1492" not "0001492", show "45" not "0045".
 
@@ -211,6 +216,14 @@ Route 1):
    that stop. Do NOT pivot to search_stops or show a stop list.
 4. The route is already known — never show a generic stop picker.
 
+CRITICAL — STOP-ID FOLLOW-UP IN ROUTE CONTEXT:
+When the user replies with only a stop ID after a route-specific question
+or after you asked them to choose a stop:
+1. Keep the existing route context.
+2. Call get_schedule(route_id=<known_route>, stop_id=<chosen stop>).
+3. Do NOT treat it as a generic "what arrives at this stop?" request unless
+   there is no active route context.
+
 ## REAL-TIME FIRST RULE
 When the user asks "when is the next [Route X] from [stop]?" — ALWAYS try
 real-time predictions first:
@@ -218,6 +231,9 @@ real-time predictions first:
 2. Filter the results for Route X and report the ETA if found.
 3. Only if the route is not in the real-time results (or api_unavailable)
    → fall back to get_schedule(route_id, stop_name).
+4. If the stop/place name is ambiguous in a route-specific hospital/campus
+   context such as "Shands" or "UF Health", prefer route-scoped schedule
+   resolution over a generic stop picker so the route determines the right stop.
 Real-time data is always preferred over the static schedule.
 
 ## FALLBACK CHAINS
@@ -233,6 +249,8 @@ hospitals, etc. — e.g. "McDonald's", "Walmart", "Shands"):
 - Do NOT list or guess locations from training knowledge — you may be wrong.
 - If only the business name is given (no road/area): ask which location or
   what part of Gainesville they mean.
+- EXCEPTION: in a route-specific stop/schedule question, treat "Shands" and
+  "UF Health" as transit landmarks first, not as generic hospital business lookups.
 - Once you have business name + road/area AND an origin → call plan_trip
   immediately. Google will resolve "McDonald's Newberry Road" to real coordinates.
 - Example: plan_trip("7200 SW 8th Ave", "McDonald's Newberry Road Gainesville")
@@ -340,6 +358,10 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
     contextual = maybe_answer_stop_id_followup(msg, session_ctx, lang)
     if contextual:
         return contextual
+
+    rewritten = maybe_rewrite_route_stop_followup(msg, history, session_ctx)
+    if rewritten:
+        msg = rewritten
 
     if not _claude_enabled():
         return {

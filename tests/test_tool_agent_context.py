@@ -13,6 +13,7 @@ from routes.tool_agent_context import (
     extract_context_updates,
     is_stop_id_followup,
     maybe_answer_stop_id_followup,
+    maybe_rewrite_route_stop_followup,
 )
 
 
@@ -52,6 +53,23 @@ class TestContextExtraction:
         assert updates["last_stop_id"] == "0175"
         assert updates["last_stop_name"] == "Oaks Mall SW 62nd Blvd"
         assert updates["last_route_id"] == "5"
+
+
+class TestRouteStopFollowups:
+    def test_stop_id_reply_keeps_route_context_when_assistant_asked_for_stop(self):
+        rewritten = maybe_rewrite_route_stop_followup(
+            "stop 0446",
+            [
+                {"role": "user", "content": "when the next 43 will leave shands?"},
+                {
+                    "role": "assistant",
+                    "content": "Route 43 does not appear to serve Shands Hospital @ Center Drive. Would you like to know when Route 43 runs from a different stop?",
+                },
+            ],
+            {"context": {"last_route_id": "43"}},
+        )
+
+        assert rewritten == "route 43 stop 0446"
 
 
 class TestAnswerEnrichment:

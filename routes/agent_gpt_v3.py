@@ -30,6 +30,7 @@ from routes.tool_agent_context import (
     add_stop_id_to_answer,
     extract_context_updates,
     maybe_answer_stop_id_followup,
+    maybe_rewrite_route_stop_followup,
 )
 
 _MODEL = os.getenv("OPENAI_MODEL_V4") or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -65,6 +66,10 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
     contextual = maybe_answer_stop_id_followup(msg, session_ctx, lang)
     if contextual:
         return contextual
+
+    rewritten = maybe_rewrite_route_stop_followup(msg, history, session_ctx)
+    if rewritten:
+        msg = rewritten
 
     if not _gpt_enabled():
         return {

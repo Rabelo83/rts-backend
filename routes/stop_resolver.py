@@ -28,6 +28,7 @@ from routes.parsing_helpers import (
     digits_only,
     guess_destination_hint,
     _normalize_place,
+    expand_landmark_aliases,
 )
 
 logger = logging.getLogger(__name__)
@@ -93,6 +94,18 @@ def _score_stop_name(stop_name: str, tokens: list[str]) -> int:
         if tok in nm:
             score += 2 if nm.startswith(tok) else 1
     return score
+
+
+def _dedupe_stop_rows(rows) -> list[dict]:
+    seen: set[str] = set()
+    deduped: list[dict] = []
+    for row in rows or []:
+        stop_id = row["stop_id_padded"]
+        if stop_id in seen:
+            continue
+        seen.add(stop_id)
+        deduped.append({"stop_id": stop_id, "stop_name": row["stop_name"]})
+    return deduped
 
 
 # ── Bustime stop suggestion ───────────────────────────────────────────────────
@@ -178,47 +191,55 @@ def _gtfs_resolve_stop_name(route_id: str, stop_name: str) -> dict | None:
         conn = _sqlite3.connect(str(GTFS_DB_PATH))
         conn.row_factory = _sqlite3.Row
         try:
+            variants = expand_landmark_aliases(stop_name) or [stop_name]
+
             # 1. LIKE search scoped to the route
-            rows = conn.execute(
-                """
-                SELECT DISTINCT s.stop_id_padded, s.stop_name
-                FROM stops s
-                JOIN stop_times st ON st.stop_id = s.stop_id
-                JOIN trips t ON t.trip_id = st.trip_id
-                JOIN routes r ON r.route_id = t.route_id
-                WHERE TRIM(r.route_short_name) = ?
-                  AND LOWER(TRIM(s.stop_name)) LIKE LOWER(?)
-                ORDER BY length(s.stop_name), s.stop_name
-                """,
-                (str(route_id), f"%{stop_name.strip()}%"),
-            ).fetchall()
+            like_rows = []
+            for variant in variants:
+                like_rows.extend(conn.execute(
+                    """
+                    SELECT DISTINCT s.stop_id_padded, s.stop_name
+                    FROM stops s
+                    JOIN stop_times st ON st.stop_id = s.stop_id
+                    JOIN trips t ON t.trip_id = st.trip_id
+                    JOIN routes r ON r.route_id = t.route_id
+                    WHERE TRIM(r.route_short_name) = ?
+                      AND LOWER(TRIM(s.stop_name)) LIKE LOWER(?)
+                    ORDER BY length(s.stop_name), s.stop_name
+                    """,
+                    (str(route_id), f"%{variant.strip()}%"),
+                ).fetchall())
+            rows = _dedupe_stop_rows(like_rows)
             if len(rows) == 1:
-                return {"stop_id": rows[0]["stop_id_padded"], "stop_name": rows[0]["stop_name"]}
+                return {"stop_id": rows[0]["stop_id"], "stop_name": rows[0]["stop_name"]}
             if len(rows) > 1:
-                return {"candidates": [{"stop_id": r["stop_id_padded"], "stop_name": r["stop_name"]} for r in rows[:5]]}
+                return {"candidates": rows[:5]}
 
             # 2. Fuzzy token search via fuzzy_lookup table
-            norm = stop_name.lower().strip()
-            pattern = "%" + "%".join(norm.split()) + "%"
-            rows2 = conn.execute(
-                """
-                SELECT DISTINCT s.stop_id_padded, s.stop_name
-                FROM fuzzy_lookup f
-                JOIN stops s ON s.stop_id = f.entity_id
-                JOIN stop_times st ON st.stop_id = s.stop_id
-                JOIN trips t ON t.trip_id = st.trip_id
-                JOIN routes r ON r.route_id = t.route_id
-                WHERE f.entity_type = 'stop'
-                  AND f.normalized LIKE ?
-                  AND TRIM(r.route_short_name) = ?
-                ORDER BY length(s.stop_name), s.stop_name
-                """,
-                (pattern, str(route_id)),
-            ).fetchall()
+            fuzzy_rows = []
+            for variant in variants:
+                norm = variant.lower().strip()
+                pattern = "%" + "%".join(norm.split()) + "%"
+                fuzzy_rows.extend(conn.execute(
+                    """
+                    SELECT DISTINCT s.stop_id_padded, s.stop_name
+                    FROM fuzzy_lookup f
+                    JOIN stops s ON s.stop_id = f.entity_id
+                    JOIN stop_times st ON st.stop_id = s.stop_id
+                    JOIN trips t ON t.trip_id = st.trip_id
+                    JOIN routes r ON r.route_id = t.route_id
+                    WHERE f.entity_type = 'stop'
+                      AND f.normalized LIKE ?
+                      AND TRIM(r.route_short_name) = ?
+                    ORDER BY length(s.stop_name), s.stop_name
+                    """,
+                    (pattern, str(route_id)),
+                ).fetchall())
+            rows2 = _dedupe_stop_rows(fuzzy_rows)
             if len(rows2) == 1:
-                return {"stop_id": rows2[0]["stop_id_padded"], "stop_name": rows2[0]["stop_name"]}
+                return {"stop_id": rows2[0]["stop_id"], "stop_name": rows2[0]["stop_name"]}
             if len(rows2) > 1:
-                return {"candidates": [{"stop_id": r["stop_id_padded"], "stop_name": r["stop_name"]} for r in rows2[:5]]}
+                return {"candidates": rows2[:5]}
 
             return None
         finally:
@@ -242,38 +263,46 @@ def resolve_stop_global(stop_name: str) -> dict | None:
         conn = sqlite3.connect(str(GTFS_DB_PATH))
         conn.row_factory = sqlite3.Row
         try:
-            rows = conn.execute(
-                """
-                SELECT DISTINCT stop_id_padded, stop_name
-                FROM stops
-                WHERE LOWER(TRIM(stop_name)) LIKE LOWER(?)
-                ORDER BY length(stop_name), stop_name
-                """,
-                (f"%{stop_name.strip()}%",),
-            ).fetchall()
+            variants = expand_landmark_aliases(stop_name) or [stop_name]
+
+            like_rows = []
+            for variant in variants:
+                like_rows.extend(conn.execute(
+                    """
+                    SELECT DISTINCT stop_id_padded, stop_name
+                    FROM stops
+                    WHERE LOWER(TRIM(stop_name)) LIKE LOWER(?)
+                    ORDER BY length(stop_name), stop_name
+                    """,
+                    (f"%{variant.strip()}%",),
+                ).fetchall())
+            rows = _dedupe_stop_rows(like_rows)
             if len(rows) == 1:
-                return {"stop_id": rows[0]["stop_id_padded"], "stop_name": rows[0]["stop_name"]}
+                return {"stop_id": rows[0]["stop_id"], "stop_name": rows[0]["stop_name"]}
             if len(rows) > 1:
-                return {"candidates": [{"stop_id": r["stop_id_padded"], "stop_name": r["stop_name"]} for r in rows[:5]]}
+                return {"candidates": rows[:5]}
 
             # Fuzzy token search via fuzzy_lookup table
-            norm = stop_name.lower().strip()
-            pattern = "%" + "%".join(norm.split()) + "%"
-            rows2 = conn.execute(
-                """
-                SELECT DISTINCT s.stop_id_padded, s.stop_name
-                FROM fuzzy_lookup f
-                JOIN stops s ON s.stop_id = f.entity_id
-                WHERE f.entity_type = 'stop'
-                  AND f.normalized LIKE ?
-                ORDER BY length(s.stop_name), s.stop_name
-                """,
-                (pattern,),
-            ).fetchall()
+            fuzzy_rows = []
+            for variant in variants:
+                norm = variant.lower().strip()
+                pattern = "%" + "%".join(norm.split()) + "%"
+                fuzzy_rows.extend(conn.execute(
+                    """
+                    SELECT DISTINCT s.stop_id_padded, s.stop_name
+                    FROM fuzzy_lookup f
+                    JOIN stops s ON s.stop_id = f.entity_id
+                    WHERE f.entity_type = 'stop'
+                      AND f.normalized LIKE ?
+                    ORDER BY length(s.stop_name), s.stop_name
+                    """,
+                    (pattern,),
+                ).fetchall())
+            rows2 = _dedupe_stop_rows(fuzzy_rows)
             if len(rows2) == 1:
-                return {"stop_id": rows2[0]["stop_id_padded"], "stop_name": rows2[0]["stop_name"]}
+                return {"stop_id": rows2[0]["stop_id"], "stop_name": rows2[0]["stop_name"]}
             if len(rows2) > 1:
-                return {"candidates": [{"stop_id": r["stop_id_padded"], "stop_name": r["stop_name"]} for r in rows2[:5]]}
+                return {"candidates": rows2[:5]}
 
             return None
         finally:
