@@ -1,0 +1,374 @@
+/**
+ * public_html/pwa.css
+ * Shared PWA chrome — offline banner, install button, iOS Add-to-Home tip.
+ * Loaded on every page that has <link rel="manifest">.
+ * Extended by add-web-push.md (notification toggle, permission hints).
+ */
+
+/* ── Offline banner ─────────────────────────────────────────────────────────
+   Shown/hidden by frontend.js on navigator online/offline events.           */
+#offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  padding: 10px 20px;
+  background: rgba(239, 68, 68, 0.92);
+  color: #fff;
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.01em;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.4);
+
+  /* Hidden by default; JS removes [hidden] to reveal */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  animation: banner-slide-in 0.25s ease-out both;
+}
+
+#offline-banner[hidden] {
+  display: none !important;
+}
+
+@keyframes banner-slide-in {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+#offline-banner::before {
+  content: '📵';
+  font-size: 1rem;
+}
+
+
+/* ── Install button ─────────────────────────────────────────────────────────
+   Hidden until beforeinstallprompt fires.                                   */
+.btn-install {
+  display: none;          /* JS will switch to flex when event fires */
+  align-items: center;
+  gap: 7px;
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  z-index: 8000;
+  background: linear-gradient(135deg, #0057B8 0%, #003d82 100%);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 12px 22px 12px 16px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow:
+    0 0 0 1px rgba(0, 87, 184, 0.4),
+    0 8px 24px rgba(0, 87, 184, 0.45);
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.18s;
+  animation: install-pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.btn-install::before {
+  content: '⬇';
+  font-size: 1.05rem;
+}
+
+.btn-install:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow:
+    0 0 0 1px rgba(0, 87, 184, 0.5),
+    0 12px 32px rgba(0, 87, 184, 0.55);
+}
+
+.btn-install:active {
+  transform: scale(0.96);
+}
+
+.btn-install.visible {
+  display: flex;
+}
+
+@keyframes install-pop-in {
+  from { transform: translateY(20px) scale(0.8); opacity: 0; }
+  to   { transform: translateY(0)    scale(1);   opacity: 1; }
+}
+
+
+/* ── iOS "Add to Home Screen" tip ───────────────────────────────────────────
+   Safari on iOS doesn't support beforeinstallprompt. We show a one-time
+   tip that is dismissed into localStorage.                                  */
+#ios-tip {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8000;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  padding: 14px 16px 14px 18px;
+  max-width: min(340px, calc(100vw - 32px));
+  font-size: 0.84rem;
+  color: #e2e8f0;
+  line-height: 1.55;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  display: none;
+  align-items: flex-start;
+  gap: 12px;
+  animation: tip-slide-up 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+#ios-tip[hidden] {
+  display: none !important;
+}
+
+#ios-tip.visible {
+  display: flex;
+}
+
+#ios-tip::before {
+  content: '📲';
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+#ios-tip p {
+  flex: 1;
+  margin: 0;
+}
+
+#ios-tip-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0 0 0 4px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+#ios-tip-close:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+@keyframes tip-slide-up {
+  from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+}
+
+/* TODO(add-web-push): notification permission prompt UI goes here */
+
+
+/* ── "Notify me" toggle ─────────────────────────────────────────────────────
+   Pill-style checkbox toggle for push notification opt-in.                  */
+.notify-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0 4px;
+}
+
+.notify-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  user-select: none;
+}
+
+#notify-toggle {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.notify-track {
+  width: 42px;
+  height: 24px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+}
+
+.notify-track::after {
+  content: '';
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.5);
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), background 0.2s;
+}
+
+.notify-track.is-on {
+  background: rgba(0,87,184,0.7);
+  border-color: rgba(0,87,184,0.9);
+}
+
+.notify-track.is-on::after {
+  transform: translateX(18px);
+  background: #fff;
+}
+
+#notify-denied-hint {
+  display: none;
+  font-size: 0.75rem;
+  color: #fbbf24;
+  padding: 6px 10px;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.2);
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+#notify-denied-hint.visible { display: block; }
+
+/* ── Favorites panel ─────────────────────────────────────────────────────────*/
+#favorites-panel {
+  margin-top: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.fav-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.fav-panel-title {
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fav-panel-caret {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.35);
+  transition: transform 0.2s;
+}
+
+#favorites-panel.open .fav-panel-caret { transform: rotate(180deg); }
+
+.fav-panel-body {
+  padding: 0 16px 16px;
+  display: none;
+}
+
+#favorites-panel.open .fav-panel-body { display: block; }
+
+.fav-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.fav-field { display: flex; flex-direction: column; gap: 4px; }
+.fav-field label {
+  font-size: 0.68rem; font-weight: 600; color: rgba(255,255,255,0.4);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+
+.fav-input {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 10px;
+  color: #e2e8f0;
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 9px 12px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s, background 0.2s;
+  color-scheme: dark;
+}
+.fav-input:focus { background: rgba(255,255,255,0.07); border-color: rgba(0,87,184,0.6); }
+
+.dow-grid { display: flex; flex-wrap: wrap; gap: 5px; }
+.dow-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.dow-btn.active { background: rgba(0,87,184,0.25); border-color: rgba(0,87,184,0.6); color: #93c5fd; }
+
+.fav-slider-row { display: flex; align-items: center; gap: 10px; }
+.fav-slider-row input[type="range"] { flex: 1; accent-color: #0057B8; }
+.fav-slider-val { font-size: 0.82rem; font-weight: 600; color: #93c5fd; min-width: 36px; text-align: right; }
+
+.btn-save-fav {
+  background: linear-gradient(135deg, #0057B8 0%, #003d82 100%);
+  border: none; border-radius: 10px; color: #fff;
+  cursor: pointer; font-family: inherit; font-size: 0.85rem; font-weight: 700;
+  padding: 10px 18px; width: 100%; margin-top: 4px;
+  transition: opacity 0.15s;
+}
+.btn-save-fav:hover { opacity: 0.88; }
+.btn-save-fav:disabled { opacity: 0.45; cursor: default; }
+
+.fav-list { display: flex; flex-direction: column; gap: 8px; }
+.fav-item {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  animation: fav-in 0.25s ease both;
+}
+@keyframes fav-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fav-item-info { flex: 1; min-width: 0; }
+.fav-route-label { font-size: 0.85rem; font-weight: 600; color: #e2e8f0; }
+.fav-meta { font-size: 0.72rem; color: rgba(255,255,255,0.4); margin-top: 2px; }
+.fav-item-actions { display: flex; align-items: center; gap: 8px; }
+
+.fav-active-toggle {
+  font-size: 0.70rem; padding: 3px 9px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.45);
+  cursor: pointer; transition: background 0.15s, color 0.15s; font-family: inherit;
+}
+.fav-active-toggle.on { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.3); color: #34d399; }
+
+.btn-delete-fav {
+  background: none; border: none; color: rgba(248,113,113,0.45);
+  cursor: pointer; font-size: 1rem; padding: 2px 4px; border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+.btn-delete-fav:hover { color: #f87171; background: rgba(248,113,113,0.10); }
+
+.fav-empty { text-align: center; font-size: 0.80rem; color: rgba(255,255,255,0.3); padding: 16px 0; }

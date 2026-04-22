@@ -15,6 +15,9 @@ from routes.schedule_api import schedule_bp
 from routes.project_status import project_status_bp
 from routes.admin_api import admin_bp
 from routes.trip_api import trip_bp
+from routes.pwa import pwa_bp
+from routes.push import push_bp
+from routes.favorites import favorites_bp
 
 # If you have web index routes, keep this import.
 try:
@@ -80,6 +83,26 @@ def create_app() -> Flask:
     app.register_blueprint(project_status_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(trip_bp)
+    app.register_blueprint(pwa_bp)
+    app.register_blueprint(push_bp)
+    app.register_blueprint(favorites_bp)
+
+    # Initialise push DB tables on startup (idempotent)
+    try:
+        from utils.push_db import init_db as _push_init
+        _push_init()
+    except Exception as _e:
+        print(f"[app] push_db init failed: {_e}")
+
+    # Start alert scheduler (respects ENABLE_ALERT_SCHEDULER env var)
+    try:
+        from utils.alert_scheduler import make_scheduler as _make_sched
+        _scheduler = _make_sched()
+        if _scheduler:
+            import atexit
+            atexit.register(_scheduler.shutdown)
+    except Exception as _e:
+        print(f"[app] alert_scheduler failed: {_e}")
 
     # Initialise GTFSEngine singleton at startup (loads GTFS into memory ~2-3s)
     try:

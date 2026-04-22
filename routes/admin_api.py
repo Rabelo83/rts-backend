@@ -310,3 +310,32 @@ def submit_feedback():
         return jsonify({"status": "ok"})   # fail silently — never break chat
     finally:
         conn.close()
+
+
+@admin_bp.route("/api/admin/push-stats")
+def push_stats():
+    """Active push subscriptions, favorites, and 24h alert counts."""
+    try:
+        import sys as _sys
+        from pathlib import Path as _Path
+        _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "utils"))
+        from push_db import get_push_db
+        db = get_push_db()
+        active_subs = db.execute(
+            "SELECT COUNT(*) FROM push_subscriptions"
+        ).fetchone()[0]
+        active_favs = db.execute(
+            "SELECT COUNT(*) FROM favorites WHERE active=1"
+        ).fetchone()[0]
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+        alerts_24h = db.execute(
+            "SELECT COUNT(*) FROM alert_log WHERE fired_at > ? AND outcome='sent'",
+            (cutoff,),
+        ).fetchone()[0]
+        return jsonify({
+            "active_subscriptions": active_subs,
+            "active_favorites": active_favs,
+            "alerts_sent_24h": alerts_24h,
+        })
+    except Exception as exc:
+        return jsonify({"active_subscriptions": 0, "active_favorites": 0, "alerts_sent_24h": 0, "error": str(exc)})

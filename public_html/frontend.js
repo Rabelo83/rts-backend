@@ -371,3 +371,97 @@ clearBtn.addEventListener("click", handleClear);
 
 // ----- boot -----
 initRoutes();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PWA PRIMITIVES
+// All logic is scoped to this IIFE so it doesn't pollute the module scope.
+// ═══════════════════════════════════════════════════════════════════════════
+(function initPWA() {
+
+  // ── 1. Service-worker registration ─────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker
+        .register('/service-worker.js', { scope: '/' })
+        .then((reg) => {
+          console.log('[PWA] SW registered, scope:', reg.scope);
+        })
+        .catch((err) => {
+          console.warn('[PWA] SW registration failed:', err);
+        });
+    });
+  }
+
+  // ── 2. Install button (Chrome / Edge desktop + Android) ────────────────
+  let _deferredInstallPrompt = null;
+  const btnInstall = document.getElementById('btn-install');
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    _deferredInstallPrompt = e;
+    if (btnInstall) {
+      btnInstall.classList.add('visible');  // pwa.css shows it via flex
+    }
+  });
+
+  if (btnInstall) {
+    btnInstall.addEventListener('click', async () => {
+      if (!_deferredInstallPrompt) return;
+      _deferredInstallPrompt.prompt();
+      await _deferredInstallPrompt.userChoice;
+      _deferredInstallPrompt = null;
+      btnInstall.classList.remove('visible');
+    });
+  }
+
+  window.addEventListener('appinstalled', () => {
+    console.log('[PWA] App installed');
+    // TODO(add-web-push): fire analytics event here
+  });
+
+  // ── 3. iOS Safari "Add to Home Screen" tip ─────────────────────────────
+  const IOS_TIP_KEY = 'pwa_ios_tip_dismissed';
+  const iosTip = document.getElementById('ios-tip');
+  const iosTipClose = document.getElementById('ios-tip-close');
+
+  function _isIosSafari() {
+    const ua = navigator.userAgent;
+    const isIos = /iphone|ipad|ipod/i.test(ua);
+    // Safari on iOS: has "Safari" but NOT "CriOS" / "FxiOS" / "EdgiOS"
+    const isSafari = /safari/i.test(ua) && !/crios|fxios|edgios/i.test(ua);
+    return isIos && isSafari;
+  }
+
+  if (iosTip && _isIosSafari() && !localStorage.getItem(IOS_TIP_KEY)) {
+    // Show after 3 s on first visit only
+    setTimeout(() => {
+      iosTip.classList.add('visible');
+    }, 3000);
+
+    if (iosTipClose) {
+      iosTipClose.addEventListener('click', () => {
+        iosTip.classList.remove('visible');
+        localStorage.setItem(IOS_TIP_KEY, '1');
+      });
+    }
+  }
+
+  // ── 4. Online / offline banner ──────────────────────────────────────────
+  const offlineBanner = document.getElementById('offline-banner');
+
+  function _updateOnlineState() {
+    if (!offlineBanner) return;
+    if (navigator.onLine) {
+      offlineBanner.hidden = true;
+    } else {
+      offlineBanner.hidden = false;
+    }
+  }
+
+  window.addEventListener('online',  _updateOnlineState);
+  window.addEventListener('offline', _updateOnlineState);
+  // Run once on load in case the page loaded while offline
+  _updateOnlineState();
+
+}());
+

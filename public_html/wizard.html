@@ -4,6 +4,19 @@
   <meta charset="UTF-8" />
   <title>RTS Trip Wizard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- PWA: manifest + shared chrome styles (travel together) -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/static/pwa.css">
+
+  <!-- iOS PWA meta -->
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- TODO: render apple-mobile-web-app-title from agency_config via Jinja2 -->
+  <meta name="apple-mobile-web-app-title" content="RTS Bus">
+  <meta name="theme-color" content="#0057B8">
+
   <link rel="stylesheet" href="/static/style.css?v=33" />
 </head>
 <body>
@@ -35,5 +48,13 @@
   </main>
 
   <script src="/static/wizard.js?v=9" defer></script>
+
+  <!-- PWA chrome (offline banner, install button, iOS tip) -->
+  <div id="offline-banner" hidden>You're offline. Showing last known information.</div>
+  <button id="btn-install" class="btn-install" hidden>Install app</button>
+  <div id="ios-tip" hidden>
+    <p>Tap <strong>Share → Add to Home Screen</strong> to install.</p>
+    <button id="ios-tip-close" aria-label="Dismiss tip">✕</button>
+  </div>
 </body>
 </html>

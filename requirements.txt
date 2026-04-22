@@ -12,3 +12,6 @@ pdfplumber
 gtfs-realtime-bindings
 pandas
 tzdata
+PyYAML>=6.0
+pywebpush>=2.0.0
+APScheduler>=3.10.4
