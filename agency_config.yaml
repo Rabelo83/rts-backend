@@ -1,0 +1,48 @@
+agency:
+  id: "rts-gainesville"                    # slug used in multi-tenant routing
+  short_name: "RTS"
+  full_name: "Gainesville RTS (Regional Transit System)"
+  city: "Gainesville"
+  state: "FL"
+  timezone: "America/New_York"
+
+contact:
+  support_phone: "(352) 334-2600"
+  support_hours: "Mon–Fri 8 AM–5 PM"
+  support_hours_es: "lun–vie 8 AM–5 PM"
+  email: "alfredo.rabelo@am2ar.com"
+  website: "https://go-rts.com"
+  rider_app_url: "https://riderts.app"
+
+realtime:
+  provider: "bustime"                      # one of: bustime | gtfs_rt | swiftly | transloc
+  endpoint: "https://riderts.app/bustime/api/v3"
+  api_key_env: "BUS_API_KEY"
+  rtpidatafeed: "bustime"
+
+gtfs:
+  static_feed_path: "Backend Basics/RTSGTFS_Spring2026_V6"
+  db_path: "Backend Basics/db/rts_gtfs.sqlite"
+  refresh_mode: "on_deploy"               # later: scheduled
+
+geocoding:
+  # Bounding box [W, S, E, N] used to bias geocoding queries to the service area
+  bbox: [-82.55, 29.55, -82.10, 29.85]
+  city_hint: "Gainesville FL"
+
+languages:
+  default: "en"
+  supported: ["en", "es"]
+
+landmarks:
+  hubs:
+    - { stop_id: 1,    id: "rosa-parks-ts",    display: "Rosa Parks RTS Downtown Station" }
+    - { stop_id: 1493, id: "butler-plaza-ts",  display: "Butler Plaza Transfer Station" }
+    - { stop_id: 1097, id: "oaks-mall",        display: "Oaks Mall" }
+    - { stop_id: 473,  id: "reitz-union",      display: "Reitz Union" }
+    - { stop_id: 13,   id: "beaty-towers",     display: "Beaty Towers" }
+
+branding:
+  primary_color: "#0057B8"
+  background_color: "#070d1a"
+  app_name: "RTS Bus Tracker"

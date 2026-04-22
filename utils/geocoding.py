@@ -12,17 +12,24 @@ Swap providers with zero frontend/routing code changes.
 import hashlib
 import json
 import os
+import sys
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[0]))
+from agency_config import get_geocoding_bbox, get_city_hint
 
 PROVIDER = os.getenv("GEOCODING_PROVIDER", "nominatim")
 GOOGLE_KEY = os.getenv("GOOGLE_GEOCODING_KEY", "")
 MAPBOX_KEY = os.getenv("MAPBOX_TOKEN", "")
 
-# Gainesville, FL bounding box  [W, S, E, N]
-_BBOX = (-82.55, 29.55, -82.10, 29.85)
-_VIEWBOX = f"{_BBOX[0]},{_BBOX[3]},{_BBOX[2]},{_BBOX[1]}"   # Nominatim: W,N,E,S
+# Agency service-area bounding box and city hint — read from agency_config.yaml
+_bbox = get_geocoding_bbox()            # [W, S, E, N]
+_BBOX = tuple(_bbox)                   # (-82.55, 29.55, -82.10, 29.85) for Gainesville
+_VIEWBOX = f"{_BBOX[0]},{_BBOX[3]},{_BBOX[2]},{_BBOX[1]}"  # Nominatim: W,N,E,S
+_CITY = get_city_hint()                # e.g. "Gainesville FL"
 
 _CACHE: dict = {}
 _CACHE_TTL = timedelta(hours=24)
@@ -81,7 +88,7 @@ def autocomplete(query: str) -> list[dict]:
 
 def _nominatim_geocode(query: str) -> dict | None:
     params = urllib.parse.urlencode({
-        "q": f"{query}, Gainesville FL",
+        "q": f"{query}, {_CITY}",
         "format": "json",
         "limit": 1,
         "countrycodes": "us",
@@ -106,7 +113,7 @@ def _nominatim_geocode(query: str) -> dict | None:
 
 def _nominatim_autocomplete(query: str) -> list[dict]:
     params = urllib.parse.urlencode({
-        "q": f"{query}, Gainesville FL",
+        "q": f"{query}, {_CITY}",
         "format": "json",
         "limit": 5,
         "countrycodes": "us",
@@ -134,7 +141,7 @@ def _google_geocode(query: str) -> dict | None:
     if not GOOGLE_KEY:
         return _nominatim_geocode(query)
     params = urllib.parse.urlencode({
-        "address": f"{query}, Gainesville FL",
+        "address": f"{query}, {_CITY}",
         "key": GOOGLE_KEY,
     })
     url = f"https://maps.googleapis.com/maps/api/geocode/json?{params}"
@@ -165,7 +172,7 @@ def _google_autocomplete(query: str) -> list[dict]:
 def _mapbox_geocode(query: str) -> dict | None:
     if not MAPBOX_KEY:
         return _nominatim_geocode(query)
-    q = urllib.parse.quote(f"{query} Gainesville FL")
+    q = urllib.parse.quote(f"{query} {_CITY}")
     bbox = f"{_BBOX[0]},{_BBOX[1]},{_BBOX[2]},{_BBOX[3]}"
     url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{q}.json?access_token={MAPBOX_KEY}&bbox={bbox}&limit=1&country=us"
     try:
@@ -186,7 +193,7 @@ def _mapbox_geocode(query: str) -> dict | None:
 def _mapbox_autocomplete(query: str) -> list[dict]:
     if not MAPBOX_KEY:
         return _nominatim_autocomplete(query)
-    q = urllib.parse.quote(f"{query} Gainesville FL")
+    q = urllib.parse.quote(f"{query} {_CITY}")
     bbox = f"{_BBOX[0]},{_BBOX[1]},{_BBOX[2]},{_BBOX[3]}"
     url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{q}.json?access_token={MAPBOX_KEY}&bbox={bbox}&limit=5&country=us"
     try:

@@ -8,10 +8,15 @@ handle_message  — agent loop: LLM → tools → LLM (tooluse-4, stub here)
 import json
 import os
 import logging
+import sys
 from datetime import datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
-_TZ = ZoneInfo("America/New_York")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "utils"))
+from agency_config import get_timezone, get_support_phone, get_support_hours
+
+_TZ = ZoneInfo(get_timezone())
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +68,8 @@ def _openai_enabled() -> bool:
 
 # ── SYSTEM PROMPT (tooluse-3) ─────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """\
-You are the Gainesville RTS (Regional Transit System) bus assistant.
+_SYSTEM_PROMPT_V2_TEMPLATE = """\
+You are the {agency_full_name} bus assistant.
 You help riders find real-time bus arrivals and scheduled departure times.
 
 ## YOUR ONLY DATA SOURCES ARE YOUR TOOLS
@@ -85,7 +90,7 @@ You have these tools (use ONLY these — never answer from memory):
 | plan_trip | Trip planning from one address to another ("how do I get from X to Y") |
 
 ALWAYS call a tool before stating any fact about bus times, routes, or stops.
-NEVER use your training knowledge about Gainesville bus schedules — it may be
+NEVER use your training knowledge about {agency_full_name} bus schedules — it may be
 outdated or wrong.
 
 ## HARD RULES — no exceptions
@@ -258,8 +263,8 @@ no_service or route_not_found.
 ## WHEN NO DATA IS AVAILABLE
 
 If all tools return errors (no_service, not_found, api_unavailable, db_unavailable)
-with no useful times, say so clearly and offer the RTS customer service contact:
-call (352) 334-2600 (Mon–Fri 8 AM–5 PM) or visit go-rts.com.
+with no useful times, say so clearly and offer the customer service contact:
+{support_contact}.
 Do not invent a time or route. One wrong time is worse than no answer.
 
 ## INTERPRETING get_route_overview RESULTS
@@ -294,6 +299,16 @@ NOTE: Trip planning (point A to B) IS supported — use plan_trip.
 Questions about vehicle counts or locations ARE supported — use
 get_route_vehicle_count (scheduled) or get_vehicle_location (real-time GPS).
 """
+
+
+def _get_system_prompt_v2() -> str:
+    """Render the v2 system prompt with live agency config values."""
+    return _SYSTEM_PROMPT_V2_TEMPLATE.format(
+        agency_full_name=get_agency_full_name(),
+        support_contact=(
+            f"call {get_support_phone()} ({get_support_hours()}) or visit {get_website()}"
+        ),
+    )
 
 
 # ── AGENT LOOP (tooluse-4, implemented below) ────────────────────────────────
@@ -337,7 +352,7 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
         f"day after tomorrow/pasado mañana, day names (Monday/lunes, etc.). "
         f"Always pass dates to tools as day names or ISO format (YYYY-MM-DD), never as vague words the tool won't recognize.\n\n"
     )
-    messages: list[dict] = [{"role": "system", "content": date_header + SYSTEM_PROMPT}]
+    messages: list[dict] = [{"role": "system", "content": date_header + _get_system_prompt_v2()}]
     for turn in (history or []):
         role = (turn.get("role") or "").lower()
         content = turn.get("content") or ""
@@ -407,7 +422,7 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
     logger.warning("agent_v2: max tool iterations reached for msg=%r", msg[:80])
     last_text = next(
         (m["content"] for m in reversed(messages) if m.get("role") == "assistant" and m.get("content")),
-        "I wasn't able to complete your request. Please call RTS: (352) 334-2600 (Mon–Fri 8 AM–5 PM).",
+        f"I wasn't able to complete your request. Please call {get_support_phone()} ({get_support_hours()}).",
     )
     return {
         "answer": last_text,

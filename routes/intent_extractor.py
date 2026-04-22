@@ -12,13 +12,18 @@ Task C: Structured outputs
 """
 import os
 import json
+import sys
 import traceback
 import logging
+from pathlib import Path
 
 try:
     from openai import OpenAI
 except Exception:
     OpenAI = None
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "utils"))
+from agency_config import get_agency_full_name
 
 from routes.parsing_helpers import detect_language_simple, digits_only, normalize_stop_id
 
@@ -165,7 +170,7 @@ def _parse_intent_obj(obj: dict, message: str) -> dict:
 # ── System prompt (shared) ───────────────────────────────────────────────────
 
 _SYSTEM_SINGLE = (
-    "You extract transit intent for Gainesville RTS. "
+    f"You extract transit intent for {get_agency_full_name()}. "
     "Return ONLY JSON with keys: intent, route_id, stop_id, stop_name, direction, "
     "destination_hint, origin_hint, timeframe, language, confidence, needs. "
     "Rules: "
@@ -184,7 +189,7 @@ _SYSTEM_SINGLE = (
 )
 
 _SYSTEM_HYBRID = (
-    "You extract transit intent for Gainesville RTS with full conversation context. "
+    f"You extract transit intent for {get_agency_full_name()} with full conversation context. "
     "Return ONLY JSON with keys: intent, route_id, stop_id, stop_name, direction, "
     "destination_hint, origin_hint, timeframe, language, confidence, needs. "
     "Rules: "

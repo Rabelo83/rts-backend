@@ -18,8 +18,11 @@ import os
 import re
 import traceback
 import sys
-from datetime import datetime, timedelta
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "utils"))
+from agency_config import get_agency_full_name
+from datetime import datetime, timedelta
 import logging
 
 # Add utils to path
@@ -1364,8 +1367,8 @@ def handle_agent_message(message: str, history=None) -> dict:
         return {
             "answer": tmsg(
                 lang,
-                "Hi! I can look up real-time bus ETAs and schedules for Gainesville RTS. Which route or stop are you asking about?",
-                "¡Hola! Puedo buscar ETAs en tiempo real y horarios de RTS Gainesville. ¿Qué ruta o parada necesitas?"
+                f"Hi! I can look up real-time bus ETAs and schedules for {get_agency_full_name()}. Which route or stop are you asking about?",
+                f"¡Hola! Puedo buscar ETAs en tiempo real y horarios de {get_agency_full_name()}. ¿Qué ruta o parada necesitas?"
             ),
             "buttons": buttons,
             "sources": [{"type": "greeting"}],

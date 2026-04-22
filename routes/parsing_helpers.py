@@ -3,10 +3,15 @@ Pure text/regex utility functions for the RTS transit assistant.
 No external service dependencies — safe to import anywhere.
 """
 import re
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
-TZ = ZoneInfo("America/New_York")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "utils"))
+from agency_config import get_timezone
+
+TZ = ZoneInfo(get_timezone())
 
 # ── Stop / Route extraction ──────────────────────────────────────────────────
 

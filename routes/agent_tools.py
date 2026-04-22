@@ -1097,7 +1097,10 @@ def _tool_get_route_vehicle_count(route_id: str, date: str | None = None) -> dic
 
     from datetime import date as _dateobj, datetime
     from zoneinfo import ZoneInfo
-    _TZ = ZoneInfo("America/New_York")
+    import sys as _sys
+    _sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1] / "utils"))
+    from agency_config import get_timezone as _get_tz
+    _TZ = ZoneInfo(_get_tz())
     target_date = _dateobj.fromisoformat(date_str) if date_str else datetime.now(_TZ).date()
     day_name = target_date.strftime("%A")
 

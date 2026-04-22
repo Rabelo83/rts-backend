@@ -3,6 +3,7 @@ import os
 import re
 import sqlite3
 import json
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "utils"))
 from session_manager import session_manager
 from api_schemas import ErrorCode
 from limiter import limiter
+from agency_config import format_contact_note, get_agency_short_name
 
 MAX_MSG_LEN = 1000
 # Allow UUID v4 session IDs only (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
@@ -55,11 +57,11 @@ def _check_escalation(session_id: str, prior_ctx: dict, sources: list, lang: str
         if (lang or "").lower().startswith("es"):
             return (
                 "\n\n¿Necesitas más ayuda? Llama al servicio al cliente de RTS: "
-                "**(352) 334-2600** (lun–vie 8 AM–5 PM) o visita go-rts.com."
+                + format_contact_note("es")
             )
         return (
             "\n\nStill having trouble? Call RTS Customer Service: "
-            "**(352) 334-2600** (Mon–Fri 8 AM–5 PM) or visit go-rts.com."
+            + format_contact_note("en")
         )
     return ""
 

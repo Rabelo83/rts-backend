@@ -13,10 +13,18 @@ Key improvements:
 import json
 import logging
 import os
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
-_TZ = ZoneInfo("America/New_York")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "utils"))
+from agency_config import (
+    get_timezone, get_agency_full_name, get_agency_short_name, format_contact_note,
+    get_support_phone, get_support_hours, get_website,
+)
+
+_TZ = ZoneInfo(get_timezone())
 logger = logging.getLogger(__name__)
 
 try:
@@ -78,14 +86,14 @@ def _claude_client():
 # Direction filtering is handled in agent_tools.py (_filter_inbound_departures).
 # This prompt does NOT try to replicate that logic.
 
-SYSTEM_PROMPT = """\
-You are the Gainesville RTS (Regional Transit System) bus assistant.
+_SYSTEM_PROMPT_TEMPLATE = """\
+You are the {agency_full_name} bus assistant.
 You help riders find real-time bus arrivals and scheduled departure times.
 
 ## GROUND TRUTH RULE
 Only state departure times, route numbers, and stop names that appear in a
 tool result from this conversation. Never use training knowledge about
-Gainesville bus schedules — it may be outdated or wrong.
+{agency_full_name} bus schedules — it may be outdated or wrong.
 If no tool returned data, tell the user clearly. Do not guess.
 
 CRITICAL: If the tool returns no_trips or an empty result for a specific
@@ -298,8 +306,19 @@ Show all stops with their sequence number and stop ID. Do not omit stop IDs.
 - Respond in the same language the user used (English or Spanish).
 - Do not mention which tools you called or how you work.
 - If all tools fail: "I wasn't able to find that information. For help call
-  RTS: (352) 334-2600 (Mon–Fri 8 AM–5 PM) or visit go-rts.com."
+  {support_contact}."
 """
+
+
+def _format_system_prompt() -> str:
+    """Render the system prompt template with live agency config values."""
+    cfg_phone   = get_support_phone()
+    cfg_hours   = get_support_hours()
+    cfg_website = get_website()
+    return _SYSTEM_PROMPT_TEMPLATE.format(
+        agency_full_name=get_agency_full_name(),
+        support_contact=f"{cfg_phone} ({cfg_hours}) or visit {cfg_website}",
+    )
 
 
 # ── AGENT LOOP ────────────────────────────────────────────────────────────────
@@ -326,8 +345,8 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
         return {
             "answer": (
                 "I'm not able to process your request right now. "
-                "Please call RTS Customer Service: (352) 334-2600 "
-                "(Mon–Fri 8 AM–5 PM) or visit go-rts.com."
+                f"Please call {get_agency_short_name()} Customer Service: "
+                f"{format_contact_note(lang)}"
             ),
             "buttons": [],
             "meta": {"language": lang, "error": "anthropic_unavailable"},
@@ -361,7 +380,7 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
         "Reduced Service, Saturday, or Sunday — call get_service_differences with the "
         "appropriate service_type. Do not guess or refuse.\n\n"
     )
-    system = date_header + SYSTEM_PROMPT
+    system = date_header + _format_system_prompt()
 
     # Build Claude messages from history + current turn
     messages: list[dict] = []
@@ -394,8 +413,8 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
                 return {
                     "answer": (
                         "I'm receiving too many requests right now. "
-                        "You can check schedules at go-rts.com or call "
-                        "RTS: (352) 334-2600 (Mon–Fri 8 AM–5 PM)."
+                        f"You can check schedules at {get_website()} or call "
+                        f"{get_support_phone()} ({get_support_hours()})."
                     ),
                     "buttons": [],
                     "meta": {"language": lang, "error": "rate_limit"},
@@ -403,8 +422,8 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
             return {
                 "answer": (
                     "I'm having trouble connecting right now. "
-                    "Please try again in a moment or call RTS: "
-                    "(352) 334-2600 (Mon–Fri 8 AM–5 PM)."
+                    f"Please try again in a moment or call "
+                    f"{get_support_phone()} ({get_support_hours()})."
                 ),
                 "buttons": [],
                 "meta": {"language": lang, "error": exc_str},
@@ -420,8 +439,7 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
             if not answer:
                 answer = (
                     "I wasn't able to find that information. "
-                    "For help call RTS: (352) 334-2600 (Mon–Fri 8 AM–5 PM) "
-                    "or visit go-rts.com."
+                    f"For help call {format_contact_note()}"
                 )
             answer = add_stop_id_to_answer(answer, tool_results_log, lang)
             return {
@@ -471,7 +489,7 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
     return {
         "answer": last_text or (
             "I wasn't able to complete your request. "
-            "Please call RTS: (352) 334-2600 (Mon–Fri 8 AM–5 PM)."
+            f"Please call {get_support_phone()} ({get_support_hours()})."
         ),
         "buttons": [],
         "meta": {

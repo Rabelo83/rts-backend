@@ -1,12 +1,15 @@
 import json
 import re
 import sqlite3
+import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "utils"))
+from agency_config import get_timezone
 
-TZ = ZoneInfo("America/New_York")
+TZ = ZoneInfo(get_timezone())
 BASE_DIR = Path(__file__).resolve().parents[1]
 DB_PATH = BASE_DIR / "Backend Basics" / "db" / "rts_gtfs.sqlite"
 DEFAULTS_PATH = BASE_DIR / "Backend Basics" / "db" / "answering_defaults.json"

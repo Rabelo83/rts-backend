@@ -8,10 +8,15 @@ but uses the OpenAI SDK (GPT-4o-mini) for ~5x lower API cost.
 import json
 import logging
 import os
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
-_TZ = ZoneInfo("America/New_York")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "utils"))
+from agency_config import get_timezone, get_support_phone, get_support_hours, get_website
+
+_TZ = ZoneInfo(get_timezone())
 logger = logging.getLogger(__name__)
 
 try:
@@ -32,8 +37,8 @@ _MODEL = os.getenv("OPENAI_MODEL_V4") or os.getenv("OPENAI_MODEL", "gpt-4o-mini"
 _API_KEY_ENV = "OPENAI_API_KEY_V4" if os.getenv("OPENAI_API_KEY_V4") else "OPENAI_API_KEY"
 _MAX_TOOL_ITERATIONS = 5
 
-# ── Shared system prompt (identical to agent_claude.py) ────────────────────────
-from routes.agent_claude import SYSTEM_PROMPT
+# Reuse the system prompt from agent_claude (now config-driven)
+from routes.agent_claude import _format_system_prompt as _get_system_prompt
 from routes.schedule_service import get_active_service_label
 
 # ── Availability check ─────────────────────────────────────────────────────────
@@ -65,8 +70,8 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
         return {
             "answer": (
                 "I'm not able to process your request right now. "
-                "Please call RTS Customer Service: (352) 334-2600 "
-                "(Mon–Fri 8 AM–5 PM) or visit go-rts.com."
+                f"Please call Customer Service: {get_support_phone()} "
+                f"({get_support_hours()}) or visit {get_website()}."
             ),
             "buttons": [],
             "meta": {"language": lang, "error": "openai_unavailable"},
@@ -96,7 +101,7 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
         "Reduced Service, Saturday, or Sunday — call get_service_differences with the "
         "appropriate service_type. Do not guess or refuse.\n\n"
     )
-    system = date_header + SYSTEM_PROMPT
+    system = date_header + _get_system_prompt()
 
     # Build message list
     messages: list[dict] = [{"role": "system", "content": system}]
@@ -128,8 +133,8 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
                 return {
                     "answer": (
                         "I'm receiving too many requests right now. "
-                        "You can check schedules at go-rts.com or call "
-                        "RTS: (352) 334-2600 (Mon–Fri 8 AM–5 PM)."
+                        f"You can check schedules at {get_website()} or call "
+                        f"{get_support_phone()} ({get_support_hours()})."
                     ),
                     "buttons": [],
                     "meta": {"language": lang, "error": "rate_limit"},
@@ -137,8 +142,7 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
             return {
                 "answer": (
                     "I'm having trouble connecting right now. "
-                    "Please try again in a moment or call RTS: "
-                    "(352) 334-2600 (Mon–Fri 8 AM–5 PM)."
+                    f"Please try again or call {get_support_phone()} ({get_support_hours()})."
                 ),
                 "buttons": [],
                 "meta": {"language": lang, "error": exc_str},
@@ -153,8 +157,8 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
             if not answer:
                 answer = (
                     "I wasn't able to find that information. "
-                    "For help call RTS: (352) 334-2600 (Mon–Fri 8 AM–5 PM) "
-                    "or visit go-rts.com."
+                    f"For help call {get_support_phone()} ({get_support_hours()}) "
+                    f"or visit {get_website()}."
                 )
             answer = add_stop_id_to_answer(answer, tool_results_log, lang)
             return {
@@ -202,7 +206,7 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
     return {
         "answer": last_text or (
             "I wasn't able to complete your request. "
-            "Please call RTS: (352) 334-2600 (Mon–Fri 8 AM–5 PM)."
+            f"Please call {get_support_phone()} ({get_support_hours()})."
         ),
         "buttons": [],
         "meta": {

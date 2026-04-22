@@ -15,8 +15,13 @@ import math
 from datetime import datetime, date
 from typing import Optional
 from zoneinfo import ZoneInfo
+import sys
+from pathlib import Path
 
-_TZ = ZoneInfo("America/New_York")
+sys.path.insert(0, str(Path(__file__).resolve().parents[0]))
+from agency_config import get_timezone, get_transfer_hubs
+
+_TZ = ZoneInfo(get_timezone())
 
 from routes.schedule_service import get_active_service_label
 from utils.gtfs_engine import (
@@ -34,13 +39,10 @@ _MAX_RESULTS     = 5
 _SEARCH_WIN_MIN  = 120    # departure search window
 _HUB_CONNECT_MIN = 3      # min buffer after arriving at a hub
 
-# Major transfer hubs used as fallback relay points
+# Major transfer hubs used as fallback relay points — read from agency_config.yaml
 TRANSFER_HUBS = [
-    {"stop_id": 1,    "name": "Rosa Parks RTS Downtown Station"},
-    {"stop_id": 1493, "name": "Butler Plaza Transfer Station"},
-    {"stop_id": 1097, "name": "Oaks Mall"},
-    {"stop_id": 473,  "name": "Reitz Union"},
-    {"stop_id": 13,   "name": "Beaty Towers"},
+    {"stop_id": h["stop_id"], "name": h["display"]}
+    for h in get_transfer_hubs()
 ]
 
 
