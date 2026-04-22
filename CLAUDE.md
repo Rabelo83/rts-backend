@@ -33,6 +33,7 @@ GitHub: `https://github.com/Rabelo83/rts-backend`
 ## Key Files
 
 ```
+MULTI_AGENT_ROADMAP.md        Multi-Agent execution plan (read to determine role constraints)
 app.py                        Flask app factory, blueprints, login/auth
 routes/
   agent_claude.py             Claude AI agent — main chat endpoint /api/agent/v3
@@ -137,6 +138,7 @@ Results saved to `tests/results/`. QA history in `tests/qa_history.sqlite`.
 
 ## Notes for Claude
 
+- **CRITICAL MULTI-AGENT PROTOCOL**: Before modifying code, read `MULTI_AGENT_ROADMAP.md`. Note whether your instructions fall under "Agent Alpha" (UI/Frontend) or "Agent Bravo" (Backend). *Do not cross isolation boundaries.*
 - The user is the sole developer; explain things clearly but don't over-explain
 - Preferred commit style: concise subject line + Co-Authored-By footer
 - Do NOT grow the agent system prompt — it causes regression bugs

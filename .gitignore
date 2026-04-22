@@ -28,3 +28,10 @@ backups/
 
 # Claude Code session state
 .claude/
+
+# Local Python venv (recreate on fresh clone: python3.11 -m venv .tools/python311)
+.tools/
+
+# macOS / editor
+.DS_Store
+.vscode/
