@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from routes.agent_tools import dispatch_tool
 from routes.tool_agent_context import (
+    add_stop_id_to_answer,
     extract_context_updates,
     is_stop_id_followup,
     maybe_answer_stop_id_followup,
@@ -51,3 +52,25 @@ class TestContextExtraction:
         assert updates["last_stop_id"] == "0175"
         assert updates["last_stop_name"] == "Oaks Mall SW 62nd Blvd"
         assert updates["last_route_id"] == "5"
+
+
+class TestAnswerEnrichment:
+    def test_resolved_stop_answer_gets_stop_id_suffix(self):
+        tool_result = dispatch_tool("search_stops", {"name": "Oaks Mall", "route_id": "5"})
+        answer = add_stop_id_to_answer(
+            "The next Route 5 bus is arriving now at Oaks Mall SW 62nd Blvd.",
+            [{"tool": "search_stops", "result": tool_result}],
+            "en",
+        )
+
+        assert answer.endswith("Stop ID: 175.")
+
+    def test_existing_stop_id_is_not_duplicated(self):
+        tool_result = dispatch_tool("search_stops", {"name": "Oaks Mall", "route_id": "5"})
+        answer = add_stop_id_to_answer(
+            "The next Route 5 bus is arriving now at Oaks Mall SW 62nd Blvd (Stop 175).",
+            [{"tool": "search_stops", "result": tool_result}],
+            "en",
+        )
+
+        assert answer == "The next Route 5 bus is arriving now at Oaks Mall SW 62nd Blvd (Stop 175)."

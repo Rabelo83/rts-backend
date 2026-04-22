@@ -65,6 +65,37 @@ def maybe_answer_stop_id_followup(msg: str, session_ctx: dict | None, lang: str)
     }
 
 
+def _display_stop_id(stop_id: str | None) -> str | None:
+    if not stop_id:
+        return None
+    stop_id = str(stop_id).strip()
+    if not stop_id:
+        return None
+    return stop_id.lstrip("0") or "0"
+
+
+def add_stop_id_to_answer(answer: str, tool_results: list[dict], lang: str) -> str:
+    text = (answer or "").strip()
+    if not text:
+        return text
+
+    updates = extract_context_updates(tool_results)
+    stop_id = _display_stop_id(updates.get("last_stop_id"))
+    if not stop_id:
+        return text
+
+    lower = text.lower()
+    if "stop id" in lower:
+        return text
+    if re.search(rf"\bstop\s+{re.escape(stop_id)}\b", lower, re.IGNORECASE):
+        return text
+    if re.search(rf"\({re.escape(stop_id)}\)", text):
+        return text
+
+    suffix = f" Stop ID: {stop_id}."
+    return f"{text}{suffix}"
+
+
 def extract_context_updates(tool_results: list[dict]) -> dict:
     updates: dict[str, str] = {}
 

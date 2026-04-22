@@ -27,7 +27,11 @@ except Exception:
 
 from routes.agent_tools import TOOLS, dispatch_tool
 from routes.parsing_helpers import detect_language_simple
-from routes.tool_agent_context import extract_context_updates, maybe_answer_stop_id_followup
+from routes.tool_agent_context import (
+    add_stop_id_to_answer,
+    extract_context_updates,
+    maybe_answer_stop_id_followup,
+)
 
 _MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 _MAX_TOOL_ITERATIONS = 5
@@ -385,6 +389,7 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
         else:
             # LLM is done — extract final answer
             answer = (choice.message.content or "").strip()
+            answer = add_stop_id_to_answer(answer, tool_results, lang)
             buttons = _build_buttons(tool_results, lang)
             return {
                 "answer": answer,
