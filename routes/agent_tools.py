@@ -234,15 +234,16 @@ TOOLS: list[dict] = [
         "function": {
             "name": "get_route_vehicle_count",
             "description": (
-                "Get the scheduled number of buses simultaneously active on a route "
-                "throughout the day, based on the GTFS timetable. "
-                "Use this when the user asks 'how many buses are on route X right now', "
-                "'how many route X are running', 'how many buses does route X have', "
-                "'how many route X buses are there', "
+                "Get the SCHEDULED number of buses simultaneously active on a route "
+                "throughout the day, based on the GTFS timetable (not real-time). "
+                "Use ONLY for schedule-based questions about deployment windows: "
                 "'when will there be 2 buses on route X', "
-                "'how many buses does route X run at peak', or "
-                "'is there more than one bus on route X'. "
-                "Returns current count, peak count, and daily deployment windows."
+                "'how many buses does route X run at peak', "
+                "'what's the peak number of buses on route X', or "
+                "'how many buses is route X scheduled to run'. "
+                "Returns peak count and daily deployment windows. "
+                "Do NOT use for live/real-time 'how many are running now' questions — "
+                "use get_vehicle_location for that (it returns count AND locations)."
             ),
             "parameters": {
                 "type": "object",
@@ -270,12 +271,16 @@ TOOLS: list[dict] = [
         "function": {
             "name": "get_vehicle_location",
             "description": (
-                "Get the real-time location of all active buses on a route. "
-                "Use this when the user asks 'where is bus X', 'where is route X right now', "
+                "Get the REAL-TIME location of all active buses on a route, plus the live count. "
+                "Use this for any live question about active vehicles: "
+                "'where is bus X', 'where is route X right now', "
                 "'is the bus near me', 'how far is the bus', "
                 "'how many buses are running on route X', 'how many route X are running', "
-                "'is route X running now', or any question about the number or count of active vehicles. "
-                "Returns vehicle count plus each active vehicle's next stop and minutes until arrival."
+                "'how many buses are active on route X today', "
+                "'how many route X buses are there right now', "
+                "'is route X running now', or any count/location question about vehicles active NOW. "
+                "Returns vehicle count plus each active vehicle's next stop and minutes until arrival. "
+                "Prefer this over get_route_vehicle_count whenever the user is asking about the present moment."
             ),
             "parameters": {
                 "type": "object",
