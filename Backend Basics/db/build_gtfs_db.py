@@ -91,12 +91,6 @@ def load_csv_table(conn, filepath):
 
 
 def load_bus_stops(conn):
-    if not BUS_STOPS_JSON.exists():
-        return
-    with BUS_STOPS_JSON.open("r", encoding="utf-8") as f:
-        data = json.load(f)
-    stops = data.get("busStops", [])
-
     cur = conn.cursor()
     cur.execute(
         "CREATE TABLE IF NOT EXISTS bus_stops ("
@@ -105,6 +99,11 @@ def load_bus_stops(conn):
         "stop_name TEXT"
         ");"
     )
+    if not BUS_STOPS_JSON.exists():
+        return
+    with BUS_STOPS_JSON.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    stops = data.get("busStops", [])
 
     batch = []
     for s in stops:
