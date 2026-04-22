@@ -5,8 +5,9 @@ Print a fresh VAPID key pair to stdout.
 Never commit the output — add to .env.local instead.
 
 Usage:
-    python scripts/generate_vapid_keys.py
+    .tools/python311/bin/python scripts/generate_vapid_keys.py
 """
+import base64
 import sys
 from pathlib import Path
 
@@ -17,27 +18,40 @@ try:
     from py_vapid import Vapid
 except ImportError:
     try:
-        from pywebpush import Vapid  # pywebpush < 2
+        from pywebpush import Vapid
     except ImportError:
-        print("ERROR: Install pywebpush first:  pip install pywebpush", file=sys.stderr)
+        print("ERROR: Install deps first: pip install -r requirements.txt", file=sys.stderr)
         sys.exit(1)
+
+from cryptography.hazmat.primitives import serialization
+
+
+def b64url(b: bytes) -> str:
+    return base64.urlsafe_b64encode(b).decode("ascii").rstrip("=")
+
 
 vapid = Vapid()
 vapid.generate_keys()
 
-pub = vapid.public_key
-priv = vapid.private_key
+# Public key: 65-byte uncompressed EC point (0x04 || X || Y), per RFC 5480
+pub_bytes = vapid.public_key.public_bytes(
+    encoding=serialization.Encoding.X962,
+    format=serialization.PublicFormat.UncompressedPoint,
+)
 
-# pywebpush ≥2 exposes serialize() helpers; fallback for older API
+# Private key: raw 32-byte scalar (P-256 d value, big-endian)
+priv_scalar = vapid.private_key.private_numbers().private_value
+priv_bytes = priv_scalar.to_bytes(32, "big")
+
+# Resolve VAPID subject from agency_config if available
 try:
-    pub_b64 = vapid.public_key_urlsafe_base64
-    priv_b64 = vapid.private_key_urlsafe_base64
-except AttributeError:
-    import base64, json
-    pub_b64 = base64.urlsafe_b64encode(pub).decode().rstrip("=")
-    priv_b64 = base64.urlsafe_b64encode(priv).decode().rstrip("=")
+    from agency_config import get_contact_email
+    subject = f"mailto:{get_contact_email()}"
+except Exception:
+    subject = "mailto:admin@example.com"
 
-print("# Add these to .env.local — DO NOT COMMIT")
-print(f"VAPID_PUBLIC_KEY={pub_b64}")
-print(f"VAPID_PRIVATE_KEY={priv_b64}")
-print("VAPID_SUBJECT=mailto:alfredo.rabelo@am2ar.com")
+print("# Add these to .env.local — DO NOT COMMIT.")
+print("# BACK THEM UP: losing them disconnects every existing push subscriber.")
+print(f"VAPID_PUBLIC_KEY={b64url(pub_bytes)}")
+print(f"VAPID_PRIVATE_KEY={b64url(priv_bytes)}")
+print(f"VAPID_SUBJECT={subject}")
