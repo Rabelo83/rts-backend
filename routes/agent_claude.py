@@ -27,6 +27,7 @@ except ImportError:
 from routes.agent_tools import TOOLS as _OPENAI_TOOLS, dispatch_tool
 from routes.parsing_helpers import detect_language_simple
 from routes.schedule_service import get_active_service_label
+from routes.tool_agent_context import extract_context_updates, maybe_answer_stop_id_followup
 
 _MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
 _MAX_TOOL_ITERATIONS = 5
@@ -313,6 +314,10 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
     """
     lang = detect_language_simple(msg)
 
+    contextual = maybe_answer_stop_id_followup(msg, session_ctx, lang)
+    if contextual:
+        return contextual
+
     if not _claude_enabled():
         return {
             "answer": (
@@ -422,6 +427,7 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
                     "tool_calls_made": tool_calls_made,
                     "model": _MODEL,
                     "agent": "claude",
+                    "context_updates": extract_context_updates(tool_results_log),
                     "debug_tools": [
                         {"tool": t["tool"], "status": t["result"].get("status")}
                         for t in tool_results_log

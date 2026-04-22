@@ -204,6 +204,7 @@ class SessionManager:
             session["context"].update(data)
             session["last_activity"] = datetime.utcnow().isoformat()
             session["message_count"] += 1
+            self._db_save(session)
 
             return True
 

@@ -604,7 +604,7 @@ def _tool_search_stops(name: str, route_id: str | None = None) -> dict:
         # Route-aware matching prevents generic landmarks like "Oaks Mall"
         # from surfacing stops that the requested route never serves.
         if alias and route_serves_stop(route_id, alias[0]):
-            return {"status": "found", "stop_id": alias[0], "stop_name": alias[1]}
+            return {"status": "found", "stop_id": alias[0], "stop_name": alias[1], "route": route_id}
 
         scoped = _gtfs_resolve_stop_name(route_id, name)
         if scoped:
@@ -613,6 +613,7 @@ def _tool_search_stops(name: str, route_id: str | None = None) -> dict:
                     "status": "found",
                     "stop_id": scoped["stop_id"],
                     "stop_name": scoped["stop_name"],
+                    "route": route_id,
                 }
             return {
                 "status": "multiple",
@@ -628,6 +629,7 @@ def _tool_search_stops(name: str, route_id: str | None = None) -> dict:
                 "status": "found",
                 "stop_id": candidate["id"],
                 "stop_name": candidate["name"],
+                "route": route_id,
             }
         if len(bustime_candidates) > 1:
             return {
@@ -854,6 +856,7 @@ def _tool_get_schedule(
             "status": "ok_first",
             "route": route_id,
             "stop": data.get("stop"),
+            "stop_id": data.get("stop_id") or stop_id,
             "date": _fmt_date(data.get("date", "")),
             "first_departure": format_time_12h(first),
         }
@@ -872,6 +875,7 @@ def _tool_get_schedule(
             "status": "ok_last",
             "route": route_id,
             "stop": data.get("stop"),
+            "stop_id": data.get("stop_id") or stop_id,
             "date": _fmt_date(data.get("date", "")),
             "last_departure": format_time_12h(last),
         }
@@ -894,6 +898,7 @@ def _tool_get_schedule(
             "status": "ok_before",
             "route": route_id,
             "stop": stop_name,
+            "stop_id": data.get("stop_id") or stop_id,
             "date": _fmt_date(data.get("date", "")),
             "before": format_time_12h(data.get("time", "")),
             "departures": departures,
@@ -910,6 +915,7 @@ def _tool_get_schedule(
                     "status": "route_not_at_stop",
                     "route": route_id,
                     "stop": data.get("stop") or stop_id,
+                    "stop_id": data.get("stop_id") or stop_id,
                     "message": (
                         f"Route {route_id} does not serve stop {stop_id} "
                         f"({data.get('stop') or stop_id}). "
@@ -920,6 +926,7 @@ def _tool_get_schedule(
             "status": "no_trips",
             "route": route_id,
             "stop": data.get("stop"),
+            "stop_id": data.get("stop_id") or stop_id,
             "date": _fmt_date(data.get("date", "")),
             "after": format_time_12h(data.get("time", "")),
             "message": f"No scheduled departures found after {format_time_12h(data.get('time', ''))}.",
@@ -931,6 +938,7 @@ def _tool_get_schedule(
         "status": "ok",
         "route": route_id,
         "stop": stop_name,
+        "stop_id": data.get("stop_id") or stop_id,
         "date": _fmt_date(data.get("date", "")),
         "departures": departures,
     }

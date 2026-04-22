@@ -21,6 +21,7 @@ except ImportError:
 
 from routes.agent_tools import TOOLS as _OPENAI_TOOLS, dispatch_tool
 from routes.parsing_helpers import detect_language_simple
+from routes.tool_agent_context import extract_context_updates, maybe_answer_stop_id_followup
 
 _MODEL = os.getenv("OPENAI_MODEL_V4") or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 # Reuse the same OPENAI_API_KEY already used by v2
@@ -51,6 +52,10 @@ def _gpt_client():
 
 def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
     lang = detect_language_simple(msg)
+
+    contextual = maybe_answer_stop_id_followup(msg, session_ctx, lang)
+    if contextual:
+        return contextual
 
     if not _gpt_enabled():
         return {
@@ -155,6 +160,7 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
                     "tool_calls_made": tool_calls_made,
                     "model": _MODEL,
                     "agent": "gpt-v4",
+                    "context_updates": extract_context_updates(tool_results_log),
                     "debug_tools": [
                         {"tool": t["tool"], "status": t["result"].get("status")}
                         for t in tool_results_log

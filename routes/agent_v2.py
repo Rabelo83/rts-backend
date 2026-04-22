@@ -27,6 +27,7 @@ except Exception:
 
 from routes.agent_tools import TOOLS, dispatch_tool
 from routes.parsing_helpers import detect_language_simple
+from routes.tool_agent_context import extract_context_updates, maybe_answer_stop_id_followup
 
 _MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 _MAX_TOOL_ITERATIONS = 5
@@ -311,6 +312,10 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
     """
     lang = detect_language_simple(msg)
 
+    contextual = maybe_answer_stop_id_followup(msg, session_ctx, lang)
+    if contextual:
+        return contextual
+
     if not _openai_enabled():
         if legacy_agent_handler:
             legacy = legacy_agent_handler(msg, history)
@@ -388,6 +393,7 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
                     "language": lang,
                     "tool_calls_made": tool_calls_made,
                     "model": _MODEL,
+                    "context_updates": extract_context_updates(tool_results),
                     "debug_tools": [{"tool": t["tool"], "status": t["result"].get("status"), "args_summary": str(t["result"])[:120]} for t in tool_results],
                 },
             }

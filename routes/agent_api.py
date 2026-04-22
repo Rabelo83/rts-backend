@@ -394,6 +394,12 @@ def _v2_session_setup(payload: dict) -> tuple[str, list, dict | None]:
     return session_id, history, session_data
 
 
+def _apply_context_updates(session_id: str, meta: dict | None) -> None:
+    updates = (meta or {}).get("context_updates") or {}
+    if isinstance(updates, dict) and updates:
+        session_manager.update_session(session_id, updates)
+
+
 @bp.route("/api/agent/v2", methods=["POST"])
 @limiter.limit(os.getenv("RATE_LIMIT", "30 per hour"))
 def api_agent_v2():
@@ -424,11 +430,12 @@ def api_agent_v2():
 
     duration_ms = int((time.perf_counter() - start) * 1000)
 
+    meta = result.get("meta") or {}
+    _apply_context_updates(session_id, meta)
     session_manager.add_message(session_id, "user", msg)
     session_manager.add_message(session_id, "assistant", result.get("answer", ""))
     _log_chat(msg, result.get("answer", ""))
 
-    meta = result.get("meta") or {}
     _log_analytics({
         "ts_utc": datetime.now(timezone.utc).isoformat(),
         "session_id": session_id,
@@ -484,6 +491,7 @@ def api_agent_v2_stream():
         buttons = result.get("buttons", [])
 
         # Persist session BEFORE streaming — prevents context loss if client disconnects
+        _apply_context_updates(session_id, meta)
         session_manager.add_message(session_id, "user", msg)
         session_manager.add_message(session_id, "assistant", answer)
         _log_chat(msg, answer)
@@ -557,11 +565,12 @@ def api_agent_v3():
 
     duration_ms = int((time.perf_counter() - start) * 1000)
 
+    meta = result.get("meta") or {}
+    _apply_context_updates(session_id, meta)
     session_manager.add_message(session_id, "user", msg)
     session_manager.add_message(session_id, "assistant", result.get("answer", ""))
     _log_chat(msg, result.get("answer", ""))
 
-    meta = result.get("meta") or {}
     _log_analytics({
         "ts_utc": datetime.now(timezone.utc).isoformat(),
         "session_id": session_id,
@@ -614,6 +623,7 @@ def api_agent_v3_stream():
 
         # Persist session BEFORE streaming — if client disconnects mid-stream,
         # the history is still saved and the next request won't lose context.
+        _apply_context_updates(session_id, meta)
         session_manager.add_message(session_id, "user", msg)
         session_manager.add_message(session_id, "assistant", answer)
         _log_chat(msg, answer)
@@ -683,11 +693,12 @@ def api_agent_v4():
 
     duration_ms = int((time.perf_counter() - start) * 1000)
 
+    meta = result.get("meta") or {}
+    _apply_context_updates(session_id, meta)
     session_manager.add_message(session_id, "user", msg)
     session_manager.add_message(session_id, "assistant", result.get("answer", ""))
     _log_chat(msg, result.get("answer", ""))
 
-    meta = result.get("meta") or {}
     return jsonify({
         "answer": result.get("answer", ""),
         "buttons": result.get("buttons", []),
