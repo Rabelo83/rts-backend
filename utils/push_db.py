@@ -3,15 +3,25 @@ utils/push_db.py
 Thread-safe SQLite connector for the push/favorites database.
 
 Separate from the GTFS DB (Backend Basics/db/rts_gtfs.sqlite).
-Path: db/push.sqlite  (relative to repo root, created on first access).
+
+Path resolution:
+- If DATA_DIR is set (Render persistent disk mount, typically /data),
+  the DB lives at $DATA_DIR/push.sqlite so it survives redeploys.
+- Otherwise, db/push.sqlite at the repo root (local dev).
 """
+import os
 import sqlite3
 import threading
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
-_DB_PATH = _ROOT / "db" / "push.sqlite"
 _SCHEMA_PATH = _ROOT / "db" / "push_schema.sql"
+
+_data_dir = os.getenv("DATA_DIR", "").strip()
+if _data_dir:
+    _DB_PATH = Path(_data_dir) / "push.sqlite"
+else:
+    _DB_PATH = _ROOT / "db" / "push.sqlite"
 
 _local = threading.local()
 
