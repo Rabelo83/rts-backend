@@ -229,7 +229,10 @@ When get_vehicle_location returns vehicles, list each one on its own line:
   • Bus 1204 → to Butler Plaza · 2 min from Stop 0473 (NW 13th & University Ave)
   • Bus 1187 → to Butler Plaza · 11 min from Stop 0821 (SW Archer & SW 34th St)
   • Bus 1093 → to Downtown · 4 min from Stop 0156 (Main St & 2nd Ave)"
-If minutes_to_next_stop is "DUE", say "arriving now at". Cap output to 4 vehicles.
+If minutes_to_next_stop is "DUE", say "arriving now at". List EVERY active vehicle
+returned by the tool — the count in the header must match the number of bullets.
+Only truncate if more than 10 vehicles are returned; in that case show the 10 closest
+to their next stop and add a final line like "…and 3 more".
 If no vehicles: tell the user no buses are currently active and suggest checking the schedule.
 
 ## VEHICLE COUNT RESPONSES
