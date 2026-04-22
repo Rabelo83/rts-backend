@@ -32,7 +32,9 @@ TOOLS: list[dict] = [
                 "Resolve a stop name or landmark to a GTFS stop ID. "
                 "Call this before get_realtime_predictions or get_schedule "
                 "whenever the user mentions a place name instead of a stop ID. "
-                "Examples: 'Rosa Parks', 'Santa Fe College', 'Reitz Union'."
+                "Examples: 'Rosa Parks', 'Santa Fe College', 'Reitz Union'. "
+                "If the user's route number is already known, pass route_id too "
+                "so the result is filtered to stops that route actually serves."
             ),
             "parameters": {
                 "type": "object",
@@ -43,7 +45,15 @@ TOOLS: list[dict] = [
                             "The stop name or landmark exactly as the user described it. "
                             "Do not paraphrase or abbreviate."
                         ),
-                    }
+                    },
+                    "route_id": {
+                        "type": "string",
+                        "description": (
+                            "Optional route number (for example '5' or '43'). "
+                            "Include this when the user already specified a route, "
+                            "so ambiguous landmarks are restricted to stops served by that route."
+                        ),
+                    },
                 },
                 "required": ["name"],
                 "additionalProperties": False,
@@ -369,7 +379,7 @@ TOOLS: list[dict] = [
 # Each tool wrapper (implemented in tooluse-2) MUST return one of the dicts
 # described below. The LLM will read these values directly.
 #
-# search_stops(name: str) → dict
+# search_stops(name: str, route_id?: str) → dict
 # ─────────────────────────────
 #   Single match:
 #     {"status": "found", "stop_id": "0001", "stop_name": "Rosa Parks Downtown Station"}
@@ -449,7 +459,13 @@ import logging
 from datetime import date as _date
 
 import routes.schedule_service as _sched
-from routes.stop_resolver import resolve_stop_global, get_predictions_cached
+from routes.stop_resolver import (
+    _gtfs_resolve_stop_name,
+    get_predictions_cached,
+    resolve_stop_global,
+    route_serves_stop,
+    suggest_stops_by_route,
+)
 from routes.parsing_helpers import format_time_12h
 
 logger = logging.getLogger(__name__)
@@ -579,10 +595,63 @@ def dispatch_tool(name: str, arguments: dict) -> dict:
 
 # ── Tool 1: search_stops ─────────────────────────────────────────────────────
 
-def _tool_search_stops(name: str) -> dict:
+def _tool_search_stops(name: str, route_id: str | None = None) -> dict:
     """Resolve a stop name or landmark to a GTFS stop ID."""
-    # Check hub alias first — avoids ambiguous LIKE matches on "downtown" etc.
     alias = _HUB_STOP_ALIASES.get(name.lower().strip())
+    route_id = _normalize_route_id(route_id)
+
+    if route_id:
+        # Route-aware matching prevents generic landmarks like "Oaks Mall"
+        # from surfacing stops that the requested route never serves.
+        if alias and route_serves_stop(route_id, alias[0]):
+            return {"status": "found", "stop_id": alias[0], "stop_name": alias[1]}
+
+        scoped = _gtfs_resolve_stop_name(route_id, name)
+        if scoped:
+            if "stop_id" in scoped:
+                return {
+                    "status": "found",
+                    "stop_id": scoped["stop_id"],
+                    "stop_name": scoped["stop_name"],
+                }
+            return {
+                "status": "multiple",
+                "name": name,
+                "route": route_id,
+                "candidates": scoped.get("candidates", []),
+            }
+
+        bustime_candidates = suggest_stops_by_route(route_id, name, limit=5)
+        if len(bustime_candidates) == 1:
+            candidate = bustime_candidates[0]
+            return {
+                "status": "found",
+                "stop_id": candidate["id"],
+                "stop_name": candidate["name"],
+            }
+        if len(bustime_candidates) > 1:
+            return {
+                "status": "multiple",
+                "name": name,
+                "route": route_id,
+                "candidates": [
+                    {"stop_id": candidate["id"], "stop_name": candidate["name"]}
+                    for candidate in bustime_candidates
+                ],
+            }
+
+        return {
+            "status": "not_found",
+            "name": name,
+            "route": route_id,
+            "message": (
+                f"No stops found matching '{name}' on Route {route_id}. "
+                "Try another landmark or the 4-digit Stop ID from the sign."
+            ),
+        }
+
+    # Check hub alias first for global searches — avoids ambiguous LIKE matches
+    # on place names like "downtown".
     if alias:
         return {"status": "found", "stop_id": alias[0], "stop_name": alias[1]}
     result = resolve_stop_global(name)

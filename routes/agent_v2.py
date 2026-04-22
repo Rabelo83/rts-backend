@@ -146,6 +146,8 @@ If the user gives a place name (e.g. "Rosa Parks", "Santa Fe College"):
   → If this conversation already resolved that name to a stop_id, reuse the
     known stop_id directly. Do NOT call search_stops again.
   → Otherwise call search_stops first.
+  → If the route number is already known, include route_id in search_stops so
+    ambiguous landmarks are filtered to stops that route serves.
   → If it returns status "found", use that stop_id in the next tool call.
   → If it returns status "multiple", present the candidates to the user and ask
     them to pick one. Do not guess which stop they mean.
