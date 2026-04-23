@@ -40,6 +40,7 @@ from routes.tool_agent_context import (
     extract_context_updates,
     maybe_answer_stop_id_followup,
     maybe_rewrite_route_stop_followup,
+    session_context,
 )
 
 _MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
@@ -339,6 +340,55 @@ def _format_system_prompt() -> str:
     )
 
 
+def _build_last_known_block(ctx: dict | None) -> str:
+    if not isinstance(ctx, dict):
+        return ""
+
+    lines: list[str] = []
+
+    route = ctx.get("last_route_id")
+    stop_id = ctx.get("last_stop_id")
+    stop_name = ctx.get("last_stop_name")
+    direction = ctx.get("last_direction")
+    date = ctx.get("last_date")
+    service_type = ctx.get("last_service_type")
+    origin = ctx.get("last_origin")
+    destination = ctx.get("last_destination")
+
+    if route:
+        lines.append(f"  route: {route}")
+
+    if stop_id and stop_name:
+        lines.append(f"  stop: {stop_id} ({stop_name})")
+    elif stop_id:
+        lines.append(f"  stop: {stop_id}")
+    elif stop_name:
+        lines.append(f"  stop: {stop_name}")
+
+    if direction:
+        lines.append(f"  direction: {direction}")
+    if date:
+        lines.append(f"  date: {date}")
+    if service_type:
+        lines.append(f"  service_type: {service_type}")
+    if origin:
+        lines.append(f"  origin: {origin}")
+    if destination:
+        lines.append(f"  destination: {destination}")
+
+    if not lines:
+        return ""
+
+    return (
+        "LAST KNOWN CONTEXT (from prior turns in this conversation):\n"
+        + "\n".join(lines)
+        + "\n"
+        + "If the user's current message is a follow-up that does not restate these values, "
+          "reuse them when calling tools. If the user explicitly changes one "
+          '(e.g. "what about Saturday?"), override that field only.\n\n'
+    )
+
+
 # ── AGENT LOOP ────────────────────────────────────────────────────────────────
 
 def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
@@ -402,7 +452,8 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
         "Reduced Service, Saturday, or Sunday — call get_service_differences with the "
         "appropriate service_type. Do not guess or refuse.\n\n"
     )
-    system = date_header + _format_system_prompt()
+    last_known_block = _build_last_known_block(session_context(session_ctx))
+    system = date_header + last_known_block + _format_system_prompt()
 
     # Build Claude messages from history + current turn
     messages: list[dict] = []

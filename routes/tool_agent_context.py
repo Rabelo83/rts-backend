@@ -87,10 +87,17 @@ def maybe_rewrite_route_stop_followup(
     if not text or extract_route_id_regex(text):
         return None
 
+    raw_stop_id = None
+    stop_match = re.search(r"\bstop\s*(?:id)?\s*[:#]?\s*([0-9]{1,6})\b", text, re.IGNORECASE)
+    if stop_match:
+        raw_stop_id = stop_match.group(1)
+    elif re.fullmatch(r"\d{3,4}", text):
+        raw_stop_id = text
+
     stop_id = extract_stop_id_regex(text)
-    if not stop_id and re.fullmatch(r"\d{3,4}", text):
-        stop_id = normalize_stop_id(text)
-    if not stop_id:
+    if not stop_id and raw_stop_id:
+        stop_id = normalize_stop_id(raw_stop_id)
+    if not stop_id or not raw_stop_id:
         return None
 
     ctx = session_context(session_ctx)
@@ -102,7 +109,9 @@ def maybe_rewrite_route_stop_followup(
     if not last_assistant:
         return None
 
-    mentions_same_route = f"route {route_id}" in last_assistant
+    mentions_same_route = bool(
+        re.search(rf"route\s+{re.escape(route_id)}\b", last_assistant, re.IGNORECASE)
+    )
     is_stop_prompt = any(
         phrase in last_assistant
         for phrase in (
@@ -118,7 +127,7 @@ def maybe_rewrite_route_stop_followup(
     if not (mentions_same_route and is_stop_prompt):
         return None
 
-    return f"route {route_id} stop {stop_id}"
+    return f"route {route_id} stop {raw_stop_id}"
 
 
 def _display_stop_id(stop_id: str | None) -> str | None:
@@ -155,6 +164,25 @@ def add_stop_id_to_answer(answer: str, tool_results: list[dict], lang: str) -> s
 def extract_context_updates(tool_results: list[dict]) -> dict:
     updates: dict[str, str] = {}
 
+    def _set(key: str, value) -> None:
+        if value is not None and value != "":
+            updates[key] = str(value)
+
+    def _capture_direction(result: dict) -> None:
+        departures = result.get("departures") or []
+        if departures:
+            headsigns = {
+                dep.get("headsign")
+                for dep in departures
+                if isinstance(dep, dict) and dep.get("headsign")
+            }
+            if len(headsigns) == 1:
+                _set("last_direction", next(iter(headsigns)))
+
+        directions = result.get("directions") or []
+        if len(directions) == 1 and isinstance(directions[0], dict):
+            _set("last_direction", directions[0].get("headsign"))
+
     for tr in tool_results or []:
         if not isinstance(tr, dict):
             continue
@@ -175,13 +203,33 @@ def extract_context_updates(tool_results: list[dict]) -> dict:
         elif name == "get_schedule" and result.get("stop"):
             stop_id = result.get("stop_id")
             stop_name = result.get("stop")
+        elif name == "get_vehicle_location" and result.get("status") == "ok":
+            vehicles = result.get("vehicles") or []
+            if len(vehicles) == 1 and isinstance(vehicles[0], dict):
+                stop_id = vehicles[0].get("next_stop_id")
+                stop_name = vehicles[0].get("next_stop_name")
+                _set("last_direction", vehicles[0].get("destination"))
 
         if stop_id and stop_name:
             updates["last_stop_id"] = str(stop_id)
             updates["last_stop_name"] = str(stop_name)
 
         route_id = result.get("route")
+        if not route_id and name == "search_routes" and result.get("status") == "ok":
+            routes = result.get("routes") or []
+            if len(routes) == 1 and isinstance(routes[0], dict):
+                route_id = routes[0].get("route_id")
         if route_id:
             updates["last_route_id"] = str(route_id)
+
+        _set("last_date", result.get("date"))
+        _set("last_origin", result.get("origin"))
+        if name == "search_stops":
+            _set("last_destination", result.get("name"))
+        else:
+            _set("last_destination", result.get("destination"))
+        _set("last_service_type", result.get("service_type") or result.get("service_label"))
+        _set("last_tool", name)
+        _capture_direction(result)
 
     return {k: v for k, v in updates.items() if v}
