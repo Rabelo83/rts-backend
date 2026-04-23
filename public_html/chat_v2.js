@@ -311,6 +311,9 @@ function endSession(manual = true) {
     AppState.inactivityTimer = null;
   }
 
+  const endRow = document.getElementById('chat-end-row');
+  if (endRow) endRow.setAttribute('hidden', '');
+
   const msg = manual ? t('session_cleared') : t('session_expired');
   appendBubble(msg, 'bot');
   AppState.chatHistory.push({ role: 'assistant', content: msg });
@@ -573,7 +576,6 @@ function startGreeting() {
 }
 
 function showStarterQuestions() {
-  return; // starter questions removed
   const container = document.getElementById('starter-questions');
   if (!container) return;
   container.innerHTML = '';
@@ -581,14 +583,14 @@ function showStarterQuestions() {
   const starters = AppState.language === 'es'
     ? [
         'Próximo bus en Rosa Parks',
-        'Horario ruta 43 mañana',
-        '¿Cuándo sale el primer bus?',
+        '¿Cómo llego a Butler Plaza?',
+        '¿Cuándo empieza la ruta 1 mañana?',
         '¿Qué rutas van a UF?',
       ]
     : [
         'Next bus at Rosa Parks',
-        'Route 43 schedule tomorrow',
-        'First bus on route 15?',
+        'How do I get to Butler Plaza?',
+        'When does Route 1 start tomorrow?',
         'What routes go to UF?',
       ];
 
@@ -1422,8 +1424,10 @@ async function sendMessage() {
   const msg = inputField.value.trim();
   if (!msg) return;
 
-  // Dismiss starter questions on first user send
+  // Dismiss starter questions and reveal the End-session link on first user send
   dismissStarterQuestions();
+  const endRow = document.getElementById('chat-end-row');
+  if (endRow && endRow.hasAttribute('hidden')) endRow.removeAttribute('hidden');
 
   // Handle expected input (stop ID or timeframe)
   if (AppState.expected === 'stop_id') {
@@ -1492,6 +1496,9 @@ window.addEventListener('DOMContentLoaded', () => {
         appendBubble(m.content, m.role === 'user' ? 'user' : 'bot');
       }
     });
+    // Returning user with prior turns → reveal End-session now.
+    const endRow = document.getElementById('chat-end-row');
+    if (endRow) endRow.removeAttribute('hidden');
   }
 
   // Always show a fresh greeting

@@ -13,7 +13,7 @@
  * add-web-push.md is implemented.
  */
 
-const SW_VERSION = 'v2';  // bumped by add-web-push — forces cache refresh
+const SW_VERSION = 'v3';  // bumped for chat UX refresh — forces cache refresh
 const CACHE_NAME = `${SW_VERSION}-shell`;
 
 /** Files that form the installable app shell. */

@@ -1217,16 +1217,28 @@
 
     /* ── Responsive ──────────────────────────────────────────── */
     @media (max-width: 600px) {
-      .chat-main { padding: 10px 8px; }
-      #chat-panel { border-radius: 20px; height: min(680px, 100%); }
+      .chat-main {
+        padding: 0;
+        align-items: stretch;
+      }
+      #chat-panel {
+        width: 100%;
+        max-width: none;
+        height: 100%;
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+      }
+      #chat-panel::before { display: none; }
       .chat-brand-text h1 { font-size: 1.05rem; }
       .chat-brand-text p { display: none; }
       .live-badge { display: none; }
-      #chat-messages { padding: 16px 12px 10px; }
+      #chat-messages { padding: 16px 14px 10px; }
       .bubble { font-size: 1rem; padding: 12px 14px; max-width: 88%; line-height: 1.55; }
       .rating-label { font-size: 0.8rem; }
       .rating-btn { font-size: 1rem; padding: 6px 10px; }
       .starter-q { font-size: 0.9rem; padding: 9px 14px; }
+      #chat-input-row { padding: 10px 14px calc(env(safe-area-inset-bottom, 0px) + 14px); }
       #trip-panel { padding: 12px; }
     }
   </style>
@@ -1279,7 +1291,7 @@
 
       <div id="starter-questions" class="starter-questions" role="group" aria-label="Quick questions"></div>
 
-      <div id="chat-end-row" class="chat-end-row">
+      <div id="chat-end-row" class="chat-end-row" hidden>
         <button id="chat-end" type="button">End session</button>
       </div>
 
@@ -1287,7 +1299,7 @@
         <div class="input-wrap">
           <textarea
             id="chat-input"
-            placeholder="Ask about routes, ETAs, or schedules…"
+            placeholder="Ask anything about your bus…"
             aria-label="Your message"
             rows="1"
           ></textarea>
