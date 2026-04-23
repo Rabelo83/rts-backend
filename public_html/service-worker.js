@@ -13,7 +13,7 @@
  * add-web-push.md is implemented.
  */
 
-const SW_VERSION = 'v7';  // fix Safari bubble character-wrapping — forces cache refresh
+const SW_VERSION = 'v8';  // coordinated font/size bump — forces cache refresh
 const CACHE_NAME = `${SW_VERSION}-shell`;
 
 /** Files that form the installable app shell. */

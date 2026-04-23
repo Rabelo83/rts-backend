@@ -38,9 +38,9 @@
       --text:          #f1f5f9;
       --text-muted:    #64748b;
       --text-dim:      #94a3b8;
-      --radius-msg:    18px;
+      --radius-msg:    20px;
       --radius-card:   28px;
-      --input-h:       52px;
+      --input-h:       56px;
     }
 
     /* ── Base ───────────────────────────────────────────────── */
@@ -138,7 +138,7 @@
     }
 
     .chat-brand-text h1 {
-      font-size: 1rem;
+      font-size: 1.1rem;
       font-weight: 700;
       color: #f8fafc;
       letter-spacing: -0.02em;
@@ -281,7 +281,7 @@
       padding: 24px 20px 16px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 16px;
       scroll-behavior: smooth;
     }
 
@@ -312,7 +312,7 @@
       flex-direction: row;
       align-self: flex-start;
       align-items: flex-end;
-      gap: 8px;
+      gap: 10px;
       max-width: min(86%, 640px);
     }
     .msg-row.grouped { margin-top: -10px; }
@@ -325,8 +325,8 @@
     }
 
     .msg-avatar {
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       flex-shrink: 0;
       background: linear-gradient(135deg, #3b82f6, #2563eb);
       border-radius: 50%;
@@ -335,15 +335,15 @@
       justify-content: center;
       box-shadow: 0 2px 8px rgba(37,99,235,0.28);
       align-self: flex-end;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
-    .msg-avatar svg { width: 15px; height: 15px; fill: white; }
+    .msg-avatar svg { width: 17px; height: 17px; fill: white; }
     .msg-row.grouped .msg-avatar { visibility: hidden; }
 
     .msg-time {
-      font-size: 0.68rem;
-      color: rgba(148,163,184,0.45);
-      margin-top: 3px;
+      font-size: 0.75rem;
+      color: rgba(148,163,184,0.5);
+      margin-top: 4px;
       letter-spacing: 0.02em;
       padding: 0 4px;
       user-select: none;
@@ -353,10 +353,10 @@
     /* ── Message bubbles ─────────────────────────────────────── */
     /* JS creates: div.bubble.user | div.bubble.bot | div.bubble.bot.loading */
     .bubble {
-      padding: 11px 15px;
+      padding: 12px 16px;
       border-radius: var(--radius-msg);
-      font-size: 0.90rem;
-      line-height: 1.6;
+      font-size: 1rem;
+      line-height: 1.55;
       overflow-wrap: anywhere;
       max-width: 100%;
       width: fit-content;
@@ -409,14 +409,14 @@
     .rating-row {
       display: flex;
       align-items: center;
-      gap: 6px;
-      margin-top: 8px;
-      padding-top: 6px;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 8px;
       border-top: 1px solid rgba(255,255,255,0.08);
     }
     .rating-label {
-      font-size: 0.72rem;
-      opacity: 0.45;
+      font-size: 0.82rem;
+      opacity: 0.5;
       letter-spacing: 0.02em;
       user-select: none;
     }
@@ -424,10 +424,10 @@
       background: none;
       border: none;
       cursor: pointer;
-      font-size: 0.85rem;
-      opacity: 0.35;
-      padding: 2px 5px;
-      border-radius: 4px;
+      font-size: 1rem;
+      opacity: 0.4;
+      padding: 4px 8px;
+      border-radius: 6px;
       transition: opacity 0.15s, background 0.15s;
       line-height: 1;
     }
@@ -468,10 +468,10 @@
     .starter-questions {
       display: flex;
       flex-wrap: wrap;
-      gap: 7px;
+      gap: 8px;
       align-self: flex-start;
       max-width: min(86%, 640px);
-      margin-left: 36px; /* align with bot bubble content, past the avatar */
+      margin-left: 42px; /* align with bot bubble content, past the larger avatar */
       padding: 4px 0 2px;
     }
 
@@ -479,10 +479,10 @@
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.09);
       color: var(--text-dim);
-      font-size: 0.78rem;
+      font-size: 0.9rem;
       font-weight: 500;
-      padding: 7px 13px;
-      border-radius: 20px;
+      padding: 10px 16px;
+      border-radius: 22px;
       cursor: pointer;
       font-family: inherit;
       transition: background .15s, border-color .15s, color .15s, box-shadow .15s, transform .1s;
@@ -569,16 +569,16 @@
     #chat-input {
       width: 100%;
       min-height: var(--input-h);
-      max-height: 140px;
+      max-height: 160px;
       resize: none;
       background: rgba(255,255,255,0.05);
       border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
+      border-radius: 18px;
       color: var(--text);
       font-family: inherit;
-      font-size: 1rem;
-      line-height: 1.45;
-      padding: 14px 16px;
+      font-size: 1.05rem;
+      line-height: 1.4;
+      padding: 15px 18px;
       outline: none;
       transition: border-color .2s, box-shadow .2s, background .2s;
       caret-color: var(--accent);
@@ -662,9 +662,9 @@
       border-bottom: 2px solid transparent;
       color: var(--text-muted);
       font-family: inherit;
-      font-size: 0.82rem;
+      font-size: 0.95rem;
       font-weight: 600;
-      padding: 6px 14px 8px;
+      padding: 10px 18px 12px;
       cursor: pointer;
       letter-spacing: 0.02em;
       transition: color .15s, border-color .15s;
@@ -1293,16 +1293,20 @@
         box-shadow: none;
       }
       #chat-panel::before { display: none; }
-      .chat-brand-text h1 { font-size: 1.05rem; }
+      .chat-brand-text h1 { font-size: 1.15rem; }
       .chat-brand-text p { display: none; }
       .live-badge { display: none; }
-      #chat-messages { padding: 16px 14px 10px; }
-      .bubble { font-size: 1rem; padding: 12px 14px; max-width: 88%; line-height: 1.55; }
-      .rating-label { font-size: 0.8rem; }
-      .rating-btn { font-size: 1rem; padding: 6px 10px; }
-      .starter-q { font-size: 0.9rem; padding: 9px 14px; }
-      #chat-input-row { padding: 10px 14px calc(env(safe-area-inset-bottom, 0px) + 14px); }
-      #trip-panel { padding: 12px; }
+      .tab-btn { font-size: 1rem; padding: 12px 20px 14px; }
+      #chat-messages { padding: 18px 14px 12px; gap: 18px; }
+      .bubble { font-size: 1.08rem; padding: 14px 16px; line-height: 1.5; }
+      .msg-time { font-size: 0.8rem; }
+      .starter-questions { margin-left: 44px; gap: 9px; }
+      .starter-q { font-size: 0.98rem; padding: 11px 18px; }
+      .rating-label { font-size: 0.88rem; }
+      .rating-btn { font-size: 1.1rem; padding: 6px 12px; }
+      #chat-input-row { padding: 12px 14px calc(env(safe-area-inset-bottom, 0px) + 14px); }
+      #chat-input { font-size: 1.08rem; padding: 16px 18px; }
+      #trip-panel { padding: 14px; }
     }
   </style>
 </head>
