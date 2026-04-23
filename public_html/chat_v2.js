@@ -1479,30 +1479,6 @@ async function sendAgentMessage(message) {
   }
 }
 
-// ====== SEND BUTTON / VOICE HINT ======
-let _voiceHintTimer = null;
-function showVoiceHint() {
-  const hint = document.getElementById('voice-hint');
-  if (!hint) return;
-  hint.textContent = AppState.language === 'es'
-    ? 'Toca el micrófono del teclado para dictar.'
-    : "Tap the 🎤 on your keyboard to dictate.";
-  hint.classList.add('show');
-  if (_voiceHintTimer) clearTimeout(_voiceHintTimer);
-  _voiceHintTimer = setTimeout(() => hint.classList.remove('show'), 2800);
-}
-
-function handleSendClick() {
-  const inputField = document.getElementById('chat-input');
-  if (!inputField) return;
-  if (inputField.value.trim().length === 0) {
-    showVoiceHint();
-    inputField.focus();
-    return;
-  }
-  sendMessage();
-}
-
 // ====== MESSAGE INPUT HANDLING ======
 async function sendMessage() {
   const inputField = el('chat-input');
@@ -1590,7 +1566,7 @@ window.addEventListener('DOMContentLoaded', () => {
   startGreeting();
 
   // Event listeners
-  sendBtn.addEventListener('click', handleSendClick);
+  sendBtn.addEventListener('click', sendMessage);
   sendBtn.setAttribute('aria-label', t('send'));
 
   if (endBtn) {
@@ -1604,11 +1580,9 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Morph send button: empty input → mic icon, typing → send arrow.
+  // Subtle "nothing to send" cue: send button fades while input is empty.
   const updateSendButtonState = () => {
-    const hasText = inputField.value.trim().length > 0;
-    sendBtn.classList.toggle('empty', !hasText);
-    sendBtn.setAttribute('aria-label', hasText ? t('send') : 'Voice input hint');
+    sendBtn.classList.toggle('empty', inputField.value.trim().length === 0);
   };
   inputField.addEventListener('input', updateSendButtonState);
   updateSendButtonState();

@@ -306,6 +306,7 @@
       align-self: flex-end;
       align-items: flex-end;
       max-width: min(78%, 600px);
+      width: fit-content;
     }
     .msg-row.bot {
       flex-direction: row;
@@ -356,7 +357,9 @@
       border-radius: var(--radius-msg);
       font-size: 0.90rem;
       line-height: 1.6;
-      word-break: break-word;
+      overflow-wrap: anywhere;
+      max-width: 100%;
+      width: fit-content;
       margin-bottom: 0;
     }
 
@@ -636,34 +639,11 @@
     #chat-send.loading svg { animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg) translateX(0); } }
 
-    /* Send button content morphs with input state */
-    #chat-send .icon-send { display: inline-flex; }
-    #chat-send .icon-mic  { display: none; }
-    #chat-send.empty { background: linear-gradient(135deg, #334155 0%, #1e293b 100%); box-shadow: 0 0 0 1px rgba(148,163,184,0.15), 0 2px 8px rgba(0,0,0,0.25); }
-    #chat-send.empty .icon-send { display: none; }
-    #chat-send.empty .icon-mic  { display: inline-flex; }
-    #chat-send.empty svg { transform: none; }
-
-    /* Voice hint toast (shown when user taps mic before typing) */
-    #voice-hint {
-      position: absolute;
-      right: 16px;
-      bottom: calc(var(--input-h) + 32px);
-      background: rgba(15,23,42,0.95);
-      border: 1px solid rgba(148,163,184,0.2);
-      color: #e2e8f0;
-      font-size: 0.82rem;
-      padding: 8px 12px;
-      border-radius: 10px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
-      pointer-events: none;
-      opacity: 0;
-      transform: translateY(4px);
-      transition: opacity .18s, transform .18s;
-      z-index: 20;
-      max-width: 240px;
+    /* Send button muted when input is empty — subtle "nothing to send" cue */
+    #chat-send.empty {
+      background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+      box-shadow: 0 0 0 1px rgba(148,163,184,0.15), 0 2px 8px rgba(0,0,0,0.25);
     }
-    #voice-hint.show { opacity: 1; transform: translateY(0); }
 
     /* ── Panel tabs ──────────────────────────────────────────── */
     .panel-tabs {
@@ -1386,18 +1366,10 @@
           ></textarea>
         </div>
         <button id="chat-send" type="button" class="empty" aria-label="Send message">
-          <span class="icon-send" aria-hidden="true">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-            </svg>
-          </span>
-          <span class="icon-mic" aria-hidden="true">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/>
-            </svg>
-          </span>
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
         </button>
-        <div id="voice-hint" role="status" aria-live="polite"></div>
       </div>
 
       <!-- Trip planner tab content -->
