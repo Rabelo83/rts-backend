@@ -13,7 +13,7 @@
  * add-web-push.md is implemented.
  */
 
-const SW_VERSION = 'v5';  // bumped for iOS redirect-strip fix — forces cache refresh
+const SW_VERSION = 'v6';  // starter chips flow with conversation — forces cache refresh
 const CACHE_NAME = `${SW_VERSION}-shell`;
 
 /** Files that form the installable app shell. */

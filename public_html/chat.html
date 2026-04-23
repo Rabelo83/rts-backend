@@ -463,11 +463,13 @@
 
     /* ── Starter questions ───────────────────────────────────── */
     .starter-questions {
-      padding: 0 16px 12px;
       display: flex;
       flex-wrap: wrap;
       gap: 7px;
-      justify-content: center;
+      align-self: flex-start;
+      max-width: min(86%, 640px);
+      margin-left: 36px; /* align with bot bubble content, past the avatar */
+      padding: 4px 0 2px;
     }
 
     .starter-q {
@@ -1369,8 +1371,6 @@
 
       <!-- Chat tab content -->
       <div id="chat-messages" aria-live="polite" aria-label="Chat messages"></div>
-
-      <div id="starter-questions" class="starter-questions" role="group" aria-label="Quick questions"></div>
 
       <div id="chat-end-row" class="chat-end-row" hidden>
         <button id="chat-end" type="button">End session</button>

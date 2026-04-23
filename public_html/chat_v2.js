@@ -622,9 +622,16 @@ function startGreeting() {
 }
 
 function showStarterQuestions() {
-  const container = document.getElementById('starter-questions');
-  if (!container) return;
-  container.innerHTML = '';
+  const messages = document.getElementById('chat-messages');
+  if (!messages) return;
+  // Clear any existing chip strip first so we don't double-render.
+  dismissStarterQuestions();
+
+  const container = document.createElement('div');
+  container.id = 'starter-questions';
+  container.className = 'starter-questions';
+  container.setAttribute('role', 'group');
+  container.setAttribute('aria-label', 'Quick questions');
 
   const starters = AppState.language === 'es'
     ? [
@@ -654,11 +661,16 @@ function showStarterQuestions() {
     });
     container.appendChild(btn);
   });
+
+  // Render inside the message flow, right after the greeting, so chips
+  // sit visually adjacent to the bot bubble instead of floating near the input.
+  messages.appendChild(container);
+  messages.scrollTop = messages.scrollHeight;
 }
 
 function dismissStarterQuestions() {
   const container = document.getElementById('starter-questions');
-  if (container) container.innerHTML = '';
+  if (container && container.parentNode) container.parentNode.removeChild(container);
 }
 
 function showIntentSelection() {
