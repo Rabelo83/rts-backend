@@ -71,3 +71,49 @@ branding:
   primary_color: "#0057B8"
   background_color: "#070d1a"
   app_name: "RTS Bus Tracker"
+
+# Agency-custom destination disambiguation catalog.
+# Landmarks are seeded from the local GTFS feed via scripts/extract_landmarks_from_gtfs.py.
+# POIs are manually curated addresses for common destination types that may not map
+# cleanly to a single GTFS stop. Each new agency supplies its own landmarks + POIs.
+common_destinations:
+  # Populated from the GTFS extractor — paste landmark entries here.
+  landmarks: {}
+  pois:
+    "health department":
+      - name: "Alachua County Health Department"
+        address: "224 SE 24th St, Gainesville, FL"
+      - name: "UF Health Eastside"
+        address: "4801 E University Ave, Gainesville, FL"
+    "library":
+      - name: "Alachua County Library HQ"
+        address: "401 E University Ave, Gainesville, FL"
+      - name: "Millhopper Branch"
+        address: "3145 NW 43rd St, Gainesville, FL"
+    "dmv":
+      - name: "Alachua County Tax Collector (DMV)"
+        address: "5830 NW 34th Blvd, Gainesville, FL"
+    "post office":
+      - name: "USPS Gainesville Main"
+        address: "401 SE 1st Ave, Gainesville, FL"
+      - name: "USPS University Station"
+        address: "1900 SW 34th St, Gainesville, FL"
+    "walmart":
+      - name: "Walmart Supercenter (Butler Plaza)"
+        address: "2900 SW 42nd St, Gainesville, FL"
+      - name: "Walmart Supercenter (Waldo Rd)"
+        address: "1800 NE 12th Ave, Gainesville, FL"
+    "publix":
+      - name: "Publix at Butler Plaza"
+        address: "3720 SW Archer Rd, Gainesville, FL"
+      - name: "Publix at Thornebrook"
+        address: "2300 NW 43rd St, Gainesville, FL"
+    "airport":
+      - name: "Gainesville Regional Airport"
+        address: "3880 NE 39th Ave, Gainesville, FL"
+    "social security":
+      - name: "Social Security Office Gainesville"
+        address: "4562 NW 13th St, Gainesville, FL"
+    "va clinic":
+      - name: "Malcom Randall VA Medical Center"
+        address: "1601 SW Archer Rd, Gainesville, FL"

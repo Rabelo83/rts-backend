@@ -180,6 +180,30 @@ TOOLS: list[dict] = [
     {
         "type": "function",
         "function": {
+            "name": "suggest_destinations",
+            "description": (
+                "Call this when the user names an ambiguous destination type "
+                "(e.g. 'health department', 'library', 'Walmart'). Returns a "
+                "short list of known candidate destinations in this agency's "
+                "service area so the user can pick one. Do NOT call for a "
+                "specific address — call plan_trip directly in that case."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The ambiguous destination type as the user said it, lowercased.",
+                    }
+                },
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_route_overview",
             "description": (
                 "Get a high-level schedule summary for a route on a given date: "
@@ -488,6 +512,7 @@ from routes.stop_resolver import (
     suggest_stops_by_route,
 )
 from routes.parsing_helpers import format_time_12h
+from utils.agency_config import get_common_destinations
 
 logger = logging.getLogger(__name__)
 
@@ -633,6 +658,7 @@ def dispatch_tool(name: str, arguments: dict, session_id: str | None = None) -> 
         "get_realtime_predictions": _tool_get_realtime_predictions,
         "get_schedule": _tool_get_schedule,
         "search_routes": _tool_search_routes,
+        "suggest_destinations": _tool_suggest_destinations,
         "get_route_overview": _tool_get_route_overview,
         "get_route_stops": _tool_get_route_stops,
         "get_service_differences": _tool_get_service_differences,
@@ -1030,6 +1056,54 @@ def _tool_search_routes(destination: str) -> dict:
         "destination": destination,
         "routes": routes,
     }
+
+
+def _destination_matches(query: str, candidate: str) -> bool:
+    query_norm = (query or "").strip().lower()
+    candidate_norm = (candidate or "").strip().lower()
+    if not query_norm or not candidate_norm:
+        return False
+    return (
+        query_norm == candidate_norm
+        or query_norm in candidate_norm
+        or candidate_norm in query_norm
+    )
+
+
+def _tool_suggest_destinations(query: str) -> dict:
+    """Return configured destination candidates for ambiguous place types."""
+    query_norm = (query or "").strip().lower()
+    cfg = get_common_destinations()
+    pois = cfg.get("pois") or {}
+    landmarks = cfg.get("landmarks") or {}
+
+    for key, entries in pois.items():
+        if _destination_matches(query_norm, key):
+            return {
+                "status": "ok",
+                "query": query_norm,
+                "candidates": [
+                    {"name": entry.get("name", ""), "address": entry.get("address", "")}
+                    for entry in entries
+                    if entry.get("name") and entry.get("address")
+                ][:5],
+            }
+
+    for canonical_name, entry in landmarks.items():
+        aliases = entry.get("aliases") or []
+        if _destination_matches(query_norm, canonical_name) or any(
+            _destination_matches(query_norm, alias) for alias in aliases
+        ):
+            return {
+                "status": "ok_landmark",
+                "query": query_norm,
+                "candidates": [{
+                    "name": canonical_name,
+                    "stop_ids": [str(stop_id) for stop_id in (entry.get("stops") or [])],
+                }],
+            }
+
+    return {"status": "not_found", "query": query_norm}
 
 
 # ── Tool 5: get_route_overview ───────────────────────────────────────────────

@@ -113,6 +113,7 @@ Before answering any factual transit question, call the right tool:
 |   — with or without a time                                     |   stop_id, kind="next")   |
 | specific time/date + stop, "first bus at stop X", "schedule"   | get_schedule              |
 | "what routes go to X", "how do I get to Y"                     | search_routes             |
+| ambiguous destination type ("library", "DMV", "Walmart")      | suggest_destinations      |
 | "first bus on route X", "last bus on route X", "how often",    | get_route_overview        |
 |   "when does route X start/end" (no specific stop given)       |                           |
 | "what stops does route X make?", "list stops on route X",      | get_route_stops           |
@@ -256,6 +257,14 @@ hospitals, etc. — e.g. "McDonald's", "Walmart", "Shands"):
   immediately. Google will resolve "McDonald's Newberry Road" to real coordinates.
 - Example: plan_trip("7200 SW 8th Ave", "McDonald's Newberry Road Gainesville")
 - Never invent a list of business locations. One clarifying question is enough.
+
+## AMBIGUOUS DESTINATIONS
+When the user names a destination TYPE (not a specific address) like "health
+department", "library", "DMV", "Walmart", or "the post office", call
+suggest_destinations(query=...) FIRST, not plan_trip. Present the candidates
+as a short list and let the user pick. Only call plan_trip after they choose
+or when the user already provided a specific address. If suggest_destinations
+returns not_found, then ask the user to clarify.
 
 ## VEHICLE LOCATION RESPONSES
 When get_vehicle_location returns vehicles, list each one on its own line:
@@ -657,5 +666,24 @@ def _build_buttons(tool_results: list[dict], lang: str) -> list[dict]:
                 rid = r.get("route_id", "")
                 rname = (r.get("route_long_name") or f"Route {rid}")[:45]
                 buttons.append({"label": f"Route {rid} – {rname}", "action": f"route {rid}"})
+
+        elif name == "suggest_destinations" and status == "ok":
+            for c in result.get("candidates", [])[:5]:
+                cname = (c.get("name") or "")[:45]
+                address = c.get("address") or ""
+                if cname and address:
+                    buttons.append({
+                        "label": cname,
+                        "action": f"plan trip to {address}",
+                    })
+
+        elif name == "suggest_destinations" and status == "ok_landmark":
+            for c in result.get("candidates", [])[:5]:
+                cname = (c.get("name") or "")[:45]
+                if cname:
+                    buttons.append({
+                        "label": cname,
+                        "action": f"plan trip to {c['name']}",
+                    })
 
     return buttons

@@ -106,6 +106,15 @@ def get_landmarks() -> dict:
     return ((cfg.get("landmarks") or {}).get("coordinates") or {})
 
 
+def get_common_destinations() -> dict:
+    """
+    Returns {'landmarks': {...}, 'pois': {...}} from agency_config.yaml.
+    Empty dict if unset.
+    """
+    cfg = get_agency_config()
+    return cfg.get("common_destinations") or {"landmarks": {}, "pois": {}}
+
+
 def format_contact_note(lang: str = "en") -> str:
     """Return the standard customer-service fallback line."""
     phone = get_support_phone()
