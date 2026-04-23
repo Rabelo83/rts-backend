@@ -396,6 +396,12 @@ def _v2_session_setup(payload: dict) -> tuple[str, list, dict | None]:
     return session_id, history, session_data
 
 
+def _session_ctx_for_agent(session_data: dict | None, session_id: str) -> dict:
+    ctx = dict(session_data or {})
+    ctx["session_id"] = session_id
+    return ctx
+
+
 def _apply_context_updates(session_id: str, meta: dict | None) -> None:
     updates = (meta or {}).get("context_updates") or {}
     if isinstance(updates, dict) and updates:
@@ -556,7 +562,12 @@ def api_agent_v3():
 
     start = time.perf_counter()
     try:
-        result = handle_message_v3(msg, history=history, session_ctx=session_data or {})
+        result = handle_message_v3(
+            msg,
+            history=history,
+            session_ctx=_session_ctx_for_agent(session_data, session_id),
+            session_id=session_id,
+        )
     except Exception as exc:
         return jsonify({
             "error": True,
@@ -614,7 +625,12 @@ def api_agent_v3_stream():
 
     def generate():
         try:
-            result = handle_message_v3(msg, history=history, session_ctx=session_data or {})
+            result = handle_message_v3(
+                msg,
+                history=history,
+                session_ctx=_session_ctx_for_agent(session_data, session_id),
+                session_id=session_id,
+            )
         except Exception:
             yield f"data: {json.dumps({'type': 'error', 'text': 'Agent v3 temporarily unavailable.'})}\n\n"
             return

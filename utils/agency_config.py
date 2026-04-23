@@ -96,6 +96,16 @@ def get_transfer_hubs() -> list[dict]:
     return get_agency_config()["landmarks"]["hubs"]
 
 
+def get_landmarks() -> dict:
+    """
+    Returns the landmarks.coordinates mapping from agency_config.yaml,
+    or {} if missing. Shape:
+        {canonical_name: {lat, lon, aliases: [lowercase strings]}}
+    """
+    cfg = get_agency_config()
+    return ((cfg.get("landmarks") or {}).get("coordinates") or {})
+
+
 def format_contact_note(lang: str = "en") -> str:
     """Return the standard customer-service fallback line."""
     phone = get_support_phone()
@@ -145,4 +155,3 @@ def get_vapid_subject() -> str:
     if email:
         return f"mailto:{email}"
     return "mailto:admin@example.com"
-

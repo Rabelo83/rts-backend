@@ -473,8 +473,10 @@ TOOLS: list[dict] = [
 
 # ── PART C: Tool dispatcher + implementations ────────────────────────────────
 
+import json
 import logging
 import re
+import time
 from datetime import date as _date
 
 import routes.schedule_service as _sched
@@ -614,12 +616,18 @@ def _tool_get_route_stops(route_id: str, direction: str | None = None) -> dict:
     return result
 
 
-def dispatch_tool(name: str, arguments: dict) -> dict:
+def dispatch_tool(name: str, arguments: dict, session_id: str | None = None) -> dict:
     """
     Called by the agent loop for each tool_call the LLM requests.
     Routes to the correct wrapper function by name.
     Returns a dict matching the schema in PART B above.
     """
+    logger.info(
+        "tool_call session=%s tool=%s input=%s",
+        session_id or "-",
+        name,
+        json.dumps(arguments, default=str)[:500],
+    )
     handlers = {
         "search_stops": _tool_search_stops,
         "get_realtime_predictions": _tool_get_realtime_predictions,
@@ -636,11 +644,21 @@ def dispatch_tool(name: str, arguments: dict) -> dict:
     if not handler:
         logger.error("Unknown tool called: %s", name)
         return {"status": "error", "message": f"Unknown tool: {name}"}
+    started = time.perf_counter()
     try:
-        return handler(**arguments)
+        result = handler(**arguments)
     except Exception as exc:
         logger.exception("Tool %s failed: %s", name, exc)
-        return {"status": "error", "message": f"Tool {name} encountered an error."}
+        result = {"status": "error", "message": f"Tool {name} encountered an error."}
+    duration_ms = int((time.perf_counter() - started) * 1000)
+    logger.info(
+        "tool_result session=%s tool=%s status=%s duration_ms=%d",
+        session_id or "-",
+        name,
+        (result or {}).get("status"),
+        duration_ms,
+    )
+    return result
 
 
 # ── Tool 1: search_stops ─────────────────────────────────────────────────────

@@ -41,6 +41,31 @@ landmarks:
     - { stop_id: 1097, id: "oaks-mall",        display: "Oaks Mall" }
     - { stop_id: 473,  id: "reitz-union",      display: "Reitz Union" }
     - { stop_id: 13,   id: "beaty-towers",     display: "Beaty Towers" }
+  coordinates:
+    "Rosa Parks RTS Downtown Station":
+      lat: 29.6528
+      lon: -82.3248
+      aliases: ["rosa parks", "downtown station", "rts downtown"]
+    "Butler Plaza Transfer Station":
+      lat: 29.6236
+      lon: -82.3862
+      aliases: ["butler plaza", "butler transfer"]
+    "Reitz Union":
+      lat: 29.6466
+      lon: -82.3479
+      aliases: ["uf reitz union", "reitz", "student union"]
+    "Oaks Mall":
+      lat: 29.6869
+      lon: -82.4275
+      aliases: ["the oaks mall", "oaks"]
+    "Santa Fe College":
+      lat: 29.6896
+      lon: -82.4162
+      aliases: ["santa fe", "sf college", "sfc"]
+    "Shands Hospital":
+      lat: 29.6393
+      lon: -82.3449
+      aliases: ["shands", "uf health", "uf shands"]
 
 branding:
   primary_color: "#0057B8"

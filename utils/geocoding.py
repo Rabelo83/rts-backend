@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[0]))
-from agency_config import get_geocoding_bbox, get_city_hint
+from agency_config import get_geocoding_bbox, get_city_hint, get_landmarks
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,8 @@ _CITY = get_city_hint()                # e.g. "Gainesville FL"
 _CACHE: dict = {}
 _CACHE_TTL = timedelta(hours=24)
 _TIMEOUT = 5
+_LANDMARKS_LOADED = False
+_LANDMARKS: dict[str, dict] = {}
 
 
 # ── cache helpers ─────────────────────────────────────────────────────────────
@@ -65,6 +67,10 @@ def _put(k: str, value):
 
 def geocode(query: str) -> dict | None:
     """Return {lat, lon, formatted_address} or None."""
+    landmark = _match_landmark(query)
+    if landmark:
+        return landmark
+
     k = _key("geo", query)
     cached = _get(k)
     if cached is not None:
@@ -225,6 +231,52 @@ def _mapbox_autocomplete(query: str) -> list[dict]:
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
+
+def _load_landmarks() -> dict[str, dict]:
+    global _LANDMARKS_LOADED, _LANDMARKS
+    if not _LANDMARKS_LOADED:
+        _LANDMARKS = get_landmarks() or {}
+        _LANDMARKS_LOADED = True
+    return _LANDMARKS
+
+
+def _match_landmark(query: str) -> dict | None:
+    text = (query or "").strip().lower()
+    if not text:
+        return None
+
+    landmarks = _load_landmarks()
+    if not landmarks:
+        return None
+
+    candidates: list[tuple[str, dict, list[str]]] = []
+    for canonical_name, data in landmarks.items():
+        if not isinstance(data, dict):
+            continue
+        aliases = [str(a).strip().lower() for a in (data.get("aliases") or []) if str(a).strip()]
+        canonical_lower = str(canonical_name).strip().lower()
+        candidates.append((str(canonical_name), data, [canonical_lower, *aliases]))
+
+    for canonical_name, data, names in candidates:
+        if text in names:
+            logger.debug("geocode landmark hit for %r → %s", query, canonical_name)
+            return {
+                "lat": float(data["lat"]),
+                "lon": float(data["lon"]),
+                "formatted_address": canonical_name,
+            }
+
+    for canonical_name, data, names in candidates:
+        if any(name and name in text for name in names):
+            logger.debug("geocode landmark hit for %r → %s", query, canonical_name)
+            return {
+                "lat": float(data["lat"]),
+                "lon": float(data["lon"]),
+                "formatted_address": canonical_name,
+            }
+
+    return None
 
 def _shorten(display_name: str) -> str:
     """Trim Nominatim's verbose display_name to 3 parts for mobile."""

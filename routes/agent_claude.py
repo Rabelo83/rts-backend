@@ -440,7 +440,12 @@ def _build_last_known_block(ctx: dict | None) -> str:
 
 # ── AGENT LOOP ────────────────────────────────────────────────────────────────
 
-def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
+def handle_message(
+    msg: str,
+    history: list[dict],
+    session_ctx: dict,
+    session_id: str | None = None,
+) -> dict:
     """
     Entry point for the Claude tool-use agent.
 
@@ -591,7 +596,7 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
         # Execute each tool and collect results
         tool_result_blocks = []
         for block in tool_use_blocks:
-            result = dispatch_tool(block.name, block.input)
+            result = dispatch_tool(block.name, block.input, session_id=session_id)
             tool_results_log.append({"tool": block.name, "result": result})
             tool_result_blocks.append({
                 "type": "tool_result",
