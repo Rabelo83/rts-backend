@@ -337,6 +337,24 @@ TOOLS: list[dict] = [
                             "Examples: 'Rosa Parks', 'Santa Fe College', 'Shands Hospital'."
                         ),
                     },
+                    "depart_at": {
+                        "type": "string",
+                        "description": (
+                            "Optional. The time the user wants to LEAVE. Accept natural forms like "
+                            "'2pm', '2:00 PM', '14:00', 'now'. Use this for 'leaving at X', "
+                            "'depart at X', 'after X'. Do NOT set this if the user gave an arrival "
+                            "deadline — use arrive_by instead."
+                        ),
+                    },
+                    "arrive_by": {
+                        "type": "string",
+                        "description": (
+                            "Optional. The time the user wants to ARRIVE by. Accept natural forms "
+                            "like '2pm', '2:00 PM', '14:00'. Use this for 'by X', 'arrive by X', "
+                            "'I need to be there by X', 'before X'. The planner will return the "
+                            "latest trip that arrives at or before this time."
+                        ),
+                    },
                 },
                 "required": ["origin", "destination"],
                 "additionalProperties": False,
@@ -456,6 +474,7 @@ TOOLS: list[dict] = [
 # ── PART C: Tool dispatcher + implementations ────────────────────────────────
 
 import logging
+import re
 from datetime import date as _date
 
 import routes.schedule_service as _sched
@@ -535,6 +554,37 @@ def _fmt_date(iso: str) -> str:
         return _date.fromisoformat(iso).strftime("%b %d").lstrip("0")
     except Exception:
         return iso
+
+
+def _to_hhmm(value: str) -> str | None:
+    text = (value or "").strip()
+    if not text:
+        return None
+    if text.lower() == "now":
+        return None
+
+    m_24 = re.fullmatch(r"(\d{1,2}):(\d{2})", text)
+    if m_24:
+        hour = int(m_24.group(1))
+        minute = int(m_24.group(2))
+        if 0 <= hour <= 23 and 0 <= minute <= 59:
+            return f"{hour:02d}:{minute:02d}"
+        return None
+
+    m_ampm = re.fullmatch(r"(\d{1,2})(?::(\d{1,2}))?\s*([AaPp][Mm])", text)
+    if not m_ampm:
+        return None
+
+    hour = int(m_ampm.group(1))
+    minute = int(m_ampm.group(2) or "0")
+    suffix = m_ampm.group(3).lower()
+    if not (1 <= hour <= 12 and 0 <= minute <= 59):
+        return None
+    if suffix == "pm" and hour != 12:
+        hour += 12
+    if suffix == "am" and hour == 12:
+        hour = 0
+    return f"{hour:02d}:{minute:02d}"
 
 
 def _stop_name_from_gtfs(stop_id: str) -> str:
@@ -1272,7 +1322,12 @@ def _tool_get_vehicle_location(route_id: str) -> dict:
 
 # ── Tool 9: plan_trip ─────────────────────────────────────────────────────────
 
-def _tool_plan_trip(origin: str, destination: str) -> dict:
+def _tool_plan_trip(
+    origin: str,
+    destination: str,
+    depart_at: str | None = None,
+    arrive_by: str | None = None,
+) -> dict:
     """Geocode origin + destination and return up to 3 transit itineraries."""
     try:
         from utils.geocoding import geocode
@@ -1296,11 +1351,22 @@ def _tool_plan_trip(origin: str, destination: str) -> dict:
         }
 
     try:
+        depart_after_hhmm = _to_hhmm(depart_at) if depart_at else None
+        arrive_by_hhmm = _to_hhmm(arrive_by) if arrive_by else None
+        if depart_after_hhmm and arrive_by_hhmm:
+            logger.debug(
+                "plan_trip received both depart_at=%s and arrive_by=%s; ignoring depart_at",
+                depart_at,
+                arrive_by,
+            )
+            depart_after_hhmm = None
         result = find_trips(
             origin_lat=origin_geo["lat"],
             origin_lon=origin_geo["lon"],
             dest_lat=dest_geo["lat"],
             dest_lon=dest_geo["lon"],
+            depart_after=depart_after_hhmm,
+            arrive_by=arrive_by_hhmm,
         )
     except Exception as exc:
         logger.error("find_trips error: %s", exc)
