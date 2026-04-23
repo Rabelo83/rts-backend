@@ -47,7 +47,7 @@ def manifest():
         "name": f"{full_name} \u2014 Bus Tracker",
         "short_name": f"{short_name} Bus",
         "description": f"AI-powered transit assistant for {city} riders.",
-        "start_url": "/",
+        "start_url": "/chat",
         "display": "standalone",
         "orientation": "portrait",
         "background_color": get_background_color(),
