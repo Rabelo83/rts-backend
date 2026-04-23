@@ -11,6 +11,7 @@ Swap providers with zero frontend/routing code changes.
 """
 import hashlib
 import json
+import logging
 import os
 import sys
 import urllib.parse
@@ -21,8 +22,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[0]))
 from agency_config import get_geocoding_bbox, get_city_hint
 
+logger = logging.getLogger(__name__)
+
 PROVIDER = os.getenv("GEOCODING_PROVIDER", "nominatim")
-GOOGLE_KEY = os.getenv("GOOGLE_GEOCODING_KEY", "")
+GOOGLE_KEY = (
+    os.getenv("GOOGLE_GEOCODING_KEY")
+    or os.getenv("GOOGLE_MAPS_API_KEY")
+    or ""
+)
 MAPBOX_KEY = os.getenv("MAPBOX_TOKEN", "")
 
 # Agency service-area bounding box and city hint — read from agency_config.yaml
@@ -106,8 +113,9 @@ def _nominatim_geocode(query: str) -> dict | None:
                 "lon": float(data[0]["lon"]),
                 "formatted_address": _shorten(data[0].get("display_name", query)),
             }
-    except Exception:
-        pass
+        logger.warning("nominatim geocode returned no results for %r", query)
+    except Exception as exc:
+        logger.warning("nominatim geocode failed for %r: %s", query, exc)
     return None
 
 
@@ -131,7 +139,8 @@ def _nominatim_autocomplete(query: str) -> list[dict]:
              "lon": float(item["lon"])}
             for item in data
         ]
-    except Exception:
+    except Exception as exc:
+        logger.warning("nominatim autocomplete failed for %r: %s", query, exc)
         return []
 
 
@@ -139,6 +148,7 @@ def _nominatim_autocomplete(query: str) -> list[dict]:
 
 def _google_geocode(query: str) -> dict | None:
     if not GOOGLE_KEY:
+        logger.warning("GOOGLE_GEOCODING_KEY unset — falling back to nominatim for %r", query)
         return _nominatim_geocode(query)
     params = urllib.parse.urlencode({
         "address": f"{query}, {_CITY}",
@@ -148,6 +158,7 @@ def _google_geocode(query: str) -> dict | None:
     try:
         with urllib.request.urlopen(url, timeout=_TIMEOUT) as r:
             data = json.loads(r.read())
+        status = data.get("status")
         if data.get("results"):
             loc = data["results"][0]["geometry"]["location"]
             return {
@@ -155,8 +166,12 @@ def _google_geocode(query: str) -> dict | None:
                 "lon": loc["lng"],
                 "formatted_address": data["results"][0]["formatted_address"],
             }
-    except Exception:
-        pass
+        logger.warning(
+            "google geocode returned no results for %r (status=%s, error=%s)",
+            query, status, data.get("error_message"),
+        )
+    except Exception as exc:
+        logger.warning("google geocode failed for %r: %s", query, exc)
     return None
 
 
@@ -185,8 +200,9 @@ def _mapbox_geocode(query: str) -> dict | None:
                 "lon": coords[0],
                 "formatted_address": data["features"][0]["place_name"],
             }
-    except Exception:
-        pass
+        logger.warning("mapbox geocode returned no features for %r", query)
+    except Exception as exc:
+        logger.warning("mapbox geocode failed for %r: %s", query, exc)
     return None
 
 
@@ -203,7 +219,8 @@ def _mapbox_autocomplete(query: str) -> list[dict]:
             {"display": f["place_name"], "lat": f["center"][1], "lon": f["center"][0]}
             for f in data.get("features", [])
         ]
-    except Exception:
+    except Exception as exc:
+        logger.warning("mapbox autocomplete failed for %r: %s", query, exc)
         return []
 
 

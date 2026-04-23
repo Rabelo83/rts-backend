@@ -283,6 +283,21 @@ When get_route_vehicle_count returns data:
 - If no_service: tell the user the route doesn't run that day.
 
 ## TRIP PLANNING RESPONSES
+## TRIP PLANNING TIME CONSTRAINTS
+When calling plan_trip, map the user's time phrasing to the right parameter:
+
+| User says...                                    | Parameter         |
+|-------------------------------------------------|-------------------|
+| "by 2pm", "arrive by X", "be there by X",       | arrive_by="2pm"   |
+|   "before 2pm", "I have class at 2pm"           |                   |
+| "at 2pm", "leaving at 2pm", "depart at X",      | depart_at="2pm"   |
+|   "after 2pm"                                   |                   |
+| no time mentioned                               | omit both         |
+
+Never guess a default time. If the user said "by X", use arrive_by — do NOT
+convert it to depart_at. Only one of the two should be set per call.
+
+## TRIP PLANNING RESPONSES
 When plan_trip returns itineraries, present each option clearly:
 - Show total travel time, departure time, and number of transfers.
 - List each leg: walk → Route X (headsign) dep/arr → transfer → Route Y → walk.
@@ -337,6 +352,40 @@ def _format_system_prompt() -> str:
     return _SYSTEM_PROMPT_TEMPLATE.format(
         agency_full_name=get_agency_full_name(),
         support_contact=f"{cfg_phone} ({cfg_hours}) or visit {cfg_website}",
+    )
+
+
+def _fallback_from_tool_results(tool_results: list[dict], lang: str) -> str:
+    """
+    When Claude returns empty text, synthesize a fallback from tool outcomes
+    so the user learns what actually happened instead of the useless generic
+    'I wasn't able to find that information' message.
+    """
+    for tr in reversed(tool_results or []):
+        result = tr.get("result") or {}
+        status = result.get("status")
+        tool = tr.get("tool")
+        msg = result.get("message")
+
+        if tool == "plan_trip" and status == "geocode_failed" and msg:
+            return msg
+        if tool == "plan_trip" and status == "no_routes":
+            return (
+                "I couldn't find a bus route for that trip. "
+                "Try the Trip Planner tab for more options, or call "
+                f"{get_support_phone()} ({get_support_hours()})."
+            )
+        if status in ("no_trips", "no_service") and msg:
+            return msg
+        if status == "api_unavailable":
+            return (
+                "Real-time data is temporarily unavailable. "
+                "Please try again in a moment."
+            )
+
+    return (
+        "I wasn't able to find that information. "
+        f"For help call {format_contact_note()}"
     )
 
 
@@ -510,10 +559,14 @@ def handle_message(msg: str, history: list[dict], session_ctx: dict) -> dict:
             text_blocks = [b for b in response.content if b.type == "text"]
             answer = " ".join(b.text for b in text_blocks).strip()
             if not answer:
-                answer = (
-                    "I wasn't able to find that information. "
-                    f"For help call {format_contact_note()}"
+                logger.warning(
+                    "agent_claude: empty text response (msg=%r, tools=%s)",
+                    msg[:120],
+                    [f"{t['tool']}={t['result'].get('status')}" for t in tool_results_log],
                 )
+                # Prefer a tool-specific fallback over the generic one so users
+                # (and we) see what actually happened.
+                answer = _fallback_from_tool_results(tool_results_log, lang)
             answer = add_stop_id_to_answer(answer, tool_results_log, lang)
             return {
                 "answer": answer,

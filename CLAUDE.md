@@ -69,7 +69,10 @@ PROJECT_LOG.md                Session-by-session decision log
 
 ```
 ANTHROPIC_API_KEY       Claude API key (required for chat agent)
-GOOGLE_MAPS_API_KEY     Google Maps geocoding key (IP-restricted to Render server IP)
+GEOCODING_PROVIDER      "google" | "nominatim" | "mapbox" (default: nominatim)
+GOOGLE_GEOCODING_KEY    Google Geocoding API key (preferred). Legacy
+                        GOOGLE_MAPS_API_KEY is also accepted as fallback.
+                        IP-restrict to the Render server's egress IP.
 RTS_API_KEY             RTS BusTime real-time API key
 SECRET_KEY              Flask session secret (any random string)
 DASHBOARD_PIN           Optional PIN to protect /dashboard, /chat, /wizard
