@@ -13,7 +13,7 @@
  * add-web-push.md is implemented.
  */
 
-const SW_VERSION = 'v4';  // bumped for messenger-grade polish — forces cache refresh
+const SW_VERSION = 'v5';  // bumped for iOS redirect-strip fix — forces cache refresh
 const CACHE_NAME = `${SW_VERSION}-shell`;
 
 /** Files that form the installable app shell. */
@@ -32,11 +32,41 @@ const SHELL_URLS = [
   '/icons/apple-touch-icon.png',
 ];
 
+// ── Redirect sanitizer ───────────────────────────────────────────────────────
+// iOS Safari refuses to serve cached responses whose `redirected` flag is true
+// ("Response served by service worker has redirections"). Strip the flag by
+// re-materializing the response body into a fresh Response object before
+// caching or returning it as a navigation response.
+async function stripRedirected(response) {
+  if (!response || !response.redirected) return response;
+  const body = await response.clone().blob();
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}
+
 // ── Install: precache the shell ──────────────────────────────────────────────
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_URLS))
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // Manual fetch + sanitize per URL instead of cache.addAll, so we can
+      // strip redirected flags that iOS won't tolerate on replay.
+      await Promise.all(
+        SHELL_URLS.map(async (url) => {
+          try {
+            const res = await fetch(url, { redirect: 'follow', cache: 'reload' });
+            if (!res || !res.ok) return;
+            const clean = await stripRedirected(res);
+            await cache.put(url, clean);
+          } catch (_) {
+            // best-effort precache — skip failures
+          }
+        })
+      );
+    })
   );
   // Take control immediately rather than waiting for the next navigation.
   self.skipWaiting();
@@ -72,37 +102,46 @@ self.addEventListener('fetch', (event) => {
 
   // 2. App shell → cache-first, network fallback
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
+    (async () => {
+      const cached = await caches.match(request);
+      if (cached) {
+        // Cached responses can still carry the redirected flag on iOS.
+        // Always sanitize before returning as a navigation response.
+        return stripRedirected(cached);
+      }
 
-      return fetch(request)
-        .then((networkResponse) => {
-          // Cache successful GET responses for shell assets
-          if (
-            request.method === 'GET' &&
-            networkResponse.ok &&
-            url.origin === self.location.origin
-          ) {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) =>
-              cache.put(request, responseToCache)
-            );
-          }
-          return networkResponse;
-        })
-        .catch(() => {
-          // 3. Navigation offline fallback → serve cached "/" so the JS shell
-          //    boots and the offline banner can be displayed by frontend.js.
-          if (request.mode === 'navigate') {
-            return caches.match('/') || new Response(
-              '<h1>Offline</h1><p>Please reconnect to use the transit assistant.</p>',
-              { headers: { 'Content-Type': 'text/html' } }
-            );
-          }
-          // Non-navigation resources that aren't cached — return nothing useful
-          return new Response('', { status: 503, statusText: 'Offline' });
-        });
-    })
+      try {
+        const networkResponse = await fetch(request);
+
+        if (
+          request.method === 'GET' &&
+          networkResponse.ok &&
+          url.origin === self.location.origin
+        ) {
+          // Sanitize before caching so replays never trip iOS.
+          const clean = await stripRedirected(networkResponse.clone());
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clean));
+        }
+
+        // Also sanitize the response we return for navigations.
+        return request.mode === 'navigate'
+          ? stripRedirected(networkResponse)
+          : networkResponse;
+      } catch (_) {
+        // 3. Navigation offline fallback → serve cached "/" so the JS shell
+        //    boots and the offline banner can be displayed by frontend.js.
+        if (request.mode === 'navigate') {
+          const fallback = await caches.match('/');
+          if (fallback) return stripRedirected(fallback);
+          return new Response(
+            '<h1>Offline</h1><p>Please reconnect to use the transit assistant.</p>',
+            { headers: { 'Content-Type': 'text/html' } }
+          );
+        }
+        // Non-navigation resources that aren't cached — return nothing useful
+        return new Response('', { status: 503, statusText: 'Offline' });
+      }
+    })()
   );
 });
 
