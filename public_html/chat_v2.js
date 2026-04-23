@@ -344,6 +344,16 @@ function renderMarkdown(text) {
     .replace(/\n/g, '<br>');
 }
 
+const BOT_AVATAR_SVG = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4S4 2.5 4 6v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg>';
+
+function _formatTime(d = new Date()) {
+  let h = d.getHours();
+  const m = d.getMinutes();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12; if (h === 0) h = 12;
+  return `${h}:${m.toString().padStart(2, '0')} ${ampm}`;
+}
+
 function appendBubble(text, who = 'user', options = {}) {
   const wrap = el('chat-messages');
   const bubble = document.createElement('div');
@@ -362,7 +372,43 @@ function appendBubble(text, who = 'user', options = {}) {
     bubble.classList.add('delayed');
   }
 
-  wrap.appendChild(bubble);
+  // Wrap in a msg-row with avatar (for bot) and timestamp.
+  const row = document.createElement('div');
+  row.className = `msg-row ${who}`;
+
+  // Group consecutive same-role messages by hiding avatar/time on follow-ups.
+  const prev = wrap.lastElementChild;
+  if (prev && prev.classList && prev.classList.contains('msg-row') &&
+      prev.classList.contains(who)) {
+    row.classList.add('grouped');
+  }
+
+  if (who === 'bot') {
+    const avatar = document.createElement('div');
+    avatar.className = 'msg-avatar';
+    avatar.innerHTML = BOT_AVATAR_SVG;
+    row.appendChild(avatar);
+
+    const body = document.createElement('div');
+    body.className = 'msg-body';
+    body.appendChild(bubble);
+
+    if (!options.loading) {
+      const time = document.createElement('div');
+      time.className = 'msg-time';
+      time.textContent = _formatTime();
+      body.appendChild(time);
+    }
+    row.appendChild(body);
+  } else {
+    row.appendChild(bubble);
+    const time = document.createElement('div');
+    time.className = 'msg-time';
+    time.textContent = _formatTime();
+    row.appendChild(time);
+  }
+
+  wrap.appendChild(row);
   wrap.scrollTop = wrap.scrollHeight;
   return bubble;
 }
@@ -1298,7 +1344,10 @@ async function sendAgentMessage(message) {
   cancelCurrentRequest();
 
   const inputField = el('chat-input');
-  if (inputField) inputField.value = '';
+  if (inputField) {
+    inputField.value = '';
+    inputField.dispatchEvent(new Event('input'));
+  }
 
   appendBubble(message, 'user');
   AppState.chatHistory.push({ role: 'user', content: message });
@@ -1418,6 +1467,30 @@ async function sendAgentMessage(message) {
   }
 }
 
+// ====== SEND BUTTON / VOICE HINT ======
+let _voiceHintTimer = null;
+function showVoiceHint() {
+  const hint = document.getElementById('voice-hint');
+  if (!hint) return;
+  hint.textContent = AppState.language === 'es'
+    ? 'Toca el micrófono del teclado para dictar.'
+    : "Tap the 🎤 on your keyboard to dictate.";
+  hint.classList.add('show');
+  if (_voiceHintTimer) clearTimeout(_voiceHintTimer);
+  _voiceHintTimer = setTimeout(() => hint.classList.remove('show'), 2800);
+}
+
+function handleSendClick() {
+  const inputField = document.getElementById('chat-input');
+  if (!inputField) return;
+  if (inputField.value.trim().length === 0) {
+    showVoiceHint();
+    inputField.focus();
+    return;
+  }
+  sendMessage();
+}
+
 // ====== MESSAGE INPUT HANDLING ======
 async function sendMessage() {
   const inputField = el('chat-input');
@@ -1505,7 +1578,7 @@ window.addEventListener('DOMContentLoaded', () => {
   startGreeting();
 
   // Event listeners
-  sendBtn.addEventListener('click', sendMessage);
+  sendBtn.addEventListener('click', handleSendClick);
   sendBtn.setAttribute('aria-label', t('send'));
 
   if (endBtn) {
@@ -1518,6 +1591,15 @@ window.addEventListener('DOMContentLoaded', () => {
       sendMessage();
     }
   });
+
+  // Morph send button: empty input → mic icon, typing → send arrow.
+  const updateSendButtonState = () => {
+    const hasText = inputField.value.trim().length > 0;
+    sendBtn.classList.toggle('empty', !hasText);
+    sendBtn.setAttribute('aria-label', hasText ? t('send') : 'Voice input hint');
+  };
+  inputField.addEventListener('input', updateSendButtonState);
+  updateSendButtonState();
 
   // Language toggle (could add button to UI)
   // For now, accessible via console: toggleLanguage()
