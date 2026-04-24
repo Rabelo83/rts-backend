@@ -521,3 +521,129 @@ more than iterative prompt fixes.
 1. Set `DASHBOARD_PIN` + `SECRET_KEY` + `RENDER_BACKEND_URL` on Render/GitHub if locking dashboard before presentation.
 2. Level 1 testing upgrade: inline LLM-as-judge in `run_v2_scenarios.py`.
 3. Run `python tests/replay_from_logs.py` after production traffic accumulates to catch real-world regressions.
+
+---
+
+## 📌 Open Items captured 2026-04-23 (pick up next session)
+
+Today's session shipped 12 commits covering multi-turn context, arrive-by/depart-at,
+geocoding observability, landmark shortcuts, destination disambiguation, and a full
+messenger-grade mobile UI pass. The items below were identified but deliberately
+deferred.
+
+### 🔥 Trip Planner bugs (real user impact, not chat-agent code)
+
+Surfaced in the `Plan a Trip` tab screenshots on 2026-04-23. The chat agent uses
+the same `find_trips()` engine under the hood, so these affect both surfaces:
+
+- [ ] **Pathological arrive-by itineraries.** "Arrive by 2:29 PM tomorrow"
+  returns options like "9:53 AM → 2:13 PM" — a 4.5-hour itinerary where a
+  legitimate 15-min trip exists. The RAPTOR scorer pairs early-morning first
+  legs with afternoon transfers, stacking multi-hour dead time. Fix: cap
+  travel-time relative to the shortest viable itinerary (reject > 2× fastest),
+  and bound the earliest allowable departure in arrive-by mode to
+  `arrive_by - 2h`. (`utils/trip_planner.py`)
+
+- [ ] **Card labels don't match expanded itinerary.** Collapsed card showed
+  `"Route 26, 7 transfers, 52 min"` but expanded view showed 1 leg, 1
+  transfer, ~28 min. Audit the backend→card-badge mapping.
+  (`public_html/trip_planner.js`)
+
+- [ ] **Walk-cap not enforced on final leg.** "Route 26 To Airport" suggested
+  for destination 224 SE 24th St with a 17-min final walk. Most trip
+  planners cap final-walk at 10 minutes. Add a hard cap and reject
+  candidates exceeding it. (`utils/trip_planner.py`)
+
+### 🧭 Landmark architecture — stop_id anchoring (replaces lat/lon)
+
+Chat agent and Trip Planner returned *different* itineraries for the same
+origin ("Rosa Parks"). Root cause: landmark shortcut returned hardcoded
+lat/lon ~280m north of the real station, so `find_trips` resolved to
+Alachua County Courthouse as nearest stop. Two levels of fix:
+
+- [ ] **Quick-fix (1 min):** correct the six hardcoded coordinates in
+  `agency_config.yaml > landmarks.coordinates` against actual GTFS stop
+  locations.
+
+- [ ] **Architectural upgrade (next session):** extend landmark entries to
+  optionally carry `stop_id`. When present, `find_trips()` pegs directly to
+  that GTFS stop (zero walking, exact match) instead of nearest-stops from
+  lat/lon. More accurate than any geocode; aligns with white-label thesis.
+  ```yaml
+  landmarks:
+    coordinates:
+      "Rosa Parks RTS Downtown Station":
+        stop_id: "0001"
+        aliases: ["rosa parks", "downtown station"]
+  ```
+
+### 🐛 Chat agent regressions seen in production (2026-04-23)
+
+Two real conversations exposed specific bugs. Add both as replay tests, then
+fix root cause:
+
+- [ ] **Direction filtering miss on Oaks Mall.** User: "what time the next 5
+  will leave the Oaks Mall?" Agent returned the 3:24 PM bus whose headsign
+  is "To Oaks Mall" — i.e. a bus *arriving* at Oaks Mall, not departing.
+  Agent self-corrected only when challenged. `_filter_inbound_departures`
+  in `agent_tools.py` should treat Oaks Mall as a terminus for Route 5 and
+  strip "To Oaks Mall" departures. Verify the terminus list covers all
+  major hubs; consider deriving from GTFS headsigns rather than hardcoding.
+
+- [ ] **Tool inconsistency on Route 8.** Same conversation:
+  `get_vehicle_location` → 1 bus active. `get_route_vehicle_count` →
+  "no scheduled trips today". Agent surfaced the second answer and ignored
+  the first. Either `get_route_vehicle_count` has a data bug for Route 8,
+  or the agent should reconcile conflicting tool results ("we see a bus
+  running but scheduled trips look sparse"). Investigate which tool is
+  wrong; add reconciliation rule only if both are legitimately correct.
+
+### 🗺️ GTFS landmark curation (manual, non-blocking)
+
+- [ ] `scripts/extract_landmarks_from_gtfs.py` surfaces **543 candidates**
+  from the RTS GTFS feed — too noisy to paste verbatim. Curate ~30–50
+  high-value landmarks (transit hubs, hospitals, major shopping, schools)
+  into `agency_config.yaml > common_destinations.landmarks`. Skip numeric
+  street intersections and single-stop entries.
+
+### 🎨 Phase 3 UX polish (deferred from today's messenger-grade pass)
+
+- [ ] **Accent treatments on tool-result bubbles.** Bot bubbles carrying
+  structured data (ETAs, route numbers, stop names) should use typographic
+  rhythm — ETA times in a bold pill, route numbers in a colored badge.
+  Current bubbles become monochrome "wall of gray" after 3–4 messages.
+
+- [ ] **"End session" link placement.** Currently floats above the input
+  after first user message. Consider moving to a top-right overflow menu
+  (⋯) to match iOS patterns and keep the empty state cleaner.
+
+### 🛡️ Cross-model review — decision log
+
+Evaluated adding a second model to review answers (e.g. GPT reviewing Claude
+or vice-versa):
+
+- **Pre-response guardrail (synchronous)**: REJECTED. Doubles LLM cost and
+  latency per request, marginal quality gain. Most failures aren't
+  hallucinations — they're tool/data bugs a second model won't catch.
+- **Post-hoc QA sampling (async, 5–10% of responses)**: PREFERRED PATH.
+  Infrastructure partially exists (thumbs-up/down ratings, `replay_from_logs.py`,
+  Level 1 GTFS-grounded verifier, Level 2 production feedback loop). Missing
+  piece is a regular cadence of running it + acting on findings.
+- [ ] **Next session task**: wire `replay_from_logs.py` to run nightly via
+  cron or GitHub Action, dump failures to a dashboard section. Harvest
+  failing conversations → add as regression scenarios in `tests/`.
+
+### 📣 Voice input — decided (no work needed)
+
+iOS/Android keyboard dictation handles it natively. Web Speech API rejected
+(iOS flaky). Whisper API rejected (adds cost + latency + dependency).
+Dedicated mic icon on the send button was added and removed in the same
+session after this decision. Revisit only if user feedback specifically
+asks for push-to-talk recording.
+
+### 📝 POI list — carry forward
+
+- [ ] Starter POIs in `agency_config.yaml > common_destinations.pois` cover
+  common cases (health dept, library, DMV, Walmart, etc.). Expand as real
+  users ask for destinations that don't match. Each new entry should have
+  a verified Gainesville address and 2+ locations when applicable.
