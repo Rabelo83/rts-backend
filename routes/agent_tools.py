@@ -542,20 +542,44 @@ def _filter_inbound_departures(departures: list, stop_name: str) -> list:
     When a user is departing FROM a stop, remove headsigns that head back
     toward that same stop or its hub aliases.
 
-    Works for:
-      - Any stop: exclude headsigns containing the departure stop's name.
-      - Downtown hub stops: also exclude headsigns containing any hub keyword.
+    GTFS stop names are typically verbose ("Oaks Mall SW 62nd Blvd") while
+    headsigns are short ("To Oaks Mall"). We have to check overlap in BOTH
+    directions — a single-direction substring check misses the common case.
     """
+    import re
+
     stop_lower = (stop_name or "").lower()
     is_hub = any(kw in stop_lower for kw in _DOWNTOWN_HUB_KEYWORDS)
+
+    def _headsign_points_to_stop(headsign_lower: str) -> bool:
+        # Cheap direct check: stop name appears inside headsign.
+        if stop_lower and stop_lower in headsign_lower:
+            return True
+
+        # Reverse check: strip a leading "To "/"to"/"hacia" off the headsign and
+        # see if the destination keyword appears in the stop name.
+        m = re.match(r"^\s*(?:to|hacia)\s+(.+)$", headsign_lower)
+        if not m:
+            return False
+        dest = m.group(1).strip()
+        if not dest:
+            return False
+        if dest in stop_lower:
+            return True
+
+        # Fallback: take the first 2 significant words of the destination
+        # (handles "Butler Plaza TS" vs stop name "Butler Plaza Transfer Station").
+        dest_words = [w for w in dest.split() if len(w) >= 3]
+        if len(dest_words) >= 2 and f"{dest_words[0]} {dest_words[1]}" in stop_lower:
+            return True
+        return False
 
     filtered = []
     for dep in departures:
         headsign_lower = (dep.get("headsign") or "").lower()
-        # Always exclude headsigns that contain the exact stop name
-        if stop_lower and stop_lower in headsign_lower:
+        if _headsign_points_to_stop(headsign_lower):
             continue
-        # For downtown hub departures, also exclude other hub-pointing headsigns
+        # For downtown hub departures, also exclude other hub-pointing headsigns.
         if is_hub and any(kw in headsign_lower for kw in _DOWNTOWN_HUB_KEYWORDS):
             continue
         filtered.append(dep)
