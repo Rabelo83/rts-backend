@@ -33,11 +33,15 @@ from utils.stop_finder import (
     same_side_penalty_sec,
 )
 
-_MAX_WALK_M      = 1000   # max walk to/from a stop (~0.6 mi)
-_MAX_WAIT_MIN    = 90     # max wait — covers 80-min headways
-_MAX_RESULTS     = 5
-_SEARCH_WIN_MIN  = 120    # departure search window
-_HUB_CONNECT_MIN = 3      # min buffer after arriving at a hub
+_MAX_WALK_M           = 1000   # max walk to/from a stop (~0.6 mi)
+_MAX_FINAL_WALK_MIN   = 12     # max walk on the final (destination) leg — no one
+                               # wants a surprise 17-minute walk after the bus ride.
+                               # The stop-finder fallback can expand to 5 km when
+                               # nothing is close; this cap drops those results.
+_MAX_WAIT_MIN         = 90     # max wait — covers 80-min headways
+_MAX_RESULTS          = 5
+_SEARCH_WIN_MIN       = 120    # departure search window
+_HUB_CONNECT_MIN      = 3      # min buffer after arriving at a hub
 
 # Major transfer hubs used as fallback relay points — read from agency_config.yaml
 TRANSFER_HUBS = [
@@ -256,6 +260,15 @@ def _score_itinerary(itin: dict) -> float:
 
 
 def _dedup_and_rank(itineraries: list[dict]) -> list[dict]:
+    # Drop itineraries with an excessive final-leg walk before anything else.
+    # The stop-finder's 5 km fallback can produce stops that are far from the
+    # destination; those itineraries technically "work" but suggesting a 17-min
+    # walk at the end of a 15-min bus ride makes the planner look broken.
+    itineraries = [
+        itin for itin in itineraries
+        if (itin.get("walk_from_stop") or {}).get("walk_min", 0) <= _MAX_FINAL_WALK_MIN
+    ]
+
     for itin in itineraries:
         itin["score"] = _score_itinerary(itin)
 
