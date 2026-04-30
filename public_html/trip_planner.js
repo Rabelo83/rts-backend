@@ -8,20 +8,31 @@
 window.switchTab = function switchTab(tab) {
   const chatEls = ['chat-messages', 'starter-questions', 'chat-end-row', 'chat-input-row'];
   const tripEl  = document.getElementById('trip-panel');
+  const mapEl   = document.getElementById('map-panel');
   const isChat  = tab === 'chat';
+  const isTrip  = tab === 'trip';
+  const isMap   = tab === 'map';
 
   chatEls.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('hidden', !isChat);
   });
 
-  if (tripEl) tripEl.classList.toggle('hidden', isChat);
+  if (tripEl) tripEl.classList.toggle('hidden', !isTrip);
+  if (mapEl)  mapEl.classList.toggle('hidden', !isMap);
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
     const active = btn.dataset.tab === tab;
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-selected', active);
   });
+
+  // Lazy-init the map only when the tab is first shown — avoids loading
+  // tiles for users who never open it. MapLibre also needs resize() after
+  // becoming visible so it picks up the right canvas size.
+  if (isMap && typeof window.initMap === 'function') {
+    window.initMap();
+  }
 };
 
 

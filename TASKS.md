@@ -524,6 +524,99 @@ more than iterative prompt fixes.
 
 ---
 
+## 🧭 Information Architecture Reorganization — NEXT PICKUP (planned 2026-04-30, pt. 2)
+
+**Status: PLANNED, NOT YET IMPLEMENTED.** This section is intentionally explicit so any future AI / contributor can resume mid-stream without re-deriving the rationale.
+
+### Current state (as of this commit)
+
+| URL | What's there | Problem |
+|---|---|---|
+| `/` | `public_html/index.html` — legacy "RTS Bus Tracker" page with dropdown UI ("Pick a route, then direction and stop"). Pre-AI design. | First-time visitor lands here, sees a dropdown, and has no idea the AI assistant exists. The legacy page **competes with** the actual product. |
+| `/chat` | `public_html/chat.html` — the real product: Chat / Plan a Trip / Live Map tabs (AI assistant + trip planner + live bus map). | Hidden behind a path users wouldn't guess from a landing page. |
+| `/wizard` | `public_html/wizard.html` — old onboarding flow | Likely retire — superseded by the AI assistant. |
+| `/dashboard` | `public_html/dashboard.html` — admin/QA dashboard, PIN-protected | Keep as-is. Admin-facing, off the rider funnel. |
+| `/login` | PIN gate (when `DASHBOARD_PIN` is set) | Keep. |
+
+### Recommended end state (Option A — endorsed 2026-04-30)
+
+Single front door. The AI app **is** the product. No splash, no dropdown legacy.
+
+- `/` → serves the chat-app HTML (currently `chat.html`) directly. No redirect — just make it the root.
+- `/chat` → kept as an alias (redirects or serves the same page) so existing bookmarks, PWA shortcuts, and the `redirect-to-/chat` PWA logic don't break.
+- `/wizard` → retire. Either 404, or redirect to `/`.
+- `/dashboard` → unchanged.
+- `index.html` → either deleted, or repurposed as a marketing/sales landing for white-label outreach (NOT shown to riders; served from a different path like `/about` or hosted elsewhere).
+- File rename: `chat.html` → `app.html` since "chat" is just one of three tabs now. Update `chat_v2.js`, `trip_planner.js`, `map.js`, PWA manifest's `start_url`, and the service worker's redirect logic accordingly.
+
+### Why Option A over alternatives
+
+- **Option B** (splash page with a single CTA → `/chat`) — adds an unnecessary click; doesn't solve the "hidden product" issue meaningfully. Rejected.
+- **Option C** (subdomains per surface — `chat.`, `plan.`, `map.`) — over-engineered for one product, fragments PWA install, hostile to white-label DNS setup. Rejected.
+
+Strategic framing memory (`feedback_strategic_framing.md`): the commercial thesis is white-label resale. Each agency wants ONE URL that IS their app. Splash pages are 2010 thinking and complicate per-tenant setup.
+
+### Implementation checklist (for next session)
+
+- [ ] Decide whether to delete `index.html` or repurpose it as `/about`.
+- [ ] Update `app.py`:
+  - [ ] Change `@app.route("/")` to serve the chat-app file (formerly `chat.html`).
+  - [ ] Keep `/chat` route as an alias (serve the same file).
+  - [ ] Retire or redirect `/wizard`.
+- [ ] Rename `public_html/chat.html` → `public_html/app.html` (or keep filename, just re-route — file rename is cosmetic and risks breaking PWA cache).
+- [ ] Update PWA manifest (`public_html/manifest.json`): `start_url` should be `/` (currently likely `/chat`).
+- [ ] Update service worker redirect logic — there's a "strip redirect flag before caching" fix in commit `fe60194`; verify the new IA doesn't reintroduce that bug.
+- [ ] Update README + `CLAUDE.md` with the new URL map.
+- [ ] Update `routes/agent_claude.py` system prompt if it references `/chat` or `/wizard` URLs (it shouldn't, but check).
+- [ ] Update `agency_config.yaml` `contact.rider_app_url` if it points to a path-prefixed URL.
+- [ ] Bump cache-buster query strings (`?v=N`) on all script/CSS tags so browsers pick up the changed HTML.
+- [ ] Smoke test on real device: cold load `/`, `/chat`, PWA install, "Add to Home Screen" launches the right URL.
+
+### Files involved (anchored references for the next AI)
+
+- [app.py](app.py#L136) — root and `/chat` route handlers
+- [public_html/index.html](public_html/index.html) — legacy page (decide: delete or repurpose)
+- [public_html/chat.html](public_html/chat.html) — the real product (3 tabs, ~1600 lines)
+- [public_html/wizard.html](public_html/wizard.html) — likely retire
+- [public_html/manifest.json](public_html/manifest.json) — PWA `start_url`
+- [public_html/service-worker.js](public_html/service-worker.js) — caching + redirect flag logic (see commit `fe60194`)
+- [agency_config.yaml](agency_config.yaml) — `contact.rider_app_url` field
+
+---
+
+## 🗺️ Live Map MVP (2026-04-30, pt. 2)
+
+Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for zero per-request cost (white-label margin protection): **MapLibre GL JS + OpenFreeMap** vector tiles. No API keys. `feedback_zero_per_request_cost.md` memory governs this choice.
+
+### Backend (`routes/map_api.py`)
+- [x] `GET /api/map/routes` — 27 routes with color/name (process-lifetime cache)
+- [x] `GET /api/map/route/<route_id>` — polylines per direction + stops served (process-lifetime cache)
+- [x] `GET /api/map/vehicles` — all vehicles across all routes, 5s TTL server cache, batched BusTime calls (10 routes/call). Amortizes load across concurrent viewers.
+
+### Frontend (`public_html/map.js`)
+- [x] Lazy MapLibre init on first tab switch
+- [x] Route-chip rail with color dots; tap to filter
+- [x] Bus markers (route badge + heading arrow), 10s polling, animated reposition
+- [x] Stop markers (highlighted when a route is selected)
+- [x] Center-on-me FAB
+- [x] Polling pauses when tab is hidden
+- [x] Bottom sheet on tap-bus → "Ask the Assistant" deep-link to chat with context-loaded question
+- [x] Bottom sheet on tap-stop → live predictions + "Ask the Assistant" + "Plan trip from here" deep-links
+- [x] "Live Map" tab added to `chat.html`; `switchTab()` extended for 3-tab in `trip_planner.js`
+
+### To do — polish + real-device QA
+- [ ] Real-device test pass (iOS Safari + Android Chrome). User to validate visually.
+- [ ] Greyed-out chips for routes with no service today (use `service_ids_for_date` from engine)
+- [ ] Smoother marker tween between polls (currently snaps to new position)
+- [ ] Per-direction polyline coloring (inbound slightly desaturated)
+- [ ] Cluster overlapping stops at low zoom (~970 stops on screen at zoom 11 looks busy)
+- [ ] Tile preload optimization — currently fetches city tiles on first tab open
+
+### Local dev gotcha
+macOS port 5000 is hijacked by AirPlay Receiver (returns 403 with `Server: AirTunes/...`). Run Flask on `--port 5050` or disable AirPlay Receiver in System Settings → AirDrop & Handoff.
+
+---
+
 ## 📌 Open Items captured 2026-04-23 (pick up next session)
 
 Today's session shipped 12 commits covering multi-turn context, arrive-by/depart-at,

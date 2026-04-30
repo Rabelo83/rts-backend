@@ -698,6 +698,193 @@
 
     .hidden { display: none !important; }
 
+    /* ── Live map panel ──────────────────────────────────────── */
+    #map-panel {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    #map-canvas {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      background: #0a1626;
+    }
+    .map-route-rail {
+      display: flex;
+      gap: 6px;
+      padding: 10px 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,0.18);
+      flex-shrink: 0;
+    }
+    .map-route-rail::-webkit-scrollbar { display: none; }
+    .map-chip {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.04);
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s;
+      white-space: nowrap;
+    }
+    .map-chip:hover { background: rgba(255,255,255,0.08); }
+    .map-chip.active {
+      background: rgba(96,165,250,0.18);
+      border-color: rgba(96,165,250,0.55);
+      color: #fff;
+    }
+    .map-chip-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .map-fab {
+      position: absolute;
+      bottom: 18px;
+      right: 14px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(15,23,42,0.92);
+      color: #fff;
+      font-size: 1.4rem;
+      cursor: pointer;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.45);
+      backdrop-filter: blur(10px);
+      z-index: 4;
+    }
+    .map-fab:hover { background: rgba(30,41,59,0.95); }
+
+    /* Bus marker (route badge + heading arrow) */
+    .map-bus {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.78rem;
+      color: #fff;
+      cursor: pointer;
+      position: relative;
+      transition: transform .12s;
+    }
+    .map-bus:hover { transform: scale(1.08); }
+    .map-bus-arrow {
+      position: absolute;
+      top: -6px;
+      left: 50%;
+      width: 0; height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-bottom: 7px solid #fff;
+      transform-origin: 50% 22px;
+    }
+    .map-stop {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: rgba(148,163,184,0.55);
+      border: 1px solid rgba(255,255,255,0.6);
+      cursor: pointer;
+      transition: transform .12s;
+    }
+    .map-stop.route-stop {
+      width: 11px;
+      height: 11px;
+      background: #fbbf24;
+      border-color: #fff;
+    }
+    .map-stop:hover { transform: scale(1.4); }
+
+    /* Bottom sheet */
+    .map-sheet {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      background: rgba(15,23,42,0.96);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      padding: 14px 16px 16px;
+      color: var(--text);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.55);
+      backdrop-filter: blur(14px);
+      z-index: 5;
+      max-height: 55%;
+      overflow-y: auto;
+    }
+    .map-sheet-close {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.4rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .map-sheet h3 {
+      font-size: 1rem;
+      margin-bottom: 4px;
+      color: #fff;
+    }
+    .map-sheet .meta {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+    .map-sheet .pred-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 0;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.88rem;
+    }
+    .map-sheet-actions {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .map-sheet-btn {
+      flex: 1;
+      min-width: 130px;
+      padding: 9px 12px;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .map-sheet-btn.ghost {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .map-sheet-btn:hover { opacity: 0.92; }
+
     /* ── Reduced service banner ──────────────────────────────── */
     .trip-service-banner {
       padding: 9px 13px;
@@ -1351,6 +1538,7 @@
       <div class="panel-tabs" role="tablist">
         <button class="tab-btn active" role="tab" aria-selected="true"  data-tab="chat" onclick="switchTab('chat')">&#x1F4AC; Chat</button>
         <button class="tab-btn"        role="tab" aria-selected="false" data-tab="trip" onclick="switchTab('trip')">&#x1F68C; Plan a Trip</button>
+        <button class="tab-btn"        role="tab" aria-selected="false" data-tab="map"  onclick="switchTab('map')">&#x1F5FA;&#xFE0F; Live Map</button>
       </div>
 
       <!-- Chat tab content -->
@@ -1379,11 +1567,25 @@
       <!-- Trip planner tab content -->
       <div id="trip-panel" class="hidden" role="tabpanel" aria-label="Trip planner"></div>
 
+      <!-- Live map tab content -->
+      <div id="map-panel" class="hidden" role="tabpanel" aria-label="Live bus map">
+        <div id="map-route-rail" class="map-route-rail" aria-label="Filter by route"></div>
+        <div id="map-canvas"></div>
+        <button id="map-locate" type="button" class="map-fab" title="Center on me" aria-label="Center on me">⊙</button>
+        <div id="map-sheet" class="map-sheet hidden" role="dialog" aria-label="Selection details">
+          <button class="map-sheet-close" onclick="window.closeMapSheet && window.closeMapSheet()" aria-label="Close">×</button>
+          <div id="map-sheet-body"></div>
+        </div>
+      </div>
+
     </div>
   </main>
 
   <script src="/static/chat_v2.js?v=8" defer></script>
   <script src="/static/trip_planner.js?v=3" defer></script>
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="/static/map.js?v=1" defer></script>
 
   <!-- PWA chrome (offline banner, install button, iOS tip) -->
   <div id="offline-banner" hidden>You're offline. Showing last known information.</div>

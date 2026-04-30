@@ -17,6 +17,42 @@ How to use:
 
 ---
 
+### 2026-04-30 (session pt. 3) — IA reorganization PLANNED, not yet shipped
+- Type: `decision, docs`
+- Summary: Captured the URL/IA reorganization plan in TASKS.md for next-session pickup. Current state has the legacy "RTS Bus Tracker" dropdown page at `/` and the actual product (Chat / Plan a Trip / Live Map) hidden at `/chat` — first-time visitors land on the legacy page and never discover the AI assistant. Decision: Option A — make the chat-app the root (`/` serves the 3-tab app directly), retire the legacy `index.html`, keep `/chat` as an alias for existing bookmarks/PWA shortcuts, retire `/wizard`. Rationale tied to white-label commercial framing: each agency should get ONE URL that IS the app. Implementation checklist + anchored file references documented in `TASKS.md > Information Architecture Reorganization` so any contributor can resume the work without context loss.
+- Files/Areas: `TASKS.md` (new section), `PROJECT_LOG.md` (this entry). No code changes yet.
+- Notes / Follow-up: Implement next session. Estimate: 30–60 min for the route swap + manifest/SW updates, plus one real-device PWA install test to confirm "Add to Home Screen" lands on the right URL. The PWA `start_url` and service-worker redirect logic are the most error-prone parts (commit `fe60194` previously fixed an iOS PWA launch bug here).
+
+---
+
+### 2026-04-30 (session pt. 2)
+- Type: `feature`
+- Summary: Live Map MVP scaffolded. New "Live Map" tab alongside Chat / Plan a Trip. Strategic intent: Go RTS / RideRTS ships a live bus map; replacement-grade requires we ship one too. Stack chosen for zero per-request marginal cost (white-label margin protection): **MapLibre GL JS + OpenFreeMap** vector tiles. No API keys, no per-tile billing, ships to production at any scale.
+
+  Backend (`routes/map_api.py`):
+  - `GET /api/map/routes` — 27 routes from GTFS with color + short/long names (process-lifetime cache)
+  - `GET /api/map/route/<route_id>` — polyline shapes per direction + stops served (process-lifetime cache, since routes/shapes don't change between deploys)
+  - `GET /api/map/vehicles` — server-side aggregation of all active vehicles across all routes (5s TTL cache, batched 10-route BusTime calls). Critical: amortizes BusTime load across concurrent map viewers, instead of every client polling per-route.
+
+  Frontend (`public_html/map.js`, ~330 lines):
+  - Lazy MapLibre init on first tab switch (no tile load for users who never open the map)
+  - Horizontal route-chip rail at top, color-coded — tap to filter polyline + vehicles to one route
+  - Bus markers with route-colored badge + heading arrow, animated each poll (10s)
+  - Stop markers (route-stop layer when a route is selected)
+  - "⊙" FAB to center on user via `navigator.geolocation`
+  - Polling pauses on `visibilitychange` (battery + BusTime budget)
+
+  Differentiation lever — bottom sheet on tap-bus / tap-stop carries:
+  - **"Ask the Assistant"** button → switches to chat tab with a context-loaded question (e.g. "Where is bus 1204 on Route 5 right now…"), pre-filled in the input. Bridges visual ↔ AI surfaces without crowding either one.
+  - "Plan trip from here" button on stop sheets → switches to Trip Planner tab with origin pre-filled.
+
+  Smoke-tested: endpoints return 200, chat page includes all new references, `map.js` serves at 15 KB. Live BusTime polling not smoke-tested from CLI (avoided live API call); user to validate visually in browser.
+
+- Files/Areas: `routes/map_api.py` (new), `app.py` (blueprint registration), `public_html/chat.html` (tab + CSS + script tags), `public_html/map.js` (new), `public_html/trip_planner.js` (switchTab updated for 3-tab)
+- Notes / Follow-up: macOS port 5000 is hijacked by AirPlay Receiver — local dev needs `--port 5050` (or any non-5000). Polish items deferred: route polyline opacity per-direction, "no service today" greyed chips, smoother marker tween between polls. Live Map tab is functional but not polished — next session should drive a real-device test pass and address the three Trip Planner trust bugs in parallel.
+
+---
+
 ### 2026-04-30
 - Type: `fix, feature`
 - Summary: Landmark `stop_id` anchoring shipped. Chat agent and Trip Planner now produce identical itineraries for the same landmark (e.g. "Rosa Parks"), eliminating the divergence flagged in the 2026-04-23 pickup notes. Root cause was the `landmarks.coordinates` table holding hand-typed lat/lon — Oaks Mall was ~3.4 km off, Rosa Parks ~810 m. Fix:

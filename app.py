@@ -15,6 +15,7 @@ from routes.schedule_api import schedule_bp
 from routes.project_status import project_status_bp
 from routes.admin_api import admin_bp
 from routes.trip_api import trip_bp
+from routes.map_api import map_bp
 from routes.pwa import pwa_bp
 from routes.push import push_bp
 from routes.favorites import favorites_bp
@@ -83,6 +84,7 @@ def create_app() -> Flask:
     app.register_blueprint(project_status_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(trip_bp)
+    app.register_blueprint(map_bp)
     app.register_blueprint(pwa_bp)
     app.register_blueprint(push_bp)
     app.register_blueprint(favorites_bp)
