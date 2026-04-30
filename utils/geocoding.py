@@ -258,23 +258,29 @@ def _match_landmark(query: str) -> dict | None:
         canonical_lower = str(canonical_name).strip().lower()
         candidates.append((str(canonical_name), data, [canonical_lower, *aliases]))
 
+    def _build(canonical_name: str, data: dict) -> dict:
+        result = {
+            "lat": float(data["lat"]),
+            "lon": float(data["lon"]),
+            "formatted_address": canonical_name,
+        }
+        # When the landmark is anchored to a specific GTFS stop, surface it so
+        # downstream callers (trip planner, chat plan_trip tool) can peg directly
+        # to that stop instead of relying on a nearest-stop spatial search.
+        stop_id = data.get("stop_id")
+        if stop_id is not None and str(stop_id).strip():
+            result["stop_id"] = str(stop_id).strip()
+        return result
+
     for canonical_name, data, names in candidates:
         if text in names:
             logger.debug("geocode landmark hit for %r → %s", query, canonical_name)
-            return {
-                "lat": float(data["lat"]),
-                "lon": float(data["lon"]),
-                "formatted_address": canonical_name,
-            }
+            return _build(canonical_name, data)
 
     for canonical_name, data, names in candidates:
         if any(name and name in text for name in names):
             logger.debug("geocode landmark hit for %r → %s", query, canonical_name)
-            return {
-                "lat": float(data["lat"]),
-                "lon": float(data["lon"]),
-                "formatted_address": canonical_name,
-            }
+            return _build(canonical_name, data)
 
     return None
 

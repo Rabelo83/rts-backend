@@ -561,21 +561,18 @@ origin ("Rosa Parks"). Root cause: landmark shortcut returned hardcoded
 lat/lon ~280m north of the real station, so `find_trips` resolved to
 Alachua County Courthouse as nearest stop. Two levels of fix:
 
-- [ ] **Quick-fix (1 min):** correct the six hardcoded coordinates in
-  `agency_config.yaml > landmarks.coordinates` against actual GTFS stop
-  locations.
+- [x] **Quick-fix (2026-04-30):** corrected the six hardcoded coordinates in
+  `agency_config.yaml > landmarks.coordinates` against actual GTFS stops
+  (Oaks Mall was ~3.4 km off, Rosa Parks ~810 m).
 
-- [ ] **Architectural upgrade (next session):** extend landmark entries to
-  optionally carry `stop_id`. When present, `find_trips()` pegs directly to
-  that GTFS stop (zero walking, exact match) instead of nearest-stops from
-  lat/lon. More accurate than any geocode; aligns with white-label thesis.
-  ```yaml
-  landmarks:
-    coordinates:
-      "Rosa Parks RTS Downtown Station":
-        stop_id: "0001"
-        aliases: ["rosa parks", "downtown station"]
-  ```
+- [x] **Architectural upgrade (2026-04-30):** landmark entries now carry an
+  optional `stop_id`. When present, `geocode()` surfaces it; `find_trips()`
+  accepts new `origin_stop_id` / `dest_stop_id` params and pegs directly to
+  that GTFS stop with a 0-min walk leg, bypassing nearest-stop spatial
+  search. Threaded through `routes/trip_api.py` and the chat `plan_trip`
+  tool. Chat agent and Trip Planner now agree on landmark itineraries.
+  Files: `agency_config.yaml`, `utils/geocoding.py`, `utils/trip_planner.py`,
+  `routes/trip_api.py`, `routes/agent_tools.py`. Smoke-tested locally.
 
 ### 🐛 Chat agent regressions seen in production (2026-04-23)
 

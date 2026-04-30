@@ -17,6 +17,22 @@ How to use:
 
 ---
 
+### 2026-04-30
+- Type: `fix, feature`
+- Summary: Landmark `stop_id` anchoring shipped. Chat agent and Trip Planner now produce identical itineraries for the same landmark (e.g. "Rosa Parks"), eliminating the divergence flagged in the 2026-04-23 pickup notes. Root cause was the `landmarks.coordinates` table holding hand-typed lat/lon — Oaks Mall was ~3.4 km off, Rosa Parks ~810 m. Fix:
+  1. Coordinates re-pulled from `rts_gtfs.sqlite` to match canonical GTFS stops.
+  2. Added optional `stop_id` field to each landmark entry (architectural upgrade).
+  3. `geocode()` now surfaces `stop_id` on a landmark hit.
+  4. `find_trips()` accepts new `origin_stop_id` / `dest_stop_id` params — when supplied, pegs directly to that GTFS stop with a 0-min walk leg, bypassing nearest-stop spatial search entirely. This guarantees chat ↔ planner consistency regardless of geocoder drift.
+  5. Threaded stop_id through `routes/trip_api.py` and the `plan_trip` chat tool.
+
+  Smoke test (Rosa Parks → Oaks Mall): un-anchored version drifted origin to "Hampton Inn Hotel" (4-min walk); anchored version routes from stop 1 with 0-min walk and stop 1097 with 0-min walk-from on the best result. Same data path, two surfaces, one answer.
+
+- Files/Areas: `agency_config.yaml`, `utils/geocoding.py`, `utils/trip_planner.py`, `routes/trip_api.py`, `routes/agent_tools.py`
+- Notes / Follow-up: Pattern is generalizable — every entry in `landmarks.coordinates` can now opt in by adding `stop_id`. Next white-label agency just supplies their own list. Next session: trip planner trust bugs (pathological arrive-by, card-label mismatch, walk-cap audit), then live-map MVP.
+
+---
+
 ### 2026-03-23 (session 6)
 - Type: `decision, feature` (planned)
 - Summary: Decided to replace the SQL-based trip planner with a full in-memory GTFS graph + RAPTOR algorithm. Root motivation: after 5 sessions of fixing individual SQL routing bugs, the architecture has hit its ceiling — SQL is the wrong tool for graph traversal, and every new edge case requires another SQL query pass. RAPTOR handles unlimited transfers in one pass, is used by Google Maps / OpenTripPlanner, and will benefit the chat agent (`plan_trip` tool) automatically with zero changes.

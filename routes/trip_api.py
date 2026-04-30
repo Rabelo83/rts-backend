@@ -76,6 +76,10 @@ def plan_trip():
     origin_lon = data.get("origin_lon")
     dest_lat = data.get("dest_lat")
     dest_lon = data.get("dest_lon")
+    # Optional landmark anchors — pegs the trip planner directly to a known
+    # GTFS stop, bypassing nearest-stop spatial search.
+    origin_stop_id = data.get("origin_stop_id")
+    dest_stop_id   = data.get("dest_stop_id")
 
     if origin_lat is None or origin_lon is None:
         origin_addr = str(data.get("origin_address") or "").strip()
@@ -85,6 +89,8 @@ def plan_trip():
         if not geo:
             return jsonify({"error": f"Could not locate: {origin_addr}"}), 422
         origin_lat, origin_lon = geo["lat"], geo["lon"]
+        if origin_stop_id is None and geo.get("stop_id"):
+            origin_stop_id = geo["stop_id"]
 
     if dest_lat is None or dest_lon is None:
         dest_addr = str(data.get("dest_address") or "").strip()
@@ -94,6 +100,8 @@ def plan_trip():
         if not geo:
             return jsonify({"error": f"Could not locate: {dest_addr}"}), 422
         dest_lat, dest_lon = geo["lat"], geo["lon"]
+        if dest_stop_id is None and geo.get("stop_id"):
+            dest_stop_id = geo["stop_id"]
 
     depart_after = data.get("depart_after")  # "HH:MM" or None
     arrive_by    = data.get("arrive_by")     # "HH:MM" or None
@@ -113,6 +121,8 @@ def plan_trip():
             depart_after=depart_after,
             arrive_by=arrive_by,
             target_date=target_date,
+            origin_stop_id=origin_stop_id,
+            dest_stop_id=dest_stop_id,
         )
     except Exception as exc:
         import traceback

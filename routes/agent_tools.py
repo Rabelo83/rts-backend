@@ -1483,6 +1483,8 @@ def _tool_plan_trip(
             dest_lon=dest_geo["lon"],
             depart_after=depart_after_hhmm,
             arrive_by=arrive_by_hhmm,
+            origin_stop_id=origin_geo.get("stop_id"),
+            dest_stop_id=dest_geo.get("stop_id"),
         )
     except Exception as exc:
         logger.error("find_trips error: %s", exc)

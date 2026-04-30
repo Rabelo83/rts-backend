@@ -296,20 +296,28 @@ def _dedup_and_rank(itineraries: list[dict]) -> list[dict]:
 # ── Main entry point ───────────────────────────────────────────────────────────
 
 def find_trips(
-    origin_lat:   float,
-    origin_lon:   float,
-    dest_lat:     float,
-    dest_lon:     float,
-    depart_after: Optional[str] = None,
-    arrive_by:    Optional[str] = None,
-    target_date:  Optional[date] = None,
+    origin_lat:     float,
+    origin_lon:     float,
+    dest_lat:       float,
+    dest_lon:       float,
+    depart_after:   Optional[str] = None,
+    arrive_by:      Optional[str] = None,
+    target_date:    Optional[date] = None,
+    origin_stop_id: Optional[str | int] = None,
+    dest_stop_id:   Optional[str | int] = None,
 ) -> dict:
     """
     Find transit options from (origin_lat, origin_lon) to (dest_lat, dest_lon).
 
-    depart_after: "HH:MM" 24h — departing at or after this time
-    arrive_by:    "HH:MM" 24h — arriving at or before this time (reverse routing)
-    target_date:  date object (defaults to today)
+    depart_after:   "HH:MM" 24h — departing at or after this time
+    arrive_by:      "HH:MM" 24h — arriving at or before this time (reverse routing)
+    target_date:    date object (defaults to today)
+    origin_stop_id: optional GTFS stop_id — when provided, the origin is anchored
+                    directly to that stop (zero walk-to-stop). Used for landmark
+                    queries like "Rosa Parks" where a known stop is canonical;
+                    avoids the chat/planner divergence caused by nearest-stop
+                    spatial search drifting to a different stop.
+    dest_stop_id:   same, for the destination side.
 
     Returns:
       {
@@ -358,22 +366,62 @@ def find_trips(
     except Exception:
         service_label = None
 
-    # Find nearby stops (engine spatial index, service-aware)
-    origin_stops = engine.find_stops_near(
-        origin_lat, origin_lon, _MAX_WALK_M, service_ids
-    )[:16]
+    # Landmark anchoring: when a canonical GTFS stop_id is supplied for
+    # origin/destination, peg directly to that stop instead of running the
+    # nearest-stop spatial search. This guarantees the chat agent and the
+    # Trip Planner produce the same itineraries for the same landmark.
+    def _anchor(stop_id_in) -> Optional[dict]:
+        try:
+            sid = int(str(stop_id_in).strip())
+        except (TypeError, ValueError):
+            return None
+        if sid not in engine.stops:
+            return None
+        active = engine._active_stops_for_service(service_ids)
+        if active is not None and sid not in active:
+            return None
+        slat, slon, sname = engine.stops[sid]
+        return {
+            "stop_id":    sid,
+            "stop_name":  sname,
+            "lat":        slat,
+            "lon":        slon,
+            "distance_m": 0,
+            "walk_min":   0.0,
+        }
+
+    origin_stops: list[dict] = []
+    if origin_stop_id is not None:
+        anchored = _anchor(origin_stop_id)
+        if anchored:
+            origin_stops = [anchored]
+            # Re-center origin coords to the anchor so walk legs compute zero.
+            origin_lat, origin_lon = anchored["lat"], anchored["lon"]
+
     if not origin_stops:
         origin_stops = engine.find_stops_near(
-            origin_lat, origin_lon, 5000, service_ids
-        )[:1]
+            origin_lat, origin_lon, _MAX_WALK_M, service_ids
+        )[:16]
+        if not origin_stops:
+            origin_stops = engine.find_stops_near(
+                origin_lat, origin_lon, 5000, service_ids
+            )[:1]
 
-    dest_stops = engine.find_stops_near(
-        dest_lat, dest_lon, _MAX_WALK_M, service_ids
-    )[:16]
+    dest_stops: list[dict] = []
+    if dest_stop_id is not None:
+        anchored = _anchor(dest_stop_id)
+        if anchored:
+            dest_stops = [anchored]
+            dest_lat, dest_lon = anchored["lat"], anchored["lon"]
+
     if not dest_stops:
         dest_stops = engine.find_stops_near(
-            dest_lat, dest_lon, 5000, service_ids
-        )[:1]
+            dest_lat, dest_lon, _MAX_WALK_M, service_ids
+        )[:16]
+        if not dest_stops:
+            dest_stops = engine.find_stops_near(
+                dest_lat, dest_lon, 5000, service_ids
+            )[:1]
 
     if not origin_stops:
         return {
