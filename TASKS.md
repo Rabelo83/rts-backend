@@ -594,7 +594,10 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 
 ### Frontend (`public_html/map.js`)
 - [x] Lazy MapLibre init on first tab switch
+- [x] Mobile-first map toolbar combines `Routes: All` and Stop ID lookup in one row
 - [x] Route selector supports multi-select chips; `All` clears the selected route set
+- [x] Route chips live in an expandable tray under the Routes button instead of permanently occupying the control row
+- [x] Tapping a bus selects that bus's route and draws the matching route overlay
 - [x] Selected route polylines render together with softer opacity so bus markers remain visually primary
 - [x] Bus markers upgraded from plain circles to side-view bus silhouettes while preserving route number/color + heading arrow
 - [x] Stop markers (highlighted when a route is selected)

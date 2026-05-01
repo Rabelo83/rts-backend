@@ -713,36 +713,44 @@
       width: 100%;
       background: #0a1626;
     }
-    .map-route-rail {
+    .map-controls {
       display: flex;
-      gap: 6px;
-      padding: 9px 12px 10px;
-      overflow-x: auto;
-      overflow-y: hidden;
-      scrollbar-width: none;
-      border-bottom: 1px solid var(--border);
-      background: rgba(0,0,0,0.18);
-      flex-shrink: 0;
-      max-height: 54px;
-      transition: background .18s ease;
-    }
-    .map-route-rail.expanded {
-      flex-wrap: wrap;
-      align-content: flex-start;
-      overflow-x: hidden;
-      overflow-y: auto;
-      max-height: 136px;
-      background: rgba(5,10,22,0.38);
-    }
-
-    /* ── Stop-ID search bar above the route chip rail ─────── */
-    .map-stop-search {
-      display: flex;
-      justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
       padding: 8px 12px;
       border-bottom: 1px solid var(--border);
       background: rgba(0,0,0,0.18);
       flex-shrink: 0;
+    }
+    .map-route-rail {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0 12px;
+      overflow: hidden;
+      scrollbar-width: none;
+      border-bottom: 0 solid transparent;
+      background: rgba(0,0,0,0.18);
+      flex-shrink: 0;
+      max-height: 0;
+      transition: max-height .18s ease, padding .18s ease, border-color .18s ease, background .18s ease;
+    }
+    .map-route-rail.expanded {
+      align-content: flex-start;
+      overflow-y: auto;
+      max-height: 150px;
+      padding: 10px 12px 12px;
+      border-bottom-width: 1px;
+      border-bottom-color: var(--border);
+      background: rgba(5,10,22,0.38);
+    }
+
+    /* ── Stop-ID search + route controls ─────── */
+    .map-stop-search {
+      display: flex;
+      justify-content: flex-end;
+      flex: 1 1 220px;
+      min-width: 0;
     }
     .map-stop-search-shell {
       width: min(100%, 360px);
@@ -874,27 +882,24 @@
     }
     .map-route-rail::-webkit-scrollbar { display: none; }
     .map-route-toggle {
-      position: sticky;
-      left: 0;
-      z-index: 2;
       flex-shrink: 0;
-      min-height: 34px;
+      min-height: 38px;
       display: inline-flex;
       align-items: center;
       gap: 7px;
-      padding: 5px 12px;
+      padding: 7px 14px;
       border-radius: 999px;
       border: 1px solid rgba(96,165,250,0.36);
       background: rgba(15,23,42,0.96);
       color: #fff;
-      box-shadow: 6px 0 12px rgba(5,10,22,0.35);
+      box-shadow: 0 4px 12px rgba(5,10,22,0.24);
       cursor: pointer;
       font-family: inherit;
       font-size: 0.82rem;
       font-weight: 800;
       white-space: nowrap;
     }
-    .map-route-toggle span {
+    .map-route-toggle-icon {
       color: #93c5fd;
       font-size: 0.9rem;
       line-height: 1;
@@ -917,6 +922,10 @@
       white-space: nowrap;
     }
     .map-chip:hover { background: rgba(255,255,255,0.08); }
+    .map-chip-all {
+      min-width: 56px;
+      justify-content: center;
+    }
     .map-chip-route {
       position: relative;
       min-width: 50px;
@@ -2020,6 +2029,32 @@
       #chat-input-row { padding: 12px 14px calc(env(safe-area-inset-bottom, 0px) + 14px); }
       #chat-input { font-size: 1.08rem; padding: 16px 18px; }
       #trip-panel { padding: 14px; }
+      .map-controls {
+        gap: 8px;
+        padding: 8px 10px;
+      }
+      .map-route-toggle {
+        min-height: 40px;
+        max-width: 46%;
+        padding: 8px 11px;
+        font-size: 0.78rem;
+      }
+      .map-route-toggle-label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .map-stop-search-shell {
+        width: 100%;
+        min-height: 40px;
+      }
+      .map-route-rail.expanded {
+        max-height: 170px;
+        padding: 10px;
+      }
+      .map-chip {
+        min-height: 38px;
+      }
     }
   </style>
 </head>
@@ -2095,18 +2130,24 @@
 
       <!-- Live map tab content -->
       <div id="map-panel" class="hidden" role="tabpanel" aria-label="Live bus map">
-        <form id="map-stop-search-form" class="map-stop-search" autocomplete="off">
-          <div class="map-stop-search-shell">
-            <span class="map-stop-search-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M12 21s6-5.2 6-11a6 6 0 0 0-12 0c0 5.8 6 11 6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>
-            </span>
-            <input id="map-stop-search-input" type="text" inputmode="numeric" pattern="[0-9]*"
-                   placeholder="Stop ID" aria-label="Look up bus stop by ID" />
-            <button type="submit" class="map-stop-search-btn" aria-label="Look up stop">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
-            </button>
-          </div>
-        </form>
+        <div class="map-controls">
+          <button id="map-route-toggle" class="map-route-toggle" type="button" aria-expanded="false" aria-controls="map-route-rail">
+            <span class="map-route-toggle-label">Routes: All</span>
+            <span class="map-route-toggle-icon" aria-hidden="true">⌄</span>
+          </button>
+          <form id="map-stop-search-form" class="map-stop-search" autocomplete="off">
+            <div class="map-stop-search-shell">
+              <span class="map-stop-search-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 21s6-5.2 6-11a6 6 0 0 0-12 0c0 5.8 6 11 6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>
+              </span>
+              <input id="map-stop-search-input" type="text" inputmode="numeric" pattern="[0-9]*"
+                     placeholder="Stop ID" aria-label="Look up bus stop by ID" />
+              <button type="submit" class="map-stop-search-btn" aria-label="Look up stop">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+              </button>
+            </div>
+          </form>
+        </div>
         <div id="map-route-rail" class="map-route-rail" aria-label="Filter by route"></div>
         <div id="map-canvas"></div>
         <div id="map-route-info" class="map-route-info hidden" role="dialog" aria-label="Route schedule summary">
@@ -2131,7 +2172,7 @@
   <script src="/static/trip_planner.js?v=3" defer></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="/static/map.js?v=12" defer></script>
+  <script src="/static/map.js?v=13" defer></script>
 
   <!-- PWA chrome (offline banner, install button, iOS tip) -->
   <div id="offline-banner" hidden>You're offline. Showing last known information.</div>

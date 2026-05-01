@@ -76,6 +76,11 @@
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
     document.getElementById('map-locate')?.addEventListener('click', centerOnUser);
+    document.getElementById('map-route-toggle')?.addEventListener('click', () => {
+      setRouteRailExpanded(!routeRailExpanded);
+      if (routeRailExpanded) hideRouteInfo(false);
+      else setRouteInfoReopenVisible(Boolean(currentRouteInfoId));
+    });
 
     const searchForm = document.getElementById('map-stop-search-form');
     if (searchForm) searchForm.addEventListener('submit', onStopSearchSubmit);
@@ -107,9 +112,6 @@
     const rail = document.getElementById('map-route-rail');
     if (!rail) return;
     const chips = [
-      `<button class="map-route-toggle" type="button" aria-expanded="${routeRailExpanded ? 'true' : 'false'}">
-        Routes <span aria-hidden="true">${routeRailExpanded ? '⌃' : '⌄'}</span>
-      </button>`,
       `<button class="map-chip map-chip-all active" data-route="" aria-pressed="true">All</button>`,
       ...routes.map(r => {
         const label = String(r.short_name || r.route_id || '');
@@ -126,13 +128,6 @@
     rail.innerHTML = chips.join('');
     setRouteRailExpanded(routeRailExpanded);
     rail.addEventListener('click', e => {
-      const toggle = e.target.closest('.map-route-toggle');
-      if (toggle) {
-        setRouteRailExpanded(!routeRailExpanded);
-        if (routeRailExpanded) hideRouteInfo(false);
-        else setRouteInfoReopenVisible(Boolean(currentRouteInfoId));
-        return;
-      }
       const btn = e.target.closest('.map-chip');
       if (!btn) return;
       toggleRouteSelection(btn.dataset.route || null);
@@ -142,6 +137,7 @@
   async function toggleRouteSelection(routeId) {
     if (!routeId) {
       selectedRouteIds.clear();
+      setRouteRailExpanded(false);
     } else if (selectedRouteIds.has(routeId)) {
       selectedRouteIds.delete(routeId);
     } else {
@@ -150,6 +146,14 @@
 
     updateRouteChipStates();
     hideRouteInfo(false);
+    await refreshSelectedRouteOverlay();
+    redrawVehicleFilter();
+  }
+
+  async function ensureRouteSelected(routeId) {
+    if (!routeId || selectedRouteIds.has(routeId)) return;
+    selectedRouteIds.add(routeId);
+    updateRouteChipStates();
     await refreshSelectedRouteOverlay();
     redrawVehicleFilter();
   }
@@ -165,7 +169,14 @@
     const toggle = document.querySelector('.map-route-toggle');
     if (toggle) {
       const n = selectedRouteIds.size;
-      toggle.firstChild.textContent = n ? `Routes (${n}) ` : 'Routes ';
+      const label = toggle.querySelector('.map-route-toggle-label');
+      if (label) {
+        label.textContent = n === 0
+          ? 'Routes: All'
+          : n === 1
+            ? `Routes: ${[...selectedRouteIds][0]}`
+            : `Routes: ${n} selected`;
+      }
     }
   }
 
@@ -202,10 +213,10 @@
     const rail = document.getElementById('map-route-rail');
     if (!rail) return;
     rail.classList.toggle('expanded', routeRailExpanded);
-    const toggle = rail.querySelector('.map-route-toggle');
+    const toggle = document.getElementById('map-route-toggle');
     if (toggle) {
       toggle.setAttribute('aria-expanded', routeRailExpanded ? 'true' : 'false');
-      const icon = toggle.querySelector('span');
+      const icon = toggle.querySelector('.map-route-toggle-icon');
       if (icon) icon.textContent = routeRailExpanded ? '⌃' : '⌄';
     }
     syncMapControlOffset();
@@ -213,10 +224,10 @@
 
   function syncMapControlOffset() {
     const panel = document.getElementById('map-panel');
-    const search = document.getElementById('map-stop-search-form');
+    const controls = document.querySelector('.map-controls');
     const rail = document.getElementById('map-route-rail');
     if (!panel) return;
-    const offset = (search?.offsetHeight || 0) + (rail?.offsetHeight || 0) + 12;
+    const offset = (controls?.offsetHeight || 0) + (rail?.offsetHeight || 0) + 12;
     panel.style.setProperty('--map-controls-offset', `${offset}px`);
   }
 
@@ -420,13 +431,16 @@
   }
 
   // ── Bottom sheet: bus / stop details + Ask-the-Assistant deep link ────────
-  function showBusSheet(v) {
+  async function showBusSheet(v) {
     const route = routes.find(r => r.route_id === v.route);
     const routeName = route ? `Route ${route.short_name} — ${route.long_name}` : `Route ${v.route}`;
     const headsign  = v.destination ? `Heading: ${escHTML(v.destination)}` : '';
     const delayed   = v.delayed ? '<span style="color:#fbbf24">⚠ Reported delayed</span>' : '';
 
-    if (v.route) showRouteInfo(v.route);
+    if (v.route) {
+      await ensureRouteSelected(v.route);
+      showRouteInfo(v.route);
+    }
 
     const askMsg = `Where is bus ${v.vehicle_id} on Route ${v.route} right now and when will it reach me?`;
 
