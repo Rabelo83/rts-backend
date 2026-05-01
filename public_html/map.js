@@ -305,20 +305,30 @@
     `);
     let preds = [];
     try {
-      const data = await fetchJSON(`/api/predictions?stop_id=${encodeURIComponent(stop.stop_id)}&top=4`);
-      preds = data.predictions || data.prd || [];
+      // /api/predictions normalizes BusTime fields to {route, direction,
+      // destination, minutes, vehicle_id, arrival_time, delayed, ...}.
+      const data = await fetchJSON(`/api/predictions?stop_id=${encodeURIComponent(stop.stop_id)}`);
+      preds = (data && data.predictions) || [];
     } catch {
       preds = [];
     }
     const askMsg = `What's coming up at stop ${stop.stop_id} (${stop.stop_name})?`;
-    const planMsg = `Plan a trip from ${stop.stop_name}.`;
+
+    const fmtEta = m => {
+      if (m == null || m === '') return '?';
+      const s = String(m);
+      if (s.toUpperCase() === 'DUE') return 'DUE';
+      const n = parseInt(s, 10);
+      return Number.isFinite(n) ? `${n} min` : s;
+    };
 
     const predHTML = preds.length
-      ? preds.map(p => {
-          const eta = p.eta_min != null ? `${p.eta_min} min` : (p.prdctdn === 'DUE' ? 'DUE' : `${p.prdctdn || '?'} min`);
-          const route = p.route_id || p.rt || '';
-          const dest  = p.destination || p.des || '';
-          return `<div class="pred-row"><span>Route ${escHTML(route)} → ${escHTML(dest)}</span><span>${escHTML(eta)}</span></div>`;
+      ? preds.slice(0, 5).map(p => {
+          const route = p.route || '';
+          const dest  = p.destination || '';
+          const eta   = fmtEta(p.minutes);
+          const dly   = p.delayed ? ' ⚠' : '';
+          return `<div class="pred-row"><span>Route ${escHTML(route)} → ${escHTML(dest)}${dly}</span><span>${escHTML(eta)}</span></div>`;
         }).join('')
       : `<div class="pred-row"><span>No predictions right now.</span><span></span></div>`;
 

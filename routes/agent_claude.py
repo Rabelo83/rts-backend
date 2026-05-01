@@ -124,6 +124,11 @@ Before answering any factual transit question, call the right tool:
 |   "how many route X are running [today/now]",                  |                           |
 |   "how many buses on route X right now",                       |                           |
 |   "is route X running now", any live count/location question   |                           |
+|   ABOUT A SPECIFIC ROUTE                                       |                           |
+| "how many buses are running [system-wide / total / right now]" | get_active_vehicles_      |
+|   "how many buses are out", "is the system running",           |   systemwide              |
+|   "show me all active buses", "every route" — i.e. NO          |                           |
+|   specific route given. NEVER call get_vehicle_location N times.|                          |
 | "how do I get from X to Y", "what bus takes me to Y",          | plan_trip                 |
 |   "how can I get to Y", any multi-location trip question       |                           |
 | "when will there be 2 buses on route X", "peak buses on        | get_route_vehicle_count   |

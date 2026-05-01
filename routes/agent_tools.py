@@ -332,6 +332,30 @@ TOOLS: list[dict] = [
     {
         "type": "function",
         "function": {
+            "name": "get_active_vehicles_systemwide",
+            "description": (
+                "Return the live count of active buses across the ENTIRE system, "
+                "broken down per route. "
+                "Use this whenever the user asks about all routes / the whole system at once: "
+                "'how many buses are running now', 'how many buses are out', "
+                "'is the system running today', 'show me all active buses', "
+                "'how many routes have buses on them'. "
+                "Returns total vehicle count, count of routes with at least one active bus, "
+                "and a per-route breakdown. Hits the same aggregator the live map uses, "
+                "with a 5-second server-side cache so concurrent calls are cheap. "
+                "Use get_vehicle_location instead when the user names a specific route."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "plan_trip",
             "description": (
                 "Plan a bus trip from one location to another. "
@@ -688,6 +712,7 @@ def dispatch_tool(name: str, arguments: dict, session_id: str | None = None) -> 
         "get_service_differences": _tool_get_service_differences,
         "get_route_vehicle_count": _tool_get_route_vehicle_count,
         "get_vehicle_location": _tool_get_vehicle_location,
+        "get_active_vehicles_systemwide": _tool_get_active_vehicles_systemwide,
         "plan_trip": _tool_plan_trip,
     }
     handler = handlers.get(name)
@@ -1436,7 +1461,50 @@ def _tool_get_vehicle_location(route_id: str) -> dict:
     }
 
 
-# ── Tool 9: plan_trip ─────────────────────────────────────────────────────────
+# ── Tool 10: get_active_vehicles_systemwide ──────────────────────────────────
+
+def _tool_get_active_vehicles_systemwide() -> dict:
+    """
+    Return a system-wide summary of active buses across every route.
+    Reuses the same aggregator that powers the live map (`/api/map/vehicles`)
+    so the chat agent and the map are guaranteed to agree on counts.
+    """
+    try:
+        from routes.map_api import _fetch_all_vehicles
+        vehicles = _fetch_all_vehicles()
+    except Exception as exc:
+        logger.warning("get_active_vehicles_systemwide failed: %s", exc)
+        return {
+            "status":  "api_unavailable",
+            "message": "Unable to reach real-time vehicle data right now.",
+        }
+
+    if not vehicles:
+        return {
+            "status":  "no_vehicles",
+            "message": "No active buses across the system right now.",
+        }
+
+    by_route: dict[str, int] = {}
+    for v in vehicles:
+        rt = str(v.get("route") or "?")
+        by_route[rt] = by_route.get(rt, 0) + 1
+
+    def _route_sort_key(rt: str):
+        return (0, int(rt)) if rt.isdigit() else (1, rt)
+
+    return {
+        "status":             "ok",
+        "total_vehicles":     len(vehicles),
+        "active_route_count": len(by_route),
+        "by_route": [
+            {"route": rt, "count": by_route[rt]}
+            for rt in sorted(by_route.keys(), key=_route_sort_key)
+        ],
+    }
+
+
+# ── Tool 11: plan_trip ────────────────────────────────────────────────────────
 
 def _tool_plan_trip(
     origin: str,

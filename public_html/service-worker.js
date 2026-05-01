@@ -13,7 +13,7 @@
  * add-web-push.md is implemented.
  */
 
-const SW_VERSION = 'v9';  // IA reorg — / now serves the app; /wizard retired
+const SW_VERSION = 'v10';  // map.js predictions field mapping + system-wide chat tool
 const CACHE_NAME = `${SW_VERSION}-shell`;
 
 /** Files that form the installable app shell. */

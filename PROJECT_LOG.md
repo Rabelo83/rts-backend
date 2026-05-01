@@ -17,6 +17,18 @@ How to use:
 
 ---
 
+### 2026-04-30 (session pt. 5) — Map predictions fix + system-wide vehicle count tool
+- Type: `fix, feature`
+- Summary: Two issues surfaced after the map+IA ship:
+  1. **Map stop bottom sheet always showed "No predictions right now"** — `map.js` was reading the raw BusTime field names (`prdctdn`, `rt`, `des`) but `/api/predictions` normalizes them to friendly names (`minutes`, `route`, `destination`). Fixed field mapping; added DUE handling and a delayed-flag warning glyph.
+  2. **Chat agent had no system-wide vehicle count tool.** When asked "how many buses are running now?" it would offer to check individual routes. Added `get_active_vehicles_systemwide` tool that reuses the `/api/map/vehicles` aggregator (5s server cache shared with the live map → chat ↔ map can never disagree on counts). Registered in `agent_tools.TOOLS`, dispatch table, and the system-prompt routing table in `agent_claude.py`.
+
+  Bumped `map.js?v=1` → `?v=2` and SW_VERSION `v9` → `v10` to force cache refresh.
+- Files/Areas: `routes/agent_tools.py` (new tool), `routes/agent_claude.py` (routing table row), `public_html/map.js` (field mapping + DUE handling), `public_html/chat.html` (cache-buster), `public_html/service-worker.js` (SW v10).
+- Notes / Follow-up: The agent now has 12 tools (was 11). Live verified locally that `/api/predictions?stop_id=1` returns `route/destination/minutes`-style payloads with real ETAs from BusTime.
+
+---
+
 ### 2026-04-30 (session pt. 4) — IA reorganization SHIPPED
 - Type: `feature, fix`
 - Summary: User opened the production root URL mid-session and saw the legacy "RTS Bus Tracker" dropdown UI — confirming the IA problem in real time. Pulled the planned reorg forward and shipped it the same session. Changes:
