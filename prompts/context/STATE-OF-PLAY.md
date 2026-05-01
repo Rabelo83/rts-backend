@@ -2,7 +2,7 @@
 
 This file captures the **current state of the work-in-progress** so a delegated AI (Codex, Sonnet, Haiku, etc.) can pick up cold without reading the entire repo. Updated each session.
 
-> Last updated: **2026-04-30** (5 commits shipped this session)
+> Last updated: **2026-04-30** (7 commits shipped this session)
 
 ---
 
@@ -37,6 +37,8 @@ This file captures the **current state of the work-in-progress** so a delegated 
 | `e856724` | `feat(map): Live Map MVP` | Replacement-grade pillar — Go RTS / RideRTS ship a live map. Stack: MapLibre + OpenFreeMap (zero per-request cost; required for white-label margin discipline). |
 | `97f74b7` | `feat(ia): / now serves the AI app` | First-time visitors at the bare URL were landing on the legacy dropdown UI and never discovering the AI assistant. The legacy page was *competing* with the actual product. |
 | `b8b30cd` | `fix(map+chat): real ETAs in stop sheet + system-wide vehicle count tool` | Map's stop sheet was hard-wired to raw BusTime field names; `/api/predictions` normalizes them. Also added `get_active_vehicles_systemwide` tool so the agent can answer "how many buses are running now" across the whole system. |
+| `8e595c1` | `docs(prompts): Codex handoff package` | Adds STATE-OF-PLAY.md (this file) + codex-kickoff.md so Codex can pick up cold without burning Opus tokens on context-rebuilding. |
+| (pending) | `fix(pwa): network-first HTML; stop precaching auth-gated routes` | Installed PWAs were stuck on stale or login-page HTML because of cache-first strategy + anonymous SW install fetches getting 302→login. SW v11 rewrites navigation to network-first; cache only on successful, non-redirected responses. |
 
 ---
 

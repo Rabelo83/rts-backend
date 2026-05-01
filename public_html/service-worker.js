@@ -3,23 +3,32 @@
  * RTS PWA — App Shell Service Worker
  *
  * Strategy:
- *   App shell (HTML, CSS, JS, icons, manifest) → cache-first, network fallback
  *   /api/*                                      → network-only (real-time data)
- *   Navigation offline fallback                 → cached "/" shell + offline banner
+ *   HTML navigations (/, /chat, etc.)           → network-first; cache only on
+ *                                                 success; cache fallback if
+ *                                                 offline. Never precached at
+ *                                                 install time because they're
+ *                                                 PIN-gated and an anonymous
+ *                                                 SW install fetch redirects
+ *                                                 to /login, poisoning the
+ *                                                 cached HTML.
+ *   Static assets (CSS/JS/icons/manifest)       → cache-first, network fallback
  *
  * Bump SW_VERSION to force clients to discard old caches on next visit.
- *
- * TODO(add-web-push): push + notificationclick handlers go here when
- * add-web-push.md is implemented.
  */
 
-const SW_VERSION = 'v10';  // map.js predictions field mapping + system-wide chat tool
+const SW_VERSION = 'v11';  // network-first HTML; precache static-only (fixes stale "missing Live Map" tab in installed PWAs)
 const CACHE_NAME = `${SW_VERSION}-shell`;
 
-/** Files that form the installable app shell. */
+/**
+ * Files precached at install time.
+ * Important: do NOT include navigation HTML routes (/, /chat) — those are
+ * PIN-gated and an anonymous SW install fetch follows the redirect to the
+ * login page, then writes the login page HTML to the cache as if it were
+ * the app. The fetch handler now does network-first runtime caching for
+ * navigation requests instead.
+ */
 const SHELL_URLS = [
-  '/',
-  '/chat',
   '/static/style.css',
   '/static/pwa.css',
   '/static/frontend.js',
@@ -100,45 +109,71 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. App shell → cache-first, network fallback
-  event.respondWith(
-    (async () => {
-      const cached = await caches.match(request);
-      if (cached) {
-        // Cached responses can still carry the redirected flag on iOS.
-        // Always sanitize before returning as a navigation response.
-        return stripRedirected(cached);
-      }
+  // 2. HTML navigations → network-first
+  // Cache the response only if it's a 2xx final response. If the user is
+  // unauthenticated, the response is the redirect-followed login page —
+  // we still serve it (so they can log in) but DON'T cache it as the app
+  // shell. The cached entry only updates when a successful authenticated
+  // response comes through, which avoids the "PWA shows the login page
+  // forever" bug seen with cache-first + PIN-gated routes.
+  const isNavigation =
+    request.mode === 'navigate' ||
+    (request.method === 'GET' &&
+     request.destination === 'document');
 
-      try {
-        const networkResponse = await fetch(request);
-
-        if (
-          request.method === 'GET' &&
-          networkResponse.ok &&
-          url.origin === self.location.origin
-        ) {
-          // Sanitize before caching so replays never trip iOS.
-          const clean = await stripRedirected(networkResponse.clone());
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clean));
-        }
-
-        // Also sanitize the response we return for navigations.
-        return request.mode === 'navigate'
-          ? stripRedirected(networkResponse)
-          : networkResponse;
-      } catch (_) {
-        // 3. Navigation offline fallback → serve cached "/" so the JS shell
-        //    boots and the offline banner can be displayed by frontend.js.
-        if (request.mode === 'navigate') {
-          const fallback = await caches.match('/');
+  if (isNavigation) {
+    event.respondWith(
+      (async () => {
+        try {
+          const networkResponse = await fetch(request);
+          // Only cache navigation responses that did NOT redirect.
+          // A redirect-followed response is almost always /login, which
+          // we never want to serve from cache as if it were the app.
+          if (
+            networkResponse.ok &&
+            !networkResponse.redirected &&
+            url.origin === self.location.origin
+          ) {
+            const clean = await stripRedirected(networkResponse.clone());
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clean));
+          }
+          return stripRedirected(networkResponse);
+        } catch (_) {
+          // Offline → try the exact request, then fall back to the most
+          // recently cached navigation response (last successful /chat or /).
+          const cached = await caches.match(request);
+          if (cached) return stripRedirected(cached);
+          const fallback =
+            (await caches.match('/')) ||
+            (await caches.match('/chat'));
           if (fallback) return stripRedirected(fallback);
           return new Response(
             '<h1>Offline</h1><p>Please reconnect to use the transit assistant.</p>',
             { headers: { 'Content-Type': 'text/html' } }
           );
         }
-        // Non-navigation resources that aren't cached — return nothing useful
+      })()
+    );
+    return;
+  }
+
+  // 3. Static assets → cache-first, network fallback
+  event.respondWith(
+    (async () => {
+      const cached = await caches.match(request);
+      if (cached) return cached;
+
+      try {
+        const networkResponse = await fetch(request);
+        if (
+          request.method === 'GET' &&
+          networkResponse.ok &&
+          url.origin === self.location.origin
+        ) {
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse.clone()));
+        }
+        return networkResponse;
+      } catch (_) {
         return new Response('', { status: 503, statusText: 'Offline' });
       }
     })()

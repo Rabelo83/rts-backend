@@ -17,6 +17,27 @@ How to use:
 
 ---
 
+### 2026-04-30 (session pt. 6) — Service worker rewrite: PWAs now get fresh HTML
+- Type: `fix`
+- Summary: User reported the Live Map tab missing from the **installed PWA** even after the live deployment showed it correctly in a fresh browser. Root cause: two compounding service-worker bugs.
+
+  **Bug 1 — cache-first navigation strategy.** Once `/chat` HTML was cached (e.g. before the map tab existed), the SW served that cached version forever; it only refreshed when SW_VERSION bumped AND the install handler successfully replaced the entry. PWAs installed before 2026-04-30 were stuck with the 2-tab UI.
+
+  **Bug 2 — install-time cache poisoning.** The SW's install handler fetched each SHELL_URL anonymously. With `DASHBOARD_PIN` set on Render, `/` and `/chat` returned 302 → /login. After `redirect: 'follow'`, the response was the login-page HTML — and the install handler dutifully `cache.put()`-ed that as if it were the app. So PWAs whose SW reinstalled while the user wasn't authenticated had `/chat` cached as the LOGIN PAGE.
+
+  **Fix (SW v11):**
+  - Removed `/`, `/chat` from `SHELL_URLS`. Static assets only (CSS/JS/icons/manifest).
+  - Split fetch handler: HTML navigations now use **network-first**; static assets stay cache-first.
+  - Navigation responses are cached **only** when `response.ok && !response.redirected` — anonymous redirects to /login no longer poison the cache.
+  - Offline fallback path preserved (cache → cached `/` → cached `/chat` → offline page).
+
+  Result: online users always see the latest HTML; offline users see whatever was last successfully cached during an authenticated session.
+
+- Files/Areas: `public_html/service-worker.js` (rewrite of fetch handler + SHELL_URLS)
+- Notes / Follow-up: Existing PWAs need to discard the v10 SW for v11 to take effect. iOS Safari sometimes holds the old SW for hours; instructions to user: hard-refresh (drag-down) or Settings → Safari → Advanced → Website Data → Remove rts-backend, then relaunch the PWA.
+
+---
+
 ### 2026-04-30 (session pt. 5) — Map predictions fix + system-wide vehicle count tool
 - Type: `fix, feature`
 - Summary: Two issues surfaced after the map+IA ship:
