@@ -81,6 +81,7 @@
       if (routeRailExpanded) hideRouteInfo(false);
       else setRouteInfoReopenVisible(Boolean(currentRouteInfoId));
     });
+    map.on('click', collapseRouteRailFromMap);
 
     const searchForm = document.getElementById('map-stop-search-form');
     if (searchForm) searchForm.addEventListener('submit', onStopSearchSubmit);
@@ -220,6 +221,12 @@
       if (icon) icon.textContent = routeRailExpanded ? '⌃' : '⌄';
     }
     syncMapControlOffset();
+  }
+
+  function collapseRouteRailFromMap() {
+    if (!routeRailExpanded) return;
+    setRouteRailExpanded(false);
+    setRouteInfoReopenVisible(Boolean(currentRouteInfoId));
   }
 
   function syncMapControlOffset() {

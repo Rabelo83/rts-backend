@@ -22,6 +22,7 @@ How to use:
 - Summary: End-of-day Live Map polish focused on making the map behave more like a rider-facing tool and less like a debug overlay.
   - Route selector now supports **multi-select**: tapping route chips adds/removes routes; `All` clears the filter. Selected route count appears on the `Routes` toggle.
   - Control layout is now mobile-first: `Routes: All` and Stop ID lookup share one toolbar row, and route chips live in an expandable tray below the Routes button instead of permanently crowding the map.
+  - The route tray now collapses when the rider taps the map, while the Routes button remains the primary open/close control.
   - Tapping a bus now also selects that bus's route, updates the route toolbar/chips, and draws the route overlay before showing route info.
   - Location failure UX now gives actionable copy, a retry button, and a Stop ID fallback instead of echoing the browser's vague geolocation error.
   - Geolocation now retries automatically with a laptop-friendly lower-accuracy request when Chrome cannot provide a high-accuracy fix.
