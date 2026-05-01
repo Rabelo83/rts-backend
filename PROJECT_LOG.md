@@ -24,6 +24,7 @@ How to use:
   - Control layout is now mobile-first: `Routes: All` and Stop ID lookup share one toolbar row, and route chips live in an expandable tray below the Routes button instead of permanently crowding the map.
   - Tapping a bus now also selects that bus's route, updates the route toolbar/chips, and draws the route overlay before showing route info.
   - Location failure UX now gives actionable copy, a retry button, and a Stop ID fallback instead of echoing the browser's vague geolocation error.
+  - Geolocation now retries automatically with a laptop-friendly lower-accuracy request when Chrome cannot provide a high-accuracy fix.
   - Route summary and bus/stop sheets now sit above live bus markers, preventing selected bus icons from covering schedule text.
   - Multiple selected routes render together with colored polylines and deduped stop dots. Route lines were softened and given a light casing so they read as context instead of cutting through bus markers.
   - Route chips no longer automatically open route info; route info remains available from bus taps / reopen, avoiding ambiguity when multiple routes are selected.

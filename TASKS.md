@@ -604,6 +604,7 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 - [x] Stop markers use custom hover/focus cards with stop name, stop ID, and "tap for arrivals" cue
 - [x] Center-on-me FAB
 - [x] Location failure sheet has retry + Stop ID fallback for mobile browsers that deny or cannot resolve position
+- [x] Geolocation falls back from high-accuracy GPS-style lookup to lower-accuracy laptop-friendly lookup
 - [x] Route summaries and bus/stop sheets layer above live bus markers
 - [x] Polling pauses when tab is hidden
 - [x] Bottom sheet on tap-bus → "Ask the Assistant" deep-link to chat with context-loaded question

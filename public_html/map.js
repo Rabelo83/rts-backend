@@ -661,7 +661,7 @@
   // ── Geolocation ───────────────────────────────────────────────────────────
   window.retryMapLocation = () => centerOnUser();
 
-  function centerOnUser() {
+  async function centerOnUser() {
     if (!navigator.geolocation) {
       renderSheet(`
         <h3>Location unavailable</h3>
@@ -669,25 +669,62 @@
       `);
       return;
     }
+    if (!window.isSecureContext) {
+      renderSheet(`
+        <h3>Location unavailable</h3>
+        <div class="meta">Chrome only shares location on secure HTTPS pages. Open the live site with https, or use the Stop ID field.</div>
+      `);
+      return;
+    }
+
     renderSheet(`
       <h3>Finding you…</h3>
       <div class="meta">Make sure location is allowed for this site or app.</div>
     `);
-    navigator.geolocation.getCurrentPosition(
-      pos => onUserLocated(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
-      err => {
-        console.warn('[map] geolocation:', err.message);
-        renderSheet(`
-          <h3>Couldn't find you</h3>
-          <div class="meta">${escHTML(locationErrorMessage(err))}</div>
-          <div class="map-sheet-actions">
-            <button class="map-sheet-btn" onclick="window.retryMapLocation && window.retryMapLocation()">Try again</button>
-            <button class="map-sheet-btn ghost" onclick="document.getElementById('map-stop-search-input')?.focus(); window.closeMapSheet && window.closeMapSheet()">Use Stop ID</button>
-          </div>
-        `);
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30_000 }
-    );
+
+    try {
+      const pos = await requestUserLocation({ enableHighAccuracy: true, timeout: 10000, maximumAge: 30_000 });
+      onUserLocated(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+    } catch (err) {
+      console.warn('[map] high-accuracy geolocation:', err.message);
+      if (shouldRetryWithBalancedLocation(err)) {
+        try {
+          renderSheet(`
+            <h3>Still looking…</h3>
+            <div class="meta">Trying a lower-accuracy location fix that works better on laptops.</div>
+          `);
+          const pos = await requestUserLocation({ enableHighAccuracy: false, timeout: 15000, maximumAge: 300_000 });
+          onUserLocated(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+          return;
+        } catch (fallbackErr) {
+          console.warn('[map] balanced geolocation:', fallbackErr.message);
+          renderLocationFailure(fallbackErr);
+          return;
+        }
+      }
+      renderLocationFailure(err);
+    }
+  }
+
+  function requestUserLocation(options) {
+    return new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, options);
+    });
+  }
+
+  function shouldRetryWithBalancedLocation(err) {
+    return err && (err.code === 2 || err.code === 3);
+  }
+
+  function renderLocationFailure(err) {
+    renderSheet(`
+      <h3>Couldn't find you</h3>
+      <div class="meta">${escHTML(locationErrorMessage(err))}</div>
+      <div class="map-sheet-actions">
+        <button class="map-sheet-btn" onclick="window.retryMapLocation && window.retryMapLocation()">Try again</button>
+        <button class="map-sheet-btn ghost" onclick="document.getElementById('map-stop-search-input')?.focus(); window.closeMapSheet && window.closeMapSheet()">Use Stop ID</button>
+      </div>
+    `);
   }
 
   function locationErrorMessage(err) {
