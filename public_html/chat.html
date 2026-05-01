@@ -769,33 +769,202 @@
     }
     .map-fab:hover { background: rgba(30,41,59,0.95); }
 
-    /* Bus marker (route badge + heading arrow) */
+    /* Route info overlay */
+    .map-route-info {
+      position: absolute;
+      top: 58px;
+      left: 12px;
+      right: 12px;
+      max-height: 44%;
+      overflow-y: auto;
+      background: rgba(15,23,42,0.96);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 14px;
+      padding: 14px 16px 16px;
+      color: var(--text);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.48);
+      backdrop-filter: blur(14px);
+      z-index: 5;
+    }
+    .map-route-info-close {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 999px;
+      color: var(--text-dim);
+      font-size: 0.74rem;
+      font-weight: 700;
+      line-height: 1;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+    .map-route-info-close:hover { color: #fff; background: rgba(255,255,255,0.1); }
+    .map-route-info-reopen {
+      position: absolute;
+      top: 58px;
+      left: 12px;
+      z-index: 5;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 999px;
+      background: rgba(15,23,42,0.94);
+      color: #fff;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.4);
+      backdrop-filter: blur(12px);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 9px 12px;
+    }
+    .map-route-info-reopen:hover { background: rgba(30,41,59,0.96); }
+    .map-route-info h3 {
+      padding-right: 72px;
+      margin-bottom: 4px;
+      color: #fff;
+      font-size: 1rem;
+    }
+    .map-route-info .meta {
+      margin-bottom: 10px;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+    }
+    .route-summary-grid {
+      display: grid;
+      gap: 8px;
+    }
+    .route-summary-card {
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 8px;
+    }
+    .route-summary-head {
+      color: #fff;
+      font-size: 0.86rem;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+    .route-summary-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--text-dim);
+      font-size: 0.82rem;
+      padding: 2px 0;
+    }
+    .route-summary-line strong { color: var(--text); font-weight: 700; }
+    .route-service-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 3px 0;
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+    .route-service-row strong { color: var(--text); font-weight: 650; }
+    .map-route-scroll-hint {
+      position: sticky;
+      bottom: -16px;
+      margin: 10px -16px -16px;
+      padding: 18px 12px 9px;
+      text-align: center;
+      background: linear-gradient(180deg, rgba(15,23,42,0), rgba(15,23,42,0.98) 45%);
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      pointer-events: none;
+    }
+
+    /* Bus marker (mini bus + heading arrow) */
     .map-bus {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      border: 2px solid #fff;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.55);
+      width: 34px;
+      height: 38px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 700;
-      font-size: 0.78rem;
-      color: #fff;
       cursor: pointer;
       position: relative;
       transition: transform .12s;
     }
     .map-bus:hover { transform: scale(1.08); }
+    .map-bus-body {
+      position: relative;
+      width: 28px;
+      height: 28px;
+      border-radius: 9px 9px 7px 7px;
+      border: 2px solid rgba(255,255,255,0.92);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.45);
+      overflow: hidden;
+    }
+    .map-bus-sign {
+      position: absolute;
+      top: 2px;
+      left: 4px;
+      right: 4px;
+      height: 7px;
+      border-radius: 4px;
+      background: rgba(12,18,31,0.42);
+      border: 1px solid rgba(255,255,255,0.28);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .map-bus-number {
+      position: relative;
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.58rem;
+      line-height: 1;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.45);
+      letter-spacing: 0.01em;
+    }
+    .map-bus-windshield {
+      position: absolute;
+      top: 10px;
+      left: 4px;
+      right: 4px;
+      height: 9px;
+      border-radius: 4px 4px 3px 3px;
+      background:
+        linear-gradient(90deg,
+          rgba(255,255,255,0.18) 0 31%,
+          rgba(255,255,255,0.72) 31% 34%,
+          rgba(255,255,255,0.18) 34% 66%,
+          rgba(255,255,255,0.72) 66% 69%,
+          rgba(255,255,255,0.18) 69% 100%);
+      border: 1px solid rgba(255,255,255,0.22);
+    }
+    .map-bus-headlight {
+      position: absolute;
+      bottom: 5px;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: rgba(255,244,187,0.95);
+      box-shadow: 0 0 6px rgba(255,244,187,0.45);
+    }
+    .map-bus-headlight.left { left: 5px; }
+    .map-bus-headlight.right { right: 5px; }
+    .map-bus-bumper {
+      position: absolute;
+      left: 6px;
+      right: 6px;
+      bottom: 3px;
+      height: 3px;
+      border-radius: 999px;
+      background: rgba(12,18,31,0.45);
+      border: 1px solid rgba(255,255,255,0.22);
+    }
     .map-bus-arrow {
       position: absolute;
-      top: -6px;
+      top: -7px;
       left: 50%;
       width: 0; height: 0;
       border-left: 5px solid transparent;
       border-right: 5px solid transparent;
       border-bottom: 7px solid #fff;
-      transform-origin: 50% 22px;
+      transform-origin: 50% 27px;
     }
     .map-stop {
       width: 9px;
@@ -846,6 +1015,27 @@
       font-size: 1rem;
       margin-bottom: 4px;
       color: #fff;
+    }
+    .map-sheet-stop-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .map-stop-id-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 82px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(96,165,250,0.35);
+      background: rgba(37,99,235,0.16);
+      color: #dbeafe;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
     }
     .map-sheet .meta {
       font-size: 0.82rem;
@@ -1580,6 +1770,12 @@
       <div id="map-panel" class="hidden" role="tabpanel" aria-label="Live bus map">
         <div id="map-route-rail" class="map-route-rail" aria-label="Filter by route"></div>
         <div id="map-canvas"></div>
+        <div id="map-route-info" class="map-route-info hidden" role="dialog" aria-label="Route schedule summary">
+          <button class="map-route-info-close" onclick="window.closeRouteInfo && window.closeRouteInfo()" aria-label="Hide route summary">Hide</button>
+          <div id="map-route-info-body"></div>
+          <div id="map-route-scroll-hint" class="map-route-scroll-hint hidden">Scroll for more</div>
+        </div>
+        <button id="map-route-info-reopen" type="button" class="map-route-info-reopen hidden" onclick="window.reopenRouteInfo && window.reopenRouteInfo()">Show route info</button>
         <button id="map-locate" type="button" class="map-fab" title="Center on me" aria-label="Center on me">⊙</button>
         <div id="map-sheet" class="map-sheet hidden" role="dialog" aria-label="Selection details">
           <button class="map-sheet-close" onclick="window.closeMapSheet && window.closeMapSheet()" aria-label="Close">×</button>
@@ -1594,7 +1790,7 @@
   <script src="/static/trip_planner.js?v=3" defer></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="/static/map.js?v=3" defer></script>
+  <script src="/static/map.js?v=5" defer></script>
 
   <!-- PWA chrome (offline banner, install button, iOS tip) -->
   <div id="offline-banner" hidden>You're offline. Showing last known information.</div>

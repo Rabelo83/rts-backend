@@ -4,6 +4,8 @@ Backend endpoints powering the live Map tab.
 
 GET /api/map/routes              List of all routes (id, name, color) — for chip rail
 GET /api/map/route/<route_id>    Polyline shapes (per direction) + stops served by route
+GET /api/map/route/<route_id>/overview
+                                  First/last/frequency route summary
 GET /api/map/vehicles            All active vehicles across all routes (cached 5s)
 GET /api/map/stop/<stop_id>/schedule
                                   Next scheduled departures for a stop
@@ -17,6 +19,7 @@ import logging
 import sqlite3
 import threading
 import time
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from flask import Blueprint, jsonify, request
@@ -30,6 +33,7 @@ logger = logging.getLogger(__name__)
 map_bp = Blueprint("map_api", __name__)
 
 GTFS_DB_PATH = Path(__file__).resolve().parents[1] / "Backend Basics" / "db" / "rts_gtfs.sqlite"
+_SCHEDULE_LOOKAHEAD_DAYS = 14
 
 # ── Static GTFS caches (process-lifetime) ────────────────────────────────────
 
@@ -192,6 +196,57 @@ def _fetch_all_vehicles() -> list[dict]:
     return cleaned
 
 
+def _human_day_label(target_date, today):
+    if target_date == today:
+        return "Today"
+    if target_date == today + timedelta(days=1):
+        return "Tomorrow"
+    return f"{target_date.strftime('%a, %b')} {target_date.day}"
+
+
+def _find_next_stop_schedule(stop_id: str, limit: int) -> dict:
+    today = datetime.now(schedule_service.TZ).date()
+    last_payload = None
+
+    for offset in range(_SCHEDULE_LOOKAHEAD_DAYS + 1):
+        target_date = today + timedelta(days=offset)
+        text = "now" if offset == 0 else f"{target_date.isoformat()} midnight"
+        data = schedule_service.get_schedule_all_routes(text, stop_id=stop_id)
+        if data.get("error"):
+            return data
+        last_payload = data
+        rows = data.get("next_by_route") or []
+        if rows:
+            return {
+                "stop_id": stop_id,
+                "stop_name": data.get("stop"),
+                "date": data.get("date"),
+                "after": data.get("time"),
+                "service_day_label": _human_day_label(target_date, today),
+                "departures": [
+                    {
+                        "route": route,
+                        "time": time_str,
+                        "time_label": format_time_12h(time_str),
+                        "headsign": headsign,
+                        "is_scheduled": True,
+                    }
+                    for route, time_str, headsign in rows[:limit]
+                ],
+                "source": "gtfs_schedule",
+            }
+
+    return {
+        "stop_id": stop_id,
+        "stop_name": last_payload.get("stop") if last_payload else None,
+        "date": last_payload.get("date") if last_payload else None,
+        "after": last_payload.get("time") if last_payload else None,
+        "service_day_label": None,
+        "departures": [],
+        "source": "gtfs_schedule",
+    }
+
+
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 @map_bp.route("/api/map/routes")
@@ -205,6 +260,29 @@ def api_map_route_detail(route_id):
     if not detail:
         return jsonify({"error": f"Route {route_id} not found"}), 404
     return jsonify(detail)
+
+
+@map_bp.route("/api/map/route/<route_id>/overview")
+def api_map_route_overview(route_id):
+    route_id = str(route_id or "").strip()
+    if not route_id:
+        return jsonify({"error": "invalid_route_id"}), 400
+
+    summary = schedule_service.get_route_day_summary(route_id)
+    if summary is None:
+        return jsonify({"error": "route_not_found", "route": route_id}), 404
+
+    payload = {
+        "route": summary["route_id"],
+        "route_name": summary["route_long_name"],
+        "date": summary["date_iso"],
+        "day_label": summary["day_label"],
+        "runs_today": summary["runs_today"],
+        "directions": summary.get("directions", []),
+        "schedule_by_service_type": schedule_service.get_route_first_last_by_service_type(route_id),
+        "source": "gtfs_schedule",
+    }
+    return jsonify(payload)
 
 
 @map_bp.route("/api/map/vehicles")
@@ -233,27 +311,7 @@ def api_map_stop_schedule(stop_id):
     except (TypeError, ValueError):
         limit = 6
 
-    data = schedule_service.get_schedule_all_routes("now", stop_id=normalized)
+    data = _find_next_stop_schedule(normalized, limit)
     if data.get("error"):
         return jsonify({"error": data["error"], "stop_id": normalized}), 404
-
-    rows = data.get("next_by_route") or []
-    departures = [
-        {
-            "route": route,
-            "time": time_str,
-            "time_label": format_time_12h(time_str),
-            "headsign": headsign,
-            "is_scheduled": True,
-        }
-        for route, time_str, headsign in rows[:limit]
-    ]
-
-    return jsonify({
-        "stop_id": normalized,
-        "stop_name": data.get("stop"),
-        "date": data.get("date"),
-        "after": data.get("time"),
-        "departures": departures,
-        "source": "gtfs_schedule",
-    })
+    return jsonify(data)

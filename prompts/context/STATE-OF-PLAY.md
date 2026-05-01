@@ -2,7 +2,7 @@
 
 This file captures the **current state of the work-in-progress** so a delegated AI (Codex, Sonnet, Haiku, etc.) can pick up cold without reading the entire repo. Updated each session.
 
-> Last updated: **2026-04-30** (7 commits shipped this session)
+> Last updated: **2026-05-01** (Live Map refinement batch documented; kickoff docs refreshed)
 
 ---
 
@@ -29,16 +29,18 @@ This file captures the **current state of the work-in-progress** so a delegated 
 
 ---
 
-## What shipped today (2026-04-30, in order)
+## What shipped recently (newest work first)
 
 | Commit | Subject | Why |
 |---|---|---|
+| `(current batch)` | `feat(map): refine live map route + stop overlays` | The map now surfaces the same route-summary value the chat agent has: top-of-map route overview drawer, hide/reopen behavior, scroll hint, forward-looking stop schedules that roll into tomorrow/next service day, more prominent stop IDs, and more literal bus markers. |
+| `25be4b1` | `fix(map): show scheduled departures in stop sheet` | Stop taps now show GTFS-backed scheduled departures alongside live ETAs instead of just real-time predictions. |
+| `0de42e1` | `fix(pwa): network-first HTML; stop precaching auth-gated routes` | Installed PWAs were getting stale or login-page HTML. Navigation is now network-first and auth redirects no longer poison the cache. |
 | `3286cb8` | `fix(trip): anchor landmarks to GTFS stop_id` | Chat agent and Trip Planner returned different itineraries for "Rosa Parks" — landmark coords were 800 m – 3.4 km off. Fixed by adding optional `stop_id` to landmarks; `find_trips()` pegs directly to that stop with 0-min walk. |
 | `e856724` | `feat(map): Live Map MVP` | Replacement-grade pillar — Go RTS / RideRTS ship a live map. Stack: MapLibre + OpenFreeMap (zero per-request cost; required for white-label margin discipline). |
 | `97f74b7` | `feat(ia): / now serves the AI app` | First-time visitors at the bare URL were landing on the legacy dropdown UI and never discovering the AI assistant. The legacy page was *competing* with the actual product. |
 | `b8b30cd` | `fix(map+chat): real ETAs in stop sheet + system-wide vehicle count tool` | Map's stop sheet was hard-wired to raw BusTime field names; `/api/predictions` normalizes them. Also added `get_active_vehicles_systemwide` tool so the agent can answer "how many buses are running now" across the whole system. |
 | `8e595c1` | `docs(prompts): Codex handoff package` | Adds STATE-OF-PLAY.md (this file) + codex-kickoff.md so Codex can pick up cold without burning Opus tokens on context-rebuilding. |
-| (pending) | `fix(pwa): network-first HTML; stop precaching auth-gated routes` | Installed PWAs were stuck on stale or login-page HTML because of cache-first strategy + anonymous SW install fetches getting 302→login. SW v11 rewrites navigation to network-first; cache only on successful, non-redirected responses. |
 
 ---
 
@@ -52,9 +54,12 @@ Routing table (which tool to pick for which user query) lives in [routes/agent_c
 
 ## Live Map architecture
 
-- **Backend**: [routes/map_api.py](../../routes/map_api.py) — three endpoints: `/api/map/routes`, `/api/map/route/<id>`, `/api/map/vehicles` (5s server cache, batched 10-route BusTime calls).
-- **Frontend**: [public_html/map.js](../../public_html/map.js) (~340 lines) — lazy-init on first tab switch, MapLibre + OpenFreeMap (`tiles.openfreemap.org/styles/liberty`), 10s polling paused on `visibilitychange`.
-- **Differentiation lever**: the bottom sheet on tap-bus / tap-stop carries an "Ask the Assistant" button that switches to the Chat tab with a context-loaded question pre-filled. This bridges visual ↔ AI surfaces and is what Google Maps cannot do.
+- **Backend**: [routes/map_api.py](../../routes/map_api.py) — live-map endpoints for routes, route detail, route overview, vehicles, and stop schedules. Vehicle aggregation is cached server-side for 5 seconds and batched across routes to amortize BusTime load.
+- **Frontend**: [public_html/map.js](../../public_html/map.js) — lazy-init on first tab switch, MapLibre + OpenFreeMap (`tiles.openfreemap.org/styles/liberty`), 10s polling paused on `visibilitychange`.
+- **Route overlay**: selecting a route chip or tapping a bus opens a top-of-map route summary drawer with today's directions, first/last runs, frequency, service-type hours, hide/reopen controls, and a scroll hint when content overflows.
+- **Stop overlay**: tapping a stop shows live ETAs and the **next actual scheduled departures**, even if service has rolled into tomorrow or the next service day. The stop sheet now labels that service day explicitly and shows a more prominent stop ID badge.
+- **Differentiation lever**: the stop/bus sheets still carry "Ask the Assistant" / "Plan trip from here" deep-links, so the visual surface hands off into the AI surface with context preloaded.
+- **Current UI note**: bus markers are now a more literal front-facing mini-bus icon rather than plain circles; this is functional, but a future art pass may still improve the feel.
 
 ---
 
@@ -73,6 +78,7 @@ These are the live punch-list items. Each is a candidate task to delegate.
 - Per-direction polyline coloring (inbound desaturated)
 - Cluster overlapping stops at low zoom (~970 stops at zoom 11 = busy)
 - Real-device QA pass (iOS Safari + Android Chrome)
+- Optional marker-art pass if the current mini-bus icon still feels too badge-like on-device
 
 ### IA reorg follow-ups
 - Real-device PWA install test — verify "Add to Home Screen" lands on `/` (not `/chat`) and that previously-installed PWAs migrate cleanly when SW v10 activates. iOS Safari is the high-risk path.

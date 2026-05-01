@@ -17,6 +17,29 @@ How to use:
 
 ---
 
+### 2026-05-01 — Live Map info polish + handoff docs refresh
+- Type: `feature, fix, docs`
+- Summary: Refined the Live Map from "functional MVP" into a more self-explanatory rider surface.
+
+  **Route-level improvements**
+  - Added `GET /api/map/route/<route_id>/overview` so the map can show the same route summary value the chat agent already had: today's directions, first/last bus, frequency, and service hours by schedule type.
+  - Added a top-of-map route summary drawer that opens when a route chip is selected or a bus marker is tapped.
+  - Changed the drawer behavior from hard-close to **hide/reopen**, and added a bottom "Scroll for more" hint when the content overflows one screen.
+
+  **Stop-level improvements**
+  - Reworked stop schedules so the map no longer stops at "No more departures today." It now searches forward up to 14 days and returns the next real scheduled departure, even if that means tomorrow or the next active service day.
+  - Added `service_day_label` ("Today", "Tomorrow", or a calendar label) to the stop-schedule payload so the UI can explain when that next service actually occurs.
+  - Made the stop ID much more noticeable in the stop sheet with a dedicated badge (`Stop ID 0369` style).
+
+  **Marker/UI improvements**
+  - Replaced the plain circular vehicle markers with a more literal front-facing mini-bus treatment that still preserves route color, route number, and heading arrow.
+  - Refreshed the Codex kickoff docs so future delegated sessions read not just the static context files, but also `PROJECT_LOG.md`, `TASKS.md`, and the real git branch state before assuming where the work stands.
+
+- Files/Areas: `routes/map_api.py`, `public_html/map.js`, `public_html/chat.html`, `tests/test_map_api.py`, `prompts/codex-kickoff.md`, `prompts/context/STATE-OF-PLAY.md`, `TASKS.md`
+- Notes / Follow-up: Still worth doing a real-device QA pass on iOS Safari and Android Chrome. Marker art may get one more visual pass if it still feels too badge-like in the browser.
+
+---
+
 ### 2026-04-30 (session pt. 6) — Service worker rewrite: PWAs now get fresh HTML
 - Type: `fix`
 - Summary: User reported the Live Map tab missing from the **installed PWA** even after the live deployment showed it correctly in a fresh browser. Root cause: two compounding service-worker bugs.

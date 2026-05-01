@@ -15,18 +15,24 @@ The goal: spend Opus tokens on strategy and architecture; spend Codex / Sonnet /
 Every new Codex session starts the same way. Paste the block below as the **first message**. Wait for "Ready" before sending the task.
 
 ```
-You are working on rts-backend, a Flask + Python AI-first transit assistant. Read these three files in order before doing anything else:
+You are working on rts-backend, a Flask + Python AI-first transit assistant. Before doing anything else, load the current project state in this order:
 
 1. prompts/context/project-brief.md         — the commercial thesis and engineering rules
 2. prompts/context/STATE-OF-PLAY.md         — what shipped recently, current tools/URLs, open punch list
-3. CLAUDE.md                                — tech stack + URL map + env vars
+3. PROJECT_LOG.md                           — read the newest entries at the top first
+4. TASKS.md                                 — focus on the active Live Map / IA / trip-planner sections
+5. CLAUDE.md                                — tech stack + URL map + env vars
+
+Then check the actual branch state before assuming the docs are fully current:
+- `git status --short`
+- `git log --oneline -5`
 
 Then confirm you understand the following non-negotiables before I give you a task:
 
 - White-label is the commercial thesis. Never hardcode "Gainesville", "RTS", "go-rts.com", route_ids, hub names, or brand colors. Route through agency_config.yaml.
 - Default to free / self-hostable dependencies. Geocoding = Nominatim (already wired), map tiles = OpenFreeMap. Never propose Google paid APIs as default.
 - Do not grow the agent system prompt for tool-selection bugs — fix the routing table or tool description in routes/agent_tools.py instead.
-- Tests: cd tests/ && python run_tests.py before claiming a task done.
+- Tests: run focused `pytest` for the touched surface, and run `cd tests/ && python run_tests.py` before claiming broad agent or cross-surface work done.
 - Local dev: --port 5050 (port 5000 is hijacked by macOS AirPlay).
 - Commit message format: concise subject + body + "Co-Authored-By: <Your Model Name> <noreply@anthropic.com>" footer.
 
@@ -37,7 +43,12 @@ When you finish a task, report:
 4. Suggested commit message
 5. What's next — any follow-ups your work surfaced
 
-Reply with "Ready" once you've read all three context files and internalized the rules. Do not start implementation until I give you the task.
+Reply with "Ready" once you've read the context, checked git status/log, and internalized the rules. In that reply, include:
+- current branch state (clean or dirty)
+- newest shipped theme / feature area
+- highest-priority open work you see right now
+
+Do not start implementation until I give you the task.
 ```
 
 That's it. Paste, wait for "Ready", then send the task.
@@ -62,7 +73,7 @@ Rule of thumb: **if the answer requires you to weigh competing options, talk to 
 
 ### The five-step delegation flow
 
-1. **Identify the task** in `STATE-OF-PLAY.md > Open work` or in TASKS.md. If the task isn't there yet, we should add it first (during an Opus session) so Codex has a single source of truth.
+1. **Identify the task** in `STATE-OF-PLAY.md > Open work` or in `TASKS.md`. If the task isn't there yet, we should add it first (during an Opus session) so Codex has a single source of truth.
 2. **Open Codex** on the repo (give it filesystem access).
 3. **Paste the kickoff prompt** (section 1 above). Wait for "Ready".
 4. **Send the one-line task** referencing the punch-list item by name.
@@ -77,8 +88,9 @@ When Codex finishes, you (or the next Opus session) should:
 - **Verify the commit**: `git log -1`, `git diff HEAD~1`, run tests.
 - **Update STATE-OF-PLAY.md**: cross off the punch-list item; add any follow-ups Codex surfaced.
 - **Update PROJECT_LOG.md**: add a dated entry for the change.
+- **Update TASKS.md** when the change closes or reshapes an active checklist.
 
-Stale `STATE-OF-PLAY.md` = wasted future Codex tokens re-deriving what's already known. Keep it fresh.
+Stale `STATE-OF-PLAY.md` or `PROJECT_LOG.md` = wasted future Codex tokens re-deriving what's already known. Keep both fresh.
 
 ---
 
@@ -109,15 +121,17 @@ Notice the pattern: **task name + specific approach hint + reference to where th
 
 ## 4. Maintenance — keep the system cheap
 
-The whole system breaks down if `STATE-OF-PLAY.md` goes stale. After every Opus session that ships work:
+The whole system breaks down if the handoff docs go stale. After every Opus session that ships work:
 
 1. **Append to `STATE-OF-PLAY.md > What shipped today`** — list each new commit with a one-line "why".
 2. **Update the agent tool list** if tools were added/renamed.
 3. **Cross off** any open-work items the session completed.
 4. **Add new** open-work items the session surfaced.
 5. **Update the URL map** if routing changed.
+6. **Add a `PROJECT_LOG.md` entry** for anything materially shipped.
+7. **Refresh the relevant `TASKS.md` section** if the work changed the plan, not just the code.
 
-If `STATE-OF-PLAY.md` is more than ~5 sessions out of date, the next Codex session will burn tokens re-deriving things. That's the moment to invest 5 minutes refreshing it.
+If `STATE-OF-PLAY.md` is more than ~5 sessions out of date, or `PROJECT_LOG.md` no longer reflects the top of `git log`, the next Codex session will burn tokens re-deriving things. That's the moment to invest 5 minutes refreshing the docs.
 
 ---
 

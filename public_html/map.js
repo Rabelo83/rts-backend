@@ -24,6 +24,8 @@
   let routeDetail   = null;         // currently loaded route detail (polylines + stops)
   let stopMarkers   = [];           // MapLibre Markers for stops
   let busMarkers    = new Map();    // vehicle_id → Marker
+  let routeInfoCache = new Map();   // route_id → route overview
+  let currentRouteInfoId = null;    // last route shown in the top info panel
 
   // ── Public entry point (called by switchTab) ──────────────────────────────
   window.initMap = function initMap() {
@@ -45,6 +47,14 @@
   window.closeMapSheet = () => {
     const sheet = document.getElementById('map-sheet');
     if (sheet) sheet.classList.add('hidden');
+  };
+
+  window.closeRouteInfo = () => {
+    hideRouteInfo();
+  };
+
+  window.reopenRouteInfo = () => {
+    if (currentRouteInfoId) showRouteInfo(currentRouteInfoId);
   };
 
   // ── Init sequence ─────────────────────────────────────────────────────────
@@ -118,6 +128,7 @@
 
     if (routeId) {
       try {
+        showRouteInfo(routeId);
         routeDetail = await fetchJSON(`/api/map/route/${encodeURIComponent(routeId)}`);
         drawRoutePolylines(routeDetail);
         drawRouteStops(routeDetail);
@@ -127,6 +138,8 @@
       }
     } else {
       routeDetail = null;
+      currentRouteInfoId = null;
+      hideRouteInfo();
       map.flyTo({ center: GAINESVILLE.center, zoom: GAINESVILLE.zoom });
     }
 
@@ -241,14 +254,28 @@
   function buildBusEl(v) {
     const el = document.createElement('div');
     el.className = 'map-bus';
+    el.innerHTML = `
+      <div class="map-bus-body">
+        <div class="map-bus-sign">
+          <div class="map-bus-number"></div>
+        </div>
+        <div class="map-bus-windshield"></div>
+        <div class="map-bus-headlight left"></div>
+        <div class="map-bus-headlight right"></div>
+        <div class="map-bus-bumper"></div>
+      </div>
+    `;
     updateBusEl(el, v);
     return el;
   }
 
   function updateBusEl(el, v) {
     const color = colorForRoute(v.route);
-    el.style.background = color;
-    el.textContent = v.route || '?';
+    el.dataset.route = v.route || '';
+    const body = el.querySelector('.map-bus-body');
+    const number = el.querySelector('.map-bus-number');
+    if (body) body.style.background = color;
+    if (number) number.textContent = v.route || '?';
     let arrow = el.querySelector('.map-bus-arrow');
     if (!arrow) {
       arrow = document.createElement('div');
@@ -267,7 +294,7 @@
   function redrawVehicleFilter() {
     for (const [, marker] of busMarkers) {
       const el = marker.getElement();
-      const route = el.textContent.replace(/[^0-9A-Za-z]/g, '').trim();
+      const route = (el.dataset.route || '').trim();
       el.style.display = (activeRouteId && route !== activeRouteId) ? 'none' : '';
     }
   }
@@ -277,12 +304,20 @@
     return (r && r.color) || '#60a5fa';
   }
 
+  function formatStopId(stopId) {
+    const digits = String(stopId ?? '').replace(/\D/g, '');
+    if (!digits) return String(stopId ?? '');
+    return digits.padStart(4, '0');
+  }
+
   // ── Bottom sheet: bus / stop details + Ask-the-Assistant deep link ────────
   function showBusSheet(v) {
     const route = routes.find(r => r.route_id === v.route);
     const routeName = route ? `Route ${route.short_name} — ${route.long_name}` : `Route ${v.route}`;
     const headsign  = v.destination ? `Heading: ${escHTML(v.destination)}` : '';
     const delayed   = v.delayed ? '<span style="color:#fbbf24">⚠ Reported delayed</span>' : '';
+
+    if (v.route) showRouteInfo(v.route);
 
     const askMsg = `Where is bus ${v.vehicle_id} on Route ${v.route} right now and when will it reach me?`;
 
@@ -298,13 +333,110 @@
     `);
   }
 
+  async function showRouteInfo(routeId) {
+    const panel = document.getElementById('map-route-info');
+    const body  = document.getElementById('map-route-info-body');
+    if (!panel || !body || !routeId) return;
+
+    currentRouteInfoId = routeId;
+    panel.classList.remove('hidden');
+    setRouteInfoReopenVisible(false);
+    setRouteInfoScrollHintVisible(false);
+    const route = routes.find(r => r.route_id === routeId || r.short_name === routeId);
+    const label = route ? `Route ${route.short_name}` : `Route ${routeId}`;
+    body.innerHTML = `<h3>${escHTML(label)}</h3><div class="meta">Loading route summary…</div>`;
+    updateRouteInfoScrollHint();
+
+    try {
+      let info = routeInfoCache.get(routeId);
+      if (!info) {
+        info = await fetchJSON(`/api/map/route/${encodeURIComponent(routeId)}/overview`);
+        routeInfoCache.set(routeId, info);
+      }
+      renderRouteInfo(info);
+    } catch (err) {
+      console.warn('[map] route overview failed:', err);
+      body.innerHTML = `<h3>${escHTML(label)}</h3><div class="meta">Route summary unavailable right now.</div>`;
+      updateRouteInfoScrollHint();
+    }
+  }
+
+  function hideRouteInfo() {
+    const panel = document.getElementById('map-route-info');
+    if (panel) panel.classList.add('hidden');
+    setRouteInfoScrollHintVisible(false);
+    setRouteInfoReopenVisible(Boolean(currentRouteInfoId));
+  }
+
+  function setRouteInfoReopenVisible(show) {
+    const btn = document.getElementById('map-route-info-reopen');
+    if (btn) btn.classList.toggle('hidden', !show);
+  }
+
+  function setRouteInfoScrollHintVisible(show) {
+    const hint = document.getElementById('map-route-scroll-hint');
+    if (hint) hint.classList.toggle('hidden', !show);
+  }
+
+  function updateRouteInfoScrollHint() {
+    const panel = document.getElementById('map-route-info');
+    if (!panel || panel.classList.contains('hidden')) return;
+    setRouteInfoScrollHintVisible(false);
+    requestAnimationFrame(() => {
+      const hasOverflow = panel.scrollHeight > panel.clientHeight + 6;
+      const nearBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 18;
+      setRouteInfoScrollHintVisible(hasOverflow && !nearBottom);
+      panel.onscroll = () => {
+        const atBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 18;
+        setRouteInfoScrollHintVisible(hasOverflow && !atBottom);
+      };
+    });
+  }
+
+  function renderRouteInfo(info) {
+    const body = document.getElementById('map-route-info-body');
+    if (!body) return;
+
+    const title = `Route ${info.route || ''}${info.route_name ? ` — ${info.route_name}` : ''}`;
+    const directions = (info.directions || []).length
+      ? (info.directions || []).map(d => `
+          <div class="route-summary-card">
+            <div class="route-summary-head">${escHTML(d.headsign || 'Direction')}</div>
+            <div class="route-summary-line"><span>First bus</span><strong>${escHTML(d.first || 'n/a')}</strong></div>
+            <div class="route-summary-line"><span>Last bus</span><strong>${escHTML(d.last || 'n/a')}</strong></div>
+            <div class="route-summary-line"><span>Frequency</span><strong>${escHTML(d.frequency || 'varies')}</strong></div>
+          </div>
+        `).join('')
+      : `<div class="route-summary-card"><div class="route-summary-line"><span>No scheduled service today.</span><span></span></div></div>`;
+
+    const serviceRows = Object.entries(info.schedule_by_service_type || {}).map(([label, hours]) => `
+      <div class="route-service-row">
+        <span>${escHTML(label)}</span>
+        <strong>${escHTML(hours.first || 'n/a')} – ${escHTML(hours.last || 'n/a')}</strong>
+      </div>
+    `).join('');
+
+    body.innerHTML = `
+      <h3>${escHTML(title)}</h3>
+      <div class="meta">${escHTML(info.day_label || 'Today')} · ${info.runs_today ? 'Runs today' : 'No service today'}</div>
+      <div class="route-summary-grid">${directions}</div>
+      ${serviceRows ? `<div class="map-sheet-section">Service hours</div>${serviceRows}` : ''}
+    `;
+    updateRouteInfoScrollHint();
+  }
+
   async function showStopSheet(stop) {
+    const stopIdLabel = formatStopId(stop.stop_id);
     renderSheet(`
       <h3>${escHTML(stop.stop_name)}</h3>
-      <div class="meta">Stop ${escHTML(stop.stop_id)} · loading arrivals…</div>
+      <div class="map-sheet-stop-meta">
+        <span class="map-stop-id-badge">Stop ID ${escHTML(stopIdLabel)}</span>
+        <div class="meta">Loading arrivals…</div>
+      </div>
     `);
     let preds = [];
     let scheduled = [];
+    let scheduleServiceDay = '';
     try {
       // /api/predictions normalizes BusTime fields to {route, direction,
       // destination, minutes, vehicle_id, arrival_time, delayed, ...}.
@@ -316,10 +448,12 @@
     try {
       const data = await fetchJSON(`/api/map/stop/${encodeURIComponent(stop.stop_id)}/schedule?limit=6`);
       scheduled = (data && data.departures) || [];
+      scheduleServiceDay = (data && data.service_day_label) || '';
     } catch {
       scheduled = [];
+      scheduleServiceDay = '';
     }
-    const askMsg = `What's coming up at stop ${stop.stop_id} (${stop.stop_name})?`;
+    const askMsg = `What's coming up at stop ${stopIdLabel} (${stop.stop_name})?`;
 
     const fmtEta = m => {
       if (m == null || m === '') return '?';
@@ -339,18 +473,25 @@
         }).join('')
       : `<div class="map-sheet-section">Live ETAs</div><div class="pred-row"><span>No live predictions right now.</span><span></span></div>`;
 
+    const scheduleHeading = scheduled.length
+      ? `Scheduled next${scheduleServiceDay ? ` · ${scheduleServiceDay}` : ''}`
+      : 'Scheduled next';
+
     const scheduleHTML = scheduled.length
-      ? `<div class="map-sheet-section">Scheduled next</div>` + scheduled.map(s => {
+      ? `<div class="map-sheet-section">${escHTML(scheduleHeading)}</div>` + scheduled.map(s => {
           const route = s.route || '';
           const dest  = s.headsign || '';
           const time  = s.time_label || s.time || '';
           return `<div class="pred-row"><span>Route ${escHTML(route)} → ${escHTML(dest)}</span><span>${escHTML(time)}</span></div>`;
         }).join('')
-      : `<div class="map-sheet-section">Scheduled next</div><div class="pred-row"><span>No more scheduled departures today.</span><span></span></div>`;
+      : `<div class="map-sheet-section">${escHTML(scheduleHeading)}</div><div class="pred-row"><span>No scheduled departures found soon.</span><span></span></div>`;
 
     renderSheet(`
       <h3>${escHTML(stop.stop_name)}</h3>
-      <div class="meta">Stop ${escHTML(stop.stop_id)}</div>
+      <div class="map-sheet-stop-meta">
+        <span class="map-stop-id-badge">Stop ID ${escHTML(stopIdLabel)}</span>
+        <div class="meta">${scheduleServiceDay ? `Next service ${escHTML(scheduleServiceDay)}` : 'Upcoming stop departures'}</div>
+      </div>
       ${liveHTML}
       ${scheduleHTML}
       <div class="map-sheet-actions">

@@ -1,6 +1,6 @@
 # RTS Project Task Tracker
 
-Last updated: 2026-03-20 (session 2)
+Last updated: 2026-05-01
 
 This file is a project task tracker for the RTS backend/web assistant project. It captures:
 - what has already been completed to reach the current state
@@ -588,17 +588,24 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 ### Backend (`routes/map_api.py`)
 - [x] `GET /api/map/routes` — 27 routes with color/name (process-lifetime cache)
 - [x] `GET /api/map/route/<route_id>` — polylines per direction + stops served (process-lifetime cache)
+- [x] `GET /api/map/route/<route_id>/overview` — route summary for the top overlay (today's directions, first/last, frequency, service-type hours)
 - [x] `GET /api/map/vehicles` — all vehicles across all routes, 5s TTL server cache, batched BusTime calls (10 routes/call). Amortizes load across concurrent viewers.
+- [x] `GET /api/map/stop/<stop_id>/schedule` — forward-looking GTFS schedule for a stop; rolls into tomorrow / next service day when today is done
 
 ### Frontend (`public_html/map.js`)
 - [x] Lazy MapLibre init on first tab switch
 - [x] Route-chip rail with color dots; tap to filter
-- [x] Bus markers (route badge + heading arrow), 10s polling, animated reposition
+- [x] Bus markers upgraded from plain circles to a front-facing mini-bus treatment while preserving route number/color + heading arrow
 - [x] Stop markers (highlighted when a route is selected)
 - [x] Center-on-me FAB
 - [x] Polling pauses when tab is hidden
 - [x] Bottom sheet on tap-bus → "Ask the Assistant" deep-link to chat with context-loaded question
-- [x] Bottom sheet on tap-stop → live predictions + "Ask the Assistant" + "Plan trip from here" deep-links
+- [x] Bottom sheet on tap-stop → live predictions + scheduled next departures + "Ask the Assistant" + "Plan trip from here" deep-links
+- [x] Stop sheet now surfaces the next actual scheduled departure even after service rolls past midnight / into the next service day
+- [x] Stop sheet shows a more prominent stop ID badge (`Stop ID 0369` style)
+- [x] Top route summary overlay opens from route chips or bus taps
+- [x] Route summary overlay can be hidden and reopened without losing context
+- [x] Route summary overlay shows a "Scroll for more" hint when content overflows one screen
 - [x] "Live Map" tab added to `chat.html`; `switchTab()` extended for 3-tab in `trip_planner.js`
 
 ### To do — polish + real-device QA
@@ -608,6 +615,7 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 - [ ] Per-direction polyline coloring (inbound slightly desaturated)
 - [ ] Cluster overlapping stops at low zoom (~970 stops on screen at zoom 11 looks busy)
 - [ ] Tile preload optimization — currently fetches city tiles on first tab open
+- [ ] Optional bus-marker art pass if the current mini-bus still feels too badge-like once reviewed on-device
 
 ### Local dev gotcha
 macOS port 5000 is hijacked by AirPlay Receiver (returns 403 with `Server: AirTunes/...`). Run Flask on `--port 5050` or disable AirPlay Receiver in System Settings → AirDrop & Handoff.
