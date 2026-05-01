@@ -42,6 +42,15 @@ _MAX_WAIT_MIN         = 90     # max wait — covers 80-min headways
 _MAX_RESULTS          = 5
 _SEARCH_WIN_MIN       = 120    # departure search window
 _HUB_CONNECT_MIN      = 3      # min buffer after arriving at a hub
+_PATHO_RATIO          = 2.0    # reject itineraries whose total_min exceeds the
+                               # shortest viable option by more than this ratio.
+                               # Backward RAPTOR + the hub-relay fallback can pair
+                               # a 6 AM first leg with a 2 PM transfer, producing
+                               # an 8-hour itinerary even when a 15-min direct
+                               # ride exists. The relative cap kills those without
+                               # over-restricting genuinely long cross-city trips.
+_PATHO_FLOOR_MIN      = 30     # absolute floor so 5-min direct + 25-min option
+                               # both survive (2× of 5 = 10 would be too tight).
 
 # Major transfer hubs used as fallback relay points — read from agency_config.yaml
 TRANSFER_HUBS = [
@@ -259,7 +268,7 @@ def _score_itinerary(itin: dict) -> float:
             + same_side + rt_bonus)
 
 
-def _dedup_and_rank(itineraries: list[dict]) -> list[dict]:
+def _dedup_and_rank(itineraries: list[dict], mode: str = "depart") -> list[dict]:
     # Drop itineraries with an excessive final-leg walk before anything else.
     # The stop-finder's 5 km fallback can produce stops that are far from the
     # destination; those itineraries technically "work" but suggesting a 17-min
@@ -268,6 +277,20 @@ def _dedup_and_rank(itineraries: list[dict]) -> list[dict]:
         itin for itin in itineraries
         if (itin.get("walk_from_stop") or {}).get("walk_min", 0) <= _MAX_FINAL_WALK_MIN
     ]
+
+    # Pathological-itinerary cap (mainly an arrive-by issue). When a short trip
+    # exists, drop options whose total_min is >2× that — a "9:53 AM → 2:13 PM"
+    # itinerary is nonsense if a 15-minute direct ride is also available.
+    if itineraries:
+        totals = [itin.get("total_min", 0) for itin in itineraries
+                  if itin.get("total_min", 0) > 0]
+        if totals:
+            shortest = min(totals)
+            cap = max(shortest * _PATHO_RATIO, shortest + _PATHO_FLOOR_MIN)
+            itineraries = [
+                itin for itin in itineraries
+                if itin.get("total_min", 0) <= cap
+            ]
 
     for itin in itineraries:
         itin["score"] = _score_itinerary(itin)
@@ -289,7 +312,13 @@ def _dedup_and_rank(itineraries: list[dict]) -> list[dict]:
         bus = next((l for l in itin["legs"] if l["type"] == "bus"), None)
         return bus.get("depart_min", 0) if bus else 0
 
-    ranked = sorted(seen.values(), key=lambda x: (_first_dep(x), x["score"]))
+    # In arrive-by mode the user wants the LATEST departure that still gets them
+    # there in time — not the earliest. Sort descending so the top-of-list option
+    # leaves them as little dead time as possible before their deadline.
+    if mode == "arrive":
+        ranked = sorted(seen.values(), key=lambda x: (-_first_dep(x), x["score"]))
+    else:
+        ranked = sorted(seen.values(), key=lambda x: (_first_dep(x), x["score"]))
     return ranked[:_MAX_RESULTS]
 
 
@@ -481,7 +510,7 @@ def find_trips(
     all_trips = _add_walk_legs(
         all_trips, origin_lat, origin_lon, dest_lat, dest_lon
     )
-    top = _dedup_and_rank(all_trips)
+    top = _dedup_and_rank(all_trips, mode=mode)
 
     return {
         "itineraries":   top,

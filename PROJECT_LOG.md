@@ -17,6 +17,18 @@ How to use:
 
 ---
 
+### 2026-05-01 — Trip Planner: kill pathological arrive-by + UX sort + engine KeyError
+- Type: `fix`
+- Summary: Three coordinated fixes resolve the #1 trust-killer captured in the 2026-04-23 punch list. User-facing example was "Arrive by 2:29 PM" returning a 9:53 AM → 2:13 PM (4.5h) itinerary when a 12-min direct ride existed.
+  1. **Pathological-cap filter** in `_dedup_and_rank` — drops itineraries whose `total_min` exceeds `max(2× shortest, shortest + 30min)`. Relative cap so it doesn't over-restrict genuinely long cross-city trips, but kills the 4.5h-when-15-min-exists case.
+  2. **Sort arrive-by results latest-first.** Threading `mode` through `_dedup_and_rank` so arrive-by sorts by `-_first_dep` (latest acceptable departure first). Depart-after is unchanged. Result: "Arrive by 2:29 PM" now leads with the 2:00 PM bus, not the 9:30 AM bus.
+  3. **Engine `_build_itinerary` KeyError fix** — pre-existing latent bug where walk-type transfer legs would index `full_legs[i-1]["arrive_min"]` and crash if `full_legs[i-1]` was another transfer. Walks back to find the most recent bus leg instead. This blocked the smoke test for the cap fix; affects both depart and arrive paths in the engine.
+- Files/Areas: `utils/trip_planner.py` (filter + mode threading + sort), `utils/gtfs_engine.py` (KeyError fix in `_build_itinerary`)
+- Verification: smoke-tested Rosa Parks → Reitz Union arrive-by 14:29 (now 5 sane options, latest 2:00 PM), depart-after 14:00 (1 result, 2:00 PM), Butler Plaza → Oaks Mall (33-min direct via Route 75). No pathological multi-hour itineraries surface in any test.
+- Notes / Follow-up: Of the three trust bugs in the 2026-04-23 punch list, this closes #1. Card-label / expanded mismatch (#2) and walk-cap audit (#3) remain — both Codex-friendly tactical work.
+
+---
+
 ### 2026-05-01 — Live Map info polish + handoff docs refresh
 - Type: `feature, fix, docs`
 - Summary: Refined the Live Map from "functional MVP" into a more self-explanatory rider surface.

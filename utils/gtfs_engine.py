@@ -659,7 +659,14 @@ class GTFSEngine:
                 # Find next bus leg's depart_min
                 for j in range(i + 1, len(full_legs)):
                     if full_legs[j]["type"] == "bus":
-                        prev_arr = full_legs[i - 1]["arrive_min"] if i > 0 else 0
+                        # Walk back to find the most recent BUS leg (transfer legs
+                        # don't carry arrive_min). Without this, full_legs[i-1] can
+                        # land on another transfer and KeyError.
+                        prev_arr = 0
+                        for k in range(i - 1, -1, -1):
+                            if full_legs[k]["type"] == "bus":
+                                prev_arr = full_legs[k]["arrive_min"]
+                                break
                         leg["wait_min"] = max(
                             0,
                             full_legs[j]["depart_min"]

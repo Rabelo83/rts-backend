@@ -33,7 +33,8 @@ This file captures the **current state of the work-in-progress** so a delegated 
 
 | Commit | Subject | Why |
 |---|---|---|
-| `(current batch)` | `feat(map): refine live map route + stop overlays` | The map now surfaces the same route-summary value the chat agent has: top-of-map route overview drawer, hide/reopen behavior, scroll hint, forward-looking stop schedules that roll into tomorrow/next service day, more prominent stop IDs, and more literal bus markers. |
+| `(pending)` | `fix(trip): kill pathological arrive-by + latest-first sort + engine KeyError` | Closes trust bug #1 from 2026-04-23 punch list. Pathological cap (`>2× shortest viable`), arrive-by sorts latest-departure-first, fixes pre-existing `_build_itinerary` crash on walk-transfer-after-transfer. |
+| `392e4fb` | `feat(map): refine live map route + stop overlays` (Codex) | Top-of-map route overview drawer, hide/reopen behavior, scroll hint, forward-looking stop schedules that roll into tomorrow/next service day, more prominent stop IDs, and more literal bus markers. |
 | `25be4b1` | `fix(map): show scheduled departures in stop sheet` | Stop taps now show GTFS-backed scheduled departures alongside live ETAs instead of just real-time predictions. |
 | `0de42e1` | `fix(pwa): network-first HTML; stop precaching auth-gated routes` | Installed PWAs were getting stale or login-page HTML. Navigation is now network-first and auth redirects no longer poison the cache. |
 | `3286cb8` | `fix(trip): anchor landmarks to GTFS stop_id` | Chat agent and Trip Planner returned different itineraries for "Rosa Parks" — landmark coords were 800 m – 3.4 km off. Fixed by adding optional `stop_id` to landmarks; `find_trips()` pegs directly to that stop with 0-min walk. |
@@ -68,7 +69,7 @@ Routing table (which tool to pick for which user query) lives in [routes/agent_c
 These are the live punch-list items. Each is a candidate task to delegate.
 
 ### Trip Planner trust bugs (in [TASKS.md](../../TASKS.md), captured 2026-04-23)
-- **Pathological arrive-by itineraries** — "Arrive by 2:29 PM" returns "9:53 AM → 2:13 PM" (4.5h trip when 15 min exists). Bound earliest dep to `arrive_by - 2h`; reject travel time > 2× shortest viable.
+- ~~**Pathological arrive-by itineraries**~~ — **FIXED 2026-05-01.** Pathological-cap filter in `_dedup_and_rank` (>2× shortest viable rejected) + arrive-by now sorts latest-departure-first. Engine `_build_itinerary` KeyError also fixed in passing.
 - **Card-label ↔ expanded mismatch** — collapsed card says "7 transfers, 52 min", expanded shows 1 transfer, 28 min. Audit backend → card-badge mapping in `public_html/trip_planner.js`.
 - **Walk-cap not enforced on final leg** — already fixed for trip planner output (`_MAX_FINAL_WALK_MIN = 12`) but verify it applies to all paths including hub-relay fallback.
 
