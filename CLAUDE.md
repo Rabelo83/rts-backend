@@ -11,7 +11,24 @@ A web-based AI transit assistant for **RTS (Regional Transit System)** in Gaines
 Users can ask natural-language questions about bus routes, schedules, and trip planning.
 
 Live URL: `rabelotestingenv.com` (Render deployment, auto-deploys from GitHub `main` branch)
+Render URL: `https://rts-backend-7ru5.onrender.com`
 GitHub: `https://github.com/Rabelo83/rts-backend`
+
+---
+
+## URL Map (post 2026-04-30 IA reorg)
+
+| URL | Page | Auth | Notes |
+|---|---|---|---|
+| `/` | `chat.html` (Chat / Plan a Trip / Live Map tabs) | PIN-gated (if `DASHBOARD_PIN` set) | The real product. ONE app, one URL. |
+| `/chat` | same as `/` | PIN-gated | Alias kept for old bookmarks + PWA `start_url` history |
+| `/about` | `index.html` (legacy "RTS Bus Tracker" dropdown UI) | Public | Kept reachable for reference; can be repurposed as marketing landing |
+| `/wizard` | redirect → `/` | — | Retired |
+| `/dashboard` | `dashboard.html` admin/QA dashboard | PIN-gated | Internal |
+| `/login` | PIN gate | — | Set `DASHBOARD_PIN` env var to enable |
+| `/api/*` | JSON endpoints | Mixed | See blueprint files in `routes/` |
+
+**Why this layout:** white-label commercial framing — each agency gets one URL that IS the app, no splash, no dropdown legacy. See `PROJECT_LOG.md` 2026-04-30 entries for full rationale.
 
 ---
 

@@ -133,16 +133,27 @@ def create_app() -> Flask:
     if web_index_bp:
         app.register_blueprint(web_index_bp)
 
-    @app.route("/")
-    def index():
-        return send_from_directory(app.static_folder, "index.html")
-
-    # ── Shared PIN auth helpers ──────────────────────────────────
+    # ── Shared PIN auth helpers (defined before routes that use them) ────
     def _pin_required() -> bool:
         return bool(os.environ.get("DASHBOARD_PIN", "").strip())
 
     def _pin_ok() -> bool:
         return session.get("dashboard_auth") is True
+
+    # Root URL serves the actual product (Chat / Plan a Trip / Live Map).
+    # Previously served the legacy "RTS Bus Tracker" dropdown page (now at /about).
+    # IA reorg 2026-04-30: one URL = the app. White-label commercial framing.
+    @app.route("/")
+    def index():
+        if _pin_required() and not _pin_ok():
+            return redirect("/login?next=/")
+        return send_from_directory(app.static_folder, "chat.html")
+
+    # Legacy dropdown UI — kept reachable at /about for reference / future
+    # marketing landing repurpose. NOT shown to riders by default.
+    @app.route("/about")
+    def about_legacy():
+        return send_from_directory(app.static_folder, "index.html")
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
@@ -166,17 +177,18 @@ def create_app() -> Flask:
         session.pop("dashboard_auth", None)
         return redirect("/login")
 
+    # /chat kept as an alias of /. Existing bookmarks, the previous PWA
+    # `start_url`, and the service worker's precached shell all reference it.
     @app.route("/chat")
     def standalone_chat():
         if _pin_required() and not _pin_ok():
             return redirect("/login?next=/chat")
         return send_from_directory(app.static_folder, "chat.html")
 
+    # Wizard retired — superseded by the AI assistant. Redirect to /.
     @app.route("/wizard")
     def wizard():
-        if _pin_required() and not _pin_ok():
-            return redirect("/login?next=/wizard")
-        return send_from_directory(app.static_folder, "wizard.html")
+        return redirect("/")
 
     @app.route("/dashboard")
     def dashboard():

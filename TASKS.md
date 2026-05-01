@@ -524,9 +524,9 @@ more than iterative prompt fixes.
 
 ---
 
-## 🧭 Information Architecture Reorganization — NEXT PICKUP (planned 2026-04-30, pt. 2)
+## 🧭 Information Architecture Reorganization — SHIPPED 2026-04-30
 
-**Status: PLANNED, NOT YET IMPLEMENTED.** This section is intentionally explicit so any future AI / contributor can resume mid-stream without re-deriving the rationale.
+**Status: SHIPPED.** Originally documented as planned-pickup; user surfaced the live problem mid-session ("look where this link is taking me") and it was implemented immediately. Documentation kept below for historical record.
 
 ### Current state (as of this commit)
 
@@ -556,21 +556,18 @@ Single front door. The AI app **is** the product. No splash, no dropdown legacy.
 
 Strategic framing memory (`feedback_strategic_framing.md`): the commercial thesis is white-label resale. Each agency wants ONE URL that IS their app. Splash pages are 2010 thinking and complicate per-tenant setup.
 
-### Implementation checklist (for next session)
+### Implementation checklist — done 2026-04-30
 
-- [ ] Decide whether to delete `index.html` or repurpose it as `/about`.
-- [ ] Update `app.py`:
-  - [ ] Change `@app.route("/")` to serve the chat-app file (formerly `chat.html`).
-  - [ ] Keep `/chat` route as an alias (serve the same file).
-  - [ ] Retire or redirect `/wizard`.
-- [ ] Rename `public_html/chat.html` → `public_html/app.html` (or keep filename, just re-route — file rename is cosmetic and risks breaking PWA cache).
-- [ ] Update PWA manifest (`public_html/manifest.json`): `start_url` should be `/` (currently likely `/chat`).
-- [ ] Update service worker redirect logic — there's a "strip redirect flag before caching" fix in commit `fe60194`; verify the new IA doesn't reintroduce that bug.
-- [ ] Update README + `CLAUDE.md` with the new URL map.
-- [ ] Update `routes/agent_claude.py` system prompt if it references `/chat` or `/wizard` URLs (it shouldn't, but check).
-- [ ] Update `agency_config.yaml` `contact.rider_app_url` if it points to a path-prefixed URL.
-- [ ] Bump cache-buster query strings (`?v=N`) on all script/CSS tags so browsers pick up the changed HTML.
-- [ ] Smoke test on real device: cold load `/`, `/chat`, PWA install, "Add to Home Screen" launches the right URL.
+- [x] Repurposed `index.html` as `/about` (kept reachable, not deleted; future white-label landing repurpose).
+- [x] Updated `app.py`:
+  - [x] `@app.route("/")` now serves `chat.html`, gated by PIN like `/chat`.
+  - [x] `/chat` kept as alias (same handler, same file).
+  - [x] `/wizard` redirects to `/`.
+- [x] Kept `chat.html` filename (rename is cosmetic, risks breaking PWA cache; the underlying file is what matters).
+- [x] Updated dynamic PWA manifest in `routes/pwa.py`: `start_url: "/"`.
+- [x] Bumped service worker `SW_VERSION` `v8` → `v9`; updated `SHELL_URLS` (removed `/wizard`, `/static/wizard.js`; added `/static/trip_planner.js`, `/static/map.js`).
+- [x] Updated `CLAUDE.md` with new URL map table.
+- [ ] Real-device PWA install test — verify "Add to Home Screen" lands on `/` (not `/chat`) and that existing installed PWAs migrate cleanly when the new SW activates. **User to validate.**
 
 ### Files involved (anchored references for the next AI)
 

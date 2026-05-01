@@ -13,19 +13,19 @@
  * add-web-push.md is implemented.
  */
 
-const SW_VERSION = 'v8';  // coordinated font/size bump — forces cache refresh
+const SW_VERSION = 'v9';  // IA reorg — / now serves the app; /wizard retired
 const CACHE_NAME = `${SW_VERSION}-shell`;
 
 /** Files that form the installable app shell. */
 const SHELL_URLS = [
   '/',
   '/chat',
-  '/wizard',
   '/static/style.css',
   '/static/pwa.css',
   '/static/frontend.js',
   '/static/chat_v2.js',
-  '/static/wizard.js',
+  '/static/trip_planner.js',
+  '/static/map.js',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',

@@ -17,9 +17,27 @@ How to use:
 
 ---
 
-### 2026-04-30 (session pt. 3) — IA reorganization PLANNED, not yet shipped
+### 2026-04-30 (session pt. 4) — IA reorganization SHIPPED
+- Type: `feature, fix`
+- Summary: User opened the production root URL mid-session and saw the legacy "RTS Bus Tracker" dropdown UI — confirming the IA problem in real time. Pulled the planned reorg forward and shipped it the same session. Changes:
+  - `/` now serves the AI app (`chat.html` with Chat / Plan a Trip / Live Map tabs), gated by `DASHBOARD_PIN` like `/chat`.
+  - `/chat` kept as alias (same handler) so existing bookmarks and the historical PWA `start_url` keep working.
+  - Legacy `index.html` repurposed: now reachable at `/about` (public, not gated). Future white-label marketing landing slot.
+  - `/wizard` retired — redirects to `/`.
+  - PWA manifest `start_url: "/"` (was `/chat`).
+  - Service worker `SW_VERSION` v8 → v9 with updated shell list (dropped wizard, added trip_planner.js + map.js).
+  - `CLAUDE.md` updated with a complete URL map table for future contributors.
+
+  Strategic framing: white-label resale needs ONE URL that IS the app per tenant. Splash pages and dropdown legacy fragment that contract.
+
+- Files/Areas: `app.py` (route changes), `routes/pwa.py` (manifest start_url), `public_html/service-worker.js` (v9 + shell), `CLAUDE.md` (URL map), `TASKS.md` (IA section marked shipped).
+- Notes / Follow-up: Real-device PWA install test still pending — verify "Add to Home Screen" lands on `/` and that previously-installed PWAs migrate cleanly when the new SW activates (iOS Safari is the high-risk path; commit `fe60194` previously fixed an iOS PWA launch bug here, so watch for regressions).
+
+---
+
+### 2026-04-30 (session pt. 3) — IA reorganization PLANNED, then shipped same session
 - Type: `decision, docs`
-- Summary: Captured the URL/IA reorganization plan in TASKS.md for next-session pickup. Current state has the legacy "RTS Bus Tracker" dropdown page at `/` and the actual product (Chat / Plan a Trip / Live Map) hidden at `/chat` — first-time visitors land on the legacy page and never discover the AI assistant. Decision: Option A — make the chat-app the root (`/` serves the 3-tab app directly), retire the legacy `index.html`, keep `/chat` as an alias for existing bookmarks/PWA shortcuts, retire `/wizard`. Rationale tied to white-label commercial framing: each agency should get ONE URL that IS the app. Implementation checklist + anchored file references documented in `TASKS.md > Information Architecture Reorganization` so any contributor can resume the work without context loss.
+- Summary: Captured the URL/IA reorganization plan in TASKS.md as a next-session pickup. Was implemented later the same session — see pt. 4 above. Original plan kept in TASKS.md for historical record. Current state has the legacy "RTS Bus Tracker" dropdown page at `/` and the actual product (Chat / Plan a Trip / Live Map) hidden at `/chat` — first-time visitors land on the legacy page and never discover the AI assistant. Decision: Option A — make the chat-app the root (`/` serves the 3-tab app directly), retire the legacy `index.html`, keep `/chat` as an alias for existing bookmarks/PWA shortcuts, retire `/wizard`. Rationale tied to white-label commercial framing: each agency should get ONE URL that IS the app. Implementation checklist + anchored file references documented in `TASKS.md > Information Architecture Reorganization` so any contributor can resume the work without context loss.
 - Files/Areas: `TASKS.md` (new section), `PROJECT_LOG.md` (this entry). No code changes yet.
 - Notes / Follow-up: Implement next session. Estimate: 30–60 min for the route swap + manifest/SW updates, plus one real-device PWA install test to confirm "Add to Home Screen" lands on the right URL. The PWA `start_url` and service-worker redirect logic are the most error-prone parts (commit `fe60194` previously fixed an iOS PWA launch bug here).
 
