@@ -110,24 +110,26 @@
         Routes <span aria-hidden="true">${routeRailExpanded ? '⌃' : '⌄'}</span>
       </button>`,
       `<button class="map-chip active" data-route="" aria-pressed="true">All</button>`,
-      ...routes.map(r => `
-        <button class="map-chip map-chip-route" data-route="${escAttr(r.route_id)}" aria-pressed="false" aria-label="Show Route ${escAttr(r.short_name)}">
-          <span class="map-chip-bus" style="background:${escAttr(r.color)}" aria-hidden="true">
-            <span class="map-chip-bus-sign">${escHTML(r.short_name)}</span>
-          </span>
-        </button>
-      `),
+      ...routes.map(r => {
+        const label = String(r.short_name || r.route_id || '');
+        const longClass = label.length >= 3 ? ' long-route' : '';
+        return `
+          <button class="map-chip map-chip-route" data-route="${escAttr(r.route_id)}" aria-pressed="false" aria-label="Show Route ${escAttr(label)}">
+            <span class="map-chip-bus${longClass}" style="background:${escAttr(r.color)}" aria-hidden="true">
+              <span class="map-chip-bus-sign">${escHTML(label)}</span>
+            </span>
+          </button>
+        `;
+      }),
     ];
-    rail.classList.toggle('expanded', routeRailExpanded);
     rail.innerHTML = chips.join('');
+    setRouteRailExpanded(routeRailExpanded);
     rail.addEventListener('click', e => {
       const toggle = e.target.closest('.map-route-toggle');
       if (toggle) {
-        routeRailExpanded = !routeRailExpanded;
-        rail.classList.toggle('expanded', routeRailExpanded);
-        toggle.setAttribute('aria-expanded', routeRailExpanded ? 'true' : 'false');
-        toggle.querySelector('span').textContent = routeRailExpanded ? '⌃' : '⌄';
-        syncMapControlOffset();
+        setRouteRailExpanded(!routeRailExpanded);
+        if (routeRailExpanded) hideRouteInfo(false);
+        else setRouteInfoReopenVisible(Boolean(currentRouteInfoId));
         return;
       }
       const btn = e.target.closest('.map-chip');
@@ -149,6 +151,7 @@
 
     if (routeId) {
       try {
+        setRouteRailExpanded(false);
         showRouteInfo(routeId);
         routeDetail = await fetchJSON(`/api/map/route/${encodeURIComponent(routeId)}`);
         drawRoutePolylines(routeDetail);
@@ -165,6 +168,20 @@
     }
 
     redrawVehicleFilter();
+  }
+
+  function setRouteRailExpanded(expanded) {
+    routeRailExpanded = Boolean(expanded);
+    const rail = document.getElementById('map-route-rail');
+    if (!rail) return;
+    rail.classList.toggle('expanded', routeRailExpanded);
+    const toggle = rail.querySelector('.map-route-toggle');
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', routeRailExpanded ? 'true' : 'false');
+      const icon = toggle.querySelector('span');
+      if (icon) icon.textContent = routeRailExpanded ? '⌃' : '⌄';
+    }
+    syncMapControlOffset();
   }
 
   function syncMapControlOffset() {
@@ -211,7 +228,10 @@
       if (s.lat == null || s.lon == null) return;
       const el = document.createElement('div');
       el.className = 'map-stop route-stop';
-      el.title = `${s.stop_name} (Stop ${s.stop_id})`;
+      el.tabIndex = 0;
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', `${s.stop_name}, Stop ${formatStopId(s.stop_id)}. Show arrivals.`);
+      el.appendChild(buildStopTooltip(s));
       el.addEventListener('click', e => {
         e.stopPropagation();
         showStopSheet(s);
@@ -219,6 +239,19 @@
       const marker = new maplibregl.Marker({ element: el }).setLngLat([s.lon, s.lat]).addTo(map);
       stopMarkers.push(marker);
     });
+  }
+
+  function buildStopTooltip(stop) {
+    const tip = document.createElement('div');
+    tip.className = 'map-stop-tooltip';
+    tip.innerHTML = `
+      <div class="map-stop-tooltip-name">${escHTML(stop.stop_name || 'Bus stop')}</div>
+      <div class="map-stop-tooltip-meta">
+        <span>Stop ID ${escHTML(formatStopId(stop.stop_id))}</span>
+        <strong>Tap for arrivals</strong>
+      </div>
+    `;
+    return tip;
   }
 
   function clearRouteOverlay() {
@@ -286,13 +319,10 @@
     el.className = 'map-bus';
     el.innerHTML = `
       <div class="map-bus-body">
-        <div class="map-bus-sign">
-          <div class="map-bus-number"></div>
-        </div>
-        <div class="map-bus-windshield"></div>
-        <div class="map-bus-headlight left"></div>
-        <div class="map-bus-headlight right"></div>
-        <div class="map-bus-bumper"></div>
+        <div class="map-bus-number"></div>
+        <div class="map-bus-windows"></div>
+        <div class="map-bus-wheel left"></div>
+        <div class="map-bus-wheel right"></div>
       </div>
     `;
     updateBusEl(el, v);
@@ -301,11 +331,13 @@
 
   function updateBusEl(el, v) {
     const color = colorForRoute(v.route);
+    const routeLabel = String(v.route || '?');
     el.dataset.route = v.route || '';
+    el.classList.toggle('long-route', routeLabel.length >= 3);
     const body = el.querySelector('.map-bus-body');
     const number = el.querySelector('.map-bus-number');
     if (body) body.style.background = color;
-    if (number) number.textContent = v.route || '?';
+    if (number) number.textContent = routeLabel;
     let arrow = el.querySelector('.map-bus-arrow');
     if (!arrow) {
       arrow = document.createElement('div');
@@ -401,7 +433,7 @@
 
   function setRouteInfoReopenVisible(show) {
     const btn = document.getElementById('map-route-info-reopen');
-    if (btn) btn.classList.toggle('hidden', !show);
+    if (btn) btn.classList.toggle('hidden', !show || routeRailExpanded);
   }
 
   function setRouteInfoScrollHintVisible(show) {
