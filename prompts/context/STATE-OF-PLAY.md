@@ -2,7 +2,7 @@
 
 This file captures the **current state of the work-in-progress** so a delegated AI (Codex, Sonnet, Haiku, etc.) can pick up cold without reading the entire repo. Updated each session.
 
-> Last updated: **2026-05-01** (Live Map refinement batch documented; kickoff docs refreshed)
+> Last updated: **2026-05-01** (stop-ID search + geolocation pin + nearby-stops sheet shipped)
 
 ---
 
@@ -33,7 +33,8 @@ This file captures the **current state of the work-in-progress** so a delegated 
 
 | Commit | Subject | Why |
 |---|---|---|
-| `(pending)` | `fix(trip): kill pathological arrive-by + latest-first sort + engine KeyError` | Closes trust bug #1 from 2026-04-23 punch list. Pathological cap (`>2× shortest viable`), arrive-by sorts latest-departure-first, fixes pre-existing `_build_itinerary` crash on walk-transfer-after-transfer. |
+| `(pending)` | `feat(map): stop-ID search + you-are-here pin + nearby-stops sheet` | Two UX gaps in Live Map closed. Geolocation now drops a pulsing user pin and opens a "5 nearest stops" sheet; new search input lets users type a stop ID and jump to it. Schedule endpoint extended with lat/lon (one round trip). Mirrors chat agent's "ETA if available else next scheduled" semantics. |
+| `8b91ee6` | `fix(trip): kill pathological arrive-by + latest-first sort + engine KeyError` | Closes trust bug #1 from 2026-04-23 punch list. Pathological cap (`>2× shortest viable`), arrive-by sorts latest-departure-first, fixes pre-existing `_build_itinerary` crash on walk-transfer-after-transfer. |
 | `392e4fb` | `feat(map): refine live map route + stop overlays` (Codex) | Top-of-map route overview drawer, hide/reopen behavior, scroll hint, forward-looking stop schedules that roll into tomorrow/next service day, more prominent stop IDs, and more literal bus markers. |
 | `25be4b1` | `fix(map): show scheduled departures in stop sheet` | Stop taps now show GTFS-backed scheduled departures alongside live ETAs instead of just real-time predictions. |
 | `0de42e1` | `fix(pwa): network-first HTML; stop precaching auth-gated routes` | Installed PWAs were getting stale or login-page HTML. Navigation is now network-first and auth redirects no longer poison the cache. |
@@ -55,10 +56,18 @@ Routing table (which tool to pick for which user query) lives in [routes/agent_c
 
 ## Live Map architecture
 
-- **Backend**: [routes/map_api.py](../../routes/map_api.py) — live-map endpoints for routes, route detail, route overview, vehicles, and stop schedules. Vehicle aggregation is cached server-side for 5 seconds and batched across routes to amortize BusTime load.
+- **Backend**: [routes/map_api.py](../../routes/map_api.py) — live-map endpoints:
+  - `/api/map/routes` — chip rail data
+  - `/api/map/route/<id>` — polylines + stops
+  - `/api/map/route/<id>/overview` — first/last/frequency drawer
+  - `/api/map/vehicles` — all active vehicles, 5s cache, batched 10/call
+  - `/api/map/stop/<id>/schedule` — scheduled departures (rolls forward to next service day) + lat/lon
+  - `/api/map/nearby-stops?lat&lon&radius_m&limit` — used by the geolocation flow
 - **Frontend**: [public_html/map.js](../../public_html/map.js) — lazy-init on first tab switch, MapLibre + OpenFreeMap (`tiles.openfreemap.org/styles/liberty`), 10s polling paused on `visibilitychange`.
 - **Route overlay**: selecting a route chip or tapping a bus opens a top-of-map route summary drawer with today's directions, first/last runs, frequency, service-type hours, hide/reopen controls, and a scroll hint when content overflows.
 - **Stop overlay**: tapping a stop shows live ETAs and the **next actual scheduled departures**, even if service has rolled into tomorrow or the next service day. The stop sheet now labels that service day explicitly and shows a more prominent stop ID badge.
+- **Stop-ID search** (2026-05-01): input above the route chip rail accepts a numeric stop ID; on submit pans the map and opens the same sheet as tapping a stop dot.
+- **Geolocation flow** (2026-05-01): center-on-me FAB drops a pulsing "You are here" pin and opens a sheet listing the 5 nearest stops within 500m. Each row is tappable.
 - **Differentiation lever**: the stop/bus sheets still carry "Ask the Assistant" / "Plan trip from here" deep-links, so the visual surface hands off into the AI surface with context preloaded.
 - **Current UI note**: bus markers are now a more literal front-facing mini-bus icon rather than plain circles; this is functional, but a future art pass may still improve the feel.
 

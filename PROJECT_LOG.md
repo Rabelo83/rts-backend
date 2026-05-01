@@ -17,6 +17,24 @@ How to use:
 
 ---
 
+### 2026-05-01 — Live Map: stop-ID search + "you are here" + nearby-stops sheet
+- Type: `feature`
+- Summary: Two UX gaps closed in the Live Map:
+  1. **Geolocation** now drops a "You are here" pulsing pin (blue), centers the map, and opens a bottom sheet listing the 5 nearest stops within 500m. Tapping any nearby row pans to that stop and opens the existing predictions/schedule sheet. Previously the FAB just centered the map and did nothing visual.
+  2. **Stop-ID search input** added above the route chip rail. User types a 3–4 digit stop ID (printed on physical bus stop signs), submits, and the map pans to the stop and opens the same predictions+schedule sheet. Mirrors the chat agent's "ETA if available, else next scheduled departure (today / tomorrow / next service day)" behavior — both surfaces now answer the same question the same way.
+- Backend changes (`routes/map_api.py`):
+  - **Extended** `/api/map/stop/<id>/schedule` to include `lat` and `lon` in the response. One round trip now powers the whole search flow — stop info AND scheduled departures in a single request. (Was tempted to add a separate `/api/map/stop/<id>` info endpoint and reverted that to avoid duplication; user pushed back on it correctly.)
+  - **Added** `/api/map/nearby-stops?lat&lon&radius_m&limit` — surfaces `find_nearest_stops` from `utils/stop_finder` over HTTP (the agent doesn't take coords; this is a different use case). Returns stop_id/name/lat/lon/distance_m/walk_min/shelters.
+- Frontend changes (`public_html/map.js`, `public_html/chat.html`):
+  - New `#map-stop-search-form` row above the route chip rail.
+  - New `.map-user-pin` blue pulsing marker, single-instance, updates on each FAB tap.
+  - Geolocation flow: pan → place pin → fetch nearby → render scrollable list in the sheet → tap row to drill in.
+  - Bumped `map.js?v=5` → `?v=6` and `SW_VERSION` v11 → v12.
+- Files/Areas: `routes/map_api.py`, `public_html/map.js`, `public_html/chat.html`, `public_html/service-worker.js`
+- Notes / Follow-up: Stop-search box is numeric-only by design (matches sign IDs). Future: support text/landmark search via the existing chat agent route. Real-device QA still pending.
+
+---
+
 ### 2026-05-01 — Trip Planner: kill pathological arrive-by + UX sort + engine KeyError
 - Type: `fix`
 - Summary: Three coordinated fixes resolve the #1 trust-killer captured in the 2026-04-23 punch list. User-facing example was "Arrive by 2:29 PM" returning a 9:53 AM → 2:13 PM (4.5h) itinerary when a 12-min direct ride existed.

@@ -722,6 +722,98 @@
       background: rgba(0,0,0,0.18);
       flex-shrink: 0;
     }
+
+    /* ── Stop-ID search bar above the route chip rail ─────── */
+    .map-stop-search {
+      display: flex;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,0.22);
+      flex-shrink: 0;
+    }
+    .map-stop-search input {
+      flex: 1;
+      min-width: 0;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 10px;
+      padding: 9px 14px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.92rem;
+      outline: none;
+      transition: border-color .15s, background .15s;
+    }
+    .map-stop-search input::placeholder { color: var(--text-muted); }
+    .map-stop-search input:focus {
+      border-color: rgba(96,165,250,0.55);
+      background: rgba(255,255,255,0.08);
+    }
+    .map-stop-search-btn {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0 16px;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .map-stop-search-btn:hover { opacity: 0.9; }
+
+    /* ── 'You are here' user pin ──────────────────────────── */
+    .map-user-pin {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #3b82f6;
+      border: 3px solid #fff;
+      box-shadow: 0 0 0 4px rgba(59,130,246,0.25),
+                  0 4px 14px rgba(59,130,246,0.55);
+      animation: user-pin-pulse 2.4s ease-out infinite;
+    }
+    @keyframes user-pin-pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(59,130,246,0.45), 0 4px 14px rgba(59,130,246,0.55); }
+      70%  { box-shadow: 0 0 0 14px rgba(59,130,246,0), 0 4px 14px rgba(59,130,246,0.55); }
+      100% { box-shadow: 0 0 0 0 rgba(59,130,246,0), 0 4px 14px rgba(59,130,246,0.55); }
+    }
+
+    /* ── Nearby-stops list inside the bottom sheet ───────── */
+    .map-nearby-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .map-nearby-row {
+      width: 100%;
+      text-align: left;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-family: inherit;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .map-nearby-row:hover {
+      background: rgba(96,165,250,0.10);
+      border-color: rgba(96,165,250,0.32);
+    }
+    .map-nearby-name {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+    .map-nearby-meta {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
     .map-route-rail::-webkit-scrollbar { display: none; }
     .map-chip {
       flex-shrink: 0;
@@ -1768,6 +1860,11 @@
 
       <!-- Live map tab content -->
       <div id="map-panel" class="hidden" role="tabpanel" aria-label="Live bus map">
+        <form id="map-stop-search-form" class="map-stop-search" autocomplete="off">
+          <input id="map-stop-search-input" type="text" inputmode="numeric" pattern="[0-9]*"
+                 placeholder="Stop ID (e.g. 0773)" aria-label="Look up bus stop by ID" />
+          <button type="submit" class="map-stop-search-btn" aria-label="Look up stop">Find</button>
+        </form>
         <div id="map-route-rail" class="map-route-rail" aria-label="Filter by route"></div>
         <div id="map-canvas"></div>
         <div id="map-route-info" class="map-route-info hidden" role="dialog" aria-label="Route schedule summary">
@@ -1790,7 +1887,7 @@
   <script src="/static/trip_planner.js?v=3" defer></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="/static/map.js?v=5" defer></script>
+  <script src="/static/map.js?v=6" defer></script>
 
   <!-- PWA chrome (offline banner, install button, iOS tip) -->
   <div id="offline-banner" hidden>You're offline. Showing last known information.</div>

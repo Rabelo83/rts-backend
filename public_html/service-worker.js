@@ -17,7 +17,7 @@
  * Bump SW_VERSION to force clients to discard old caches on next visit.
  */
 
-const SW_VERSION = 'v11';  // network-first HTML; precache static-only (fixes stale "missing Live Map" tab in installed PWAs)
+const SW_VERSION = 'v12';  // map: stop-ID search input + user pin + nearby-stops sheet
 const CACHE_NAME = `${SW_VERSION}-shell`;
 
 /**

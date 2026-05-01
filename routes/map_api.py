@@ -301,6 +301,14 @@ def api_map_vehicles():
 
 @map_bp.route("/api/map/stop/<stop_id>/schedule")
 def api_map_stop_schedule(stop_id):
+    """Stop schedule + lightweight stop info (lat/lon) in a single response.
+
+    The lat/lon fields make this endpoint the one-stop-shop for the map's
+    stop-ID search box: caller gets coordinates to fly to AND the next
+    scheduled departures in one round trip. The bottom sheet then fetches
+    live predictions separately because those are real-time (no caching)
+    and live in a different blueprint.
+    """
     normalized = normalize_stop_id(stop_id)
     if not normalized:
         return jsonify({"error": "invalid_stop_id"}), 400
@@ -314,4 +322,50 @@ def api_map_stop_schedule(stop_id):
     data = _find_next_stop_schedule(normalized, limit)
     if data.get("error"):
         return jsonify({"error": data["error"], "stop_id": normalized}), 404
+
+    # Attach lat/lon from the in-memory engine so the map UI can pan to the
+    # stop without an extra round trip.
+    try:
+        sid_int = int(normalized.lstrip("0") or "0")
+    except ValueError:
+        sid_int = None
+    if sid_int is not None:
+        from utils.gtfs_engine import get_engine
+        stop_tuple = get_engine().stops.get(sid_int)
+        if stop_tuple:
+            lat, lon, name = stop_tuple
+            data["lat"] = lat
+            data["lon"] = lon
+            if not data.get("stop_name"):
+                data["stop_name"] = name
+
     return jsonify(data)
+
+
+@map_bp.route("/api/map/nearby-stops")
+def api_map_nearby_stops():
+    """Find stops near a coordinate. Powers the 'center on me' workflow."""
+    try:
+        lat = float(request.args.get("lat"))
+        lon = float(request.args.get("lon"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "lat and lon query params are required"}), 400
+
+    try:
+        radius_m = max(50, min(int(request.args.get("radius_m", "500")), 3000))
+    except (TypeError, ValueError):
+        radius_m = 500
+
+    try:
+        limit = max(1, min(int(request.args.get("limit", "5")), 15))
+    except (TypeError, ValueError):
+        limit = 5
+
+    from utils.stop_finder import find_nearest_stops
+    stops = find_nearest_stops(lat, lon, radius_m=radius_m, limit=limit)
+    return jsonify({
+        "stops":    stops,
+        "lat":      lat,
+        "lon":      lon,
+        "radius_m": radius_m,
+    })

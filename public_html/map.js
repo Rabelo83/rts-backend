@@ -26,6 +26,7 @@
   let busMarkers    = new Map();    // vehicle_id → Marker
   let routeInfoCache = new Map();   // route_id → route overview
   let currentRouteInfoId = null;    // last route shown in the top info panel
+  let userMarker    = null;         // MapLibre Marker for "you are here"
 
   // ── Public entry point (called by switchTab) ──────────────────────────────
   window.initMap = function initMap() {
@@ -73,6 +74,9 @@
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
     document.getElementById('map-locate')?.addEventListener('click', centerOnUser);
+
+    const searchForm = document.getElementById('map-stop-search-form');
+    if (searchForm) searchForm.addEventListener('submit', onStopSearchSubmit);
 
     await new Promise(resolve => map.once('load', resolve));
 
@@ -534,12 +538,145 @@
 
   // ── Geolocation ───────────────────────────────────────────────────────────
   function centerOnUser() {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      renderSheet(`
+        <h3>Location unavailable</h3>
+        <div class="meta">This browser doesn't support geolocation, or the permission was denied.</div>
+      `);
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
-      pos => map.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 14, duration: 700 }),
-      err => console.warn('[map] geolocation:', err.message),
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 30_000 }
+      pos => onUserLocated(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+      err => {
+        console.warn('[map] geolocation:', err.message);
+        renderSheet(`
+          <h3>Couldn't find you</h3>
+          <div class="meta">${escHTML(err.message || 'Location permission may be denied. Check your browser settings and try again.')}</div>
+        `);
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30_000 }
     );
+  }
+
+  async function onUserLocated(lat, lon, accuracy) {
+    placeUserMarker(lat, lon);
+    map.flyTo({ center: [lon, lat], zoom: 15, duration: 700 });
+
+    // Show a quick "looking nearby" sheet so the user gets immediate feedback
+    // while we fetch nearby stops. This answers the "what happens once the
+    // map gets my location?" question — the nearest stops + their predictions.
+    renderSheet(`
+      <h3>You're here</h3>
+      <div class="meta">${accuracy ? `Accuracy ±${Math.round(accuracy)}m · ` : ''}Finding the closest bus stops…</div>
+    `);
+
+    let nearby = [];
+    try {
+      const data = await fetchJSON(`/api/map/nearby-stops?lat=${lat}&lon=${lon}&radius_m=500&limit=5`);
+      nearby = data.stops || [];
+    } catch (err) {
+      console.warn('[map] nearby-stops failed:', err);
+    }
+
+    if (!nearby.length) {
+      renderSheet(`
+        <h3>You're here</h3>
+        <div class="meta">No bus stops within ~500m. Try panning the map.</div>
+      `);
+      return;
+    }
+
+    const list = nearby.map(s => {
+      const distLabel = s.distance_m != null
+        ? `${Math.round(s.distance_m)} m · ~${Math.max(1, Math.round(s.walk_min || (s.distance_m / 80)))} min walk`
+        : '';
+      const stopArg = JSON.stringify({
+        stop_id:   s.stop_id,
+        stop_name: s.stop_name,
+        lat:       s.lat,
+        lon:       s.lon,
+      }).replace(/"/g, '&quot;');
+      return `
+        <button class="map-nearby-row" onclick="window.openStopFromNearby(${stopArg})">
+          <div class="map-nearby-name">${escHTML(s.stop_name)}</div>
+          <div class="map-nearby-meta">Stop ${escHTML(formatStopId(s.stop_id))} · ${escHTML(distLabel)}</div>
+        </button>
+      `;
+    }).join('');
+
+    renderSheet(`
+      <h3>You're here</h3>
+      <div class="meta">${nearby.length} stop${nearby.length === 1 ? '' : 's'} within ~500m. Tap one for predictions.</div>
+      <div class="map-nearby-list">${list}</div>
+    `);
+  }
+
+  function placeUserMarker(lat, lon) {
+    if (userMarker) {
+      userMarker.setLngLat([lon, lat]);
+      return;
+    }
+    const el = document.createElement('div');
+    el.className = 'map-user-pin';
+    el.title = 'You are here';
+    userMarker = new maplibregl.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
+  }
+
+  // Bridge from the nearby-stops list back into the existing stop sheet flow.
+  window.openStopFromNearby = function(stop) {
+    if (!stop) return;
+    if (stop.lat != null && stop.lon != null) {
+      map.flyTo({ center: [stop.lon, stop.lat], zoom: 16, duration: 500 });
+    }
+    showStopSheet(stop);
+  };
+
+  // ── Stop-ID search ────────────────────────────────────────────────────────
+  async function onStopSearchSubmit(e) {
+    e.preventDefault();
+    const input = document.getElementById('map-stop-search-input');
+    if (!input) return;
+    const raw = (input.value || '').trim();
+    if (!raw) return;
+    const digits = raw.replace(/\D/g, '');
+    if (!digits) {
+      renderSheet(`<h3>Enter a stop ID</h3><div class="meta">Stop IDs are printed on bus stop signs (e.g. 0773).</div>`);
+      return;
+    }
+
+    renderSheet(`<h3>Looking up stop ${escHTML(formatStopId(digits))}…</h3><div class="meta">One moment.</div>`);
+
+    // The schedule endpoint resolves the stop, returns its lat/lon, AND gives
+    // us the next scheduled departures (rolled forward into tomorrow / next
+    // service day if today's are exhausted). The bottom sheet then layers live
+    // ETAs on top via /api/predictions — same flow as tapping a stop on the
+    // map. Mirrors the chat agent's "ETA if available, else next schedule" UX.
+    let stop;
+    try {
+      stop = await fetchJSON(`/api/map/stop/${encodeURIComponent(digits)}/schedule`);
+    } catch (err) {
+      renderSheet(`
+        <h3>Stop ${escHTML(formatStopId(digits))} not found</h3>
+        <div class="meta">Check the number on the bus stop sign and try again.</div>
+      `);
+      return;
+    }
+    if (!stop || stop.lat == null || stop.lon == null) {
+      renderSheet(`
+        <h3>Stop ${escHTML(formatStopId(digits))} not found</h3>
+        <div class="meta">Check the number on the bus stop sign and try again.</div>
+      `);
+      return;
+    }
+
+    map.flyTo({ center: [stop.lon, stop.lat], zoom: 16, duration: 600 });
+    showStopSheet({
+      stop_id:   stop.stop_id,
+      stop_name: stop.stop_name,
+      lat:       stop.lat,
+      lon:       stop.lon,
+    });
+    input.blur();
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
