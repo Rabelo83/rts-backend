@@ -659,25 +659,43 @@
   };
 
   // ── Geolocation ───────────────────────────────────────────────────────────
+  window.retryMapLocation = () => centerOnUser();
+
   function centerOnUser() {
     if (!navigator.geolocation) {
       renderSheet(`
         <h3>Location unavailable</h3>
-        <div class="meta">This browser doesn't support geolocation, or the permission was denied.</div>
+        <div class="meta">This browser cannot share your location. Use the Stop ID field or tap a stop on the map.</div>
       `);
       return;
     }
+    renderSheet(`
+      <h3>Finding you…</h3>
+      <div class="meta">Make sure location is allowed for this site or app.</div>
+    `);
     navigator.geolocation.getCurrentPosition(
       pos => onUserLocated(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
       err => {
         console.warn('[map] geolocation:', err.message);
         renderSheet(`
           <h3>Couldn't find you</h3>
-          <div class="meta">${escHTML(err.message || 'Location permission may be denied. Check your browser settings and try again.')}</div>
+          <div class="meta">${escHTML(locationErrorMessage(err))}</div>
+          <div class="map-sheet-actions">
+            <button class="map-sheet-btn" onclick="window.retryMapLocation && window.retryMapLocation()">Try again</button>
+            <button class="map-sheet-btn ghost" onclick="document.getElementById('map-stop-search-input')?.focus(); window.closeMapSheet && window.closeMapSheet()">Use Stop ID</button>
+          </div>
         `);
       },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30_000 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30_000 }
     );
+  }
+
+  function locationErrorMessage(err) {
+    if (!err) return 'Location is unavailable right now. Try again, or use a Stop ID from the bus stop sign.';
+    if (err.code === 1) return 'Location permission is blocked. Allow location for this site/app in your browser settings, then try again.';
+    if (err.code === 2) return 'Your device could not get a GPS/location fix right now. Step near a window or try again in a moment.';
+    if (err.code === 3) return 'Location took too long to respond. Try again, or use the Stop ID printed on the bus stop sign.';
+    return err.message || 'Location is unavailable right now. Try again, or use a Stop ID from the bus stop sign.';
   }
 
   async function onUserLocated(lat, lon, accuracy) {

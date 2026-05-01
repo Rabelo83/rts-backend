@@ -72,7 +72,7 @@ Routing table (which tool to pick for which user query) lives in [routes/agent_c
 - **Route overlay**: tapping a bus or reopening a route summary opens a top-of-map route drawer with today's directions, first/last runs, frequency, service-type hours, hide/reopen controls, and a scroll hint when content overflows.
 - **Stop overlay**: tapping a stop shows live ETAs when they exist; scheduled departures appear only as fallback when no live ETA exists. The schedule fallback rolls forward into tomorrow / next service day and labels that day explicitly.
 - **Stop-ID search** (2026-05-01): input in the top map toolbar accepts a numeric stop ID; on submit pans the map and opens the same sheet as tapping a stop dot.
-- **Geolocation flow** (2026-05-01): center-on-me FAB drops a pulsing "You are here" pin and opens a sheet listing the 5 nearest stops within 500m. Each row is tappable.
+- **Geolocation flow** (2026-05-01): center-on-me FAB drops a pulsing "You are here" pin and opens a sheet listing the 5 nearest stops within 500m. If browser/device location fails, the sheet now explains likely causes, offers retry, and falls back to Stop ID search.
 - **Differentiation lever**: the stop/bus sheets still carry "Ask the Assistant" / "Plan trip from here" deep-links, so the visual surface hands off into the AI surface with context preloaded.
 - **Current UI note**: bus markers and route selector chips use a side-view bus silhouette with larger route numbers, including special sizing for 3-digit routes.
 

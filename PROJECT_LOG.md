@@ -23,6 +23,7 @@ How to use:
   - Route selector now supports **multi-select**: tapping route chips adds/removes routes; `All` clears the filter. Selected route count appears on the `Routes` toggle.
   - Control layout is now mobile-first: `Routes: All` and Stop ID lookup share one toolbar row, and route chips live in an expandable tray below the Routes button instead of permanently crowding the map.
   - Tapping a bus now also selects that bus's route, updates the route toolbar/chips, and draws the route overlay before showing route info.
+  - Location failure UX now gives actionable copy, a retry button, and a Stop ID fallback instead of echoing the browser's vague geolocation error.
   - Multiple selected routes render together with colored polylines and deduped stop dots. Route lines were softened and given a light casing so they read as context instead of cutting through bus markers.
   - Route chips no longer automatically open route info; route info remains available from bus taps / reopen, avoiding ambiguity when multiple routes are selected.
   - Bus markers and route chips use a side-view bus silhouette with larger route numbers and a 3-digit route mode.
