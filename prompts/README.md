@@ -12,20 +12,28 @@ Reusable prompts to delegate tactical work on this repo to **any AI** (ChatGPT, 
 3. Then paste the role and/or task file.
 4. Attach any specific files the task references (or let the AI read them if it has repo access).
 
+## Quick-start: delegating to Codex
+
+1. Open Codex on this repo.
+2. Paste `codex-kickoff.md` as the first message. Wait for "Ready".
+3. Send your one-line task. Codex will already know the project rules, the URL map, the agent tools, and the open punch list — so the task itself can stay tiny. Saves Opus tokens for strategy work.
+
+Stale `STATE-OF-PLAY.md` = wasted Codex tokens re-deriving what's already known. Update it at the end of each session that ships work.
+
 ## Directory
 
 ```
 prompts/
+  codex-kickoff.md          — paste-ready preamble for delegating to Codex / Sonnet / etc.
   context/
-    project-brief.md        — MANDATORY preamble for every delegated AI
+    project-brief.md        — MANDATORY preamble: commercial thesis + engineering rules
+    STATE-OF-PLAY.md        — refreshed each session: what shipped, what's open, current tools/URLs
   roles/
     replicability-reviewer.md — reviews PRs for hardcoded agency leaks
-    backend-engineer.md     — Python/agent/data work
-    frontend-engineer.md    — public_html/ work
   tasks/
-    extract-agency-hardcode.md  — first replicability task
-    add-realtime-adapter.md     — add new transit-authority adapter
-    add-agent-tool.md           — template for new agent tool + tests
+    add-pwa-primitives.md
+    add-web-push.md
+    extract-agency-hardcode.md
 ```
 
 ## Authoring rules
