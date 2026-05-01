@@ -700,6 +700,7 @@
 
     /* ── Live map panel ──────────────────────────────────────── */
     #map-panel {
+      --map-controls-offset: 106px;
       flex: 1;
       min-height: 0;
       position: relative;
@@ -715,7 +716,7 @@
     .map-route-rail {
       display: flex;
       gap: 6px;
-      padding: 10px 12px;
+      padding: 9px 12px 10px;
       overflow-x: auto;
       scrollbar-width: none;
       border-bottom: 1px solid var(--border);
@@ -726,43 +727,89 @@
     /* ── Stop-ID search bar above the route chip rail ─────── */
     .map-stop-search {
       display: flex;
-      gap: 8px;
-      padding: 10px 12px;
+      justify-content: flex-end;
+      padding: 8px 12px;
       border-bottom: 1px solid var(--border);
-      background: rgba(0,0,0,0.22);
+      background: rgba(0,0,0,0.18);
       flex-shrink: 0;
+    }
+    .map-stop-search-shell {
+      width: min(100%, 360px);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+      padding: 4px 4px 4px 12px;
+      border: 1px solid rgba(96,165,250,0.28);
+      border-radius: 999px;
+      background: rgba(15,23,42,0.68);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+      transition: border-color .15s, background .15s, box-shadow .15s;
+    }
+    .map-stop-search:focus-within .map-stop-search-shell {
+      border-color: rgba(96,165,250,0.68);
+      background: rgba(15,23,42,0.84);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.16);
+    }
+    .map-stop-search-icon {
+      width: 18px;
+      height: 18px;
+      color: #93c5fd;
+      flex-shrink: 0;
+      opacity: 0.9;
+    }
+    .map-stop-search-icon svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
     .map-stop-search input {
       flex: 1;
       min-width: 0;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 10px;
-      padding: 9px 14px;
+      height: 28px;
+      background: transparent;
+      border: 0;
+      padding: 0;
       color: #fff;
       font-family: inherit;
-      font-size: 0.92rem;
+      font-size: 0.86rem;
       outline: none;
-      transition: border-color .15s, background .15s;
     }
     .map-stop-search input::placeholder { color: var(--text-muted); }
-    .map-stop-search input:focus {
-      border-color: rgba(96,165,250,0.55);
-      background: rgba(255,255,255,0.08);
+    .map-stop-search input.is-invalid::placeholder,
+    .map-stop-search input.is-invalid {
+      color: #fecaca;
     }
     .map-stop-search-btn {
+      width: 30px;
+      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
       background: linear-gradient(135deg, #2563eb, #1d4ed8);
       border: none;
-      border-radius: 10px;
+      border-radius: 999px;
       color: #fff;
-      font-family: inherit;
-      font-size: 0.85rem;
-      font-weight: 600;
-      padding: 0 16px;
+      padding: 0;
       cursor: pointer;
-      transition: opacity .15s;
+      transition: opacity .15s, transform .15s;
     }
-    .map-stop-search-btn:hover { opacity: 0.9; }
+    .map-stop-search-btn:hover { opacity: 0.92; transform: translateY(-1px); }
+    .map-stop-search-btn svg {
+      width: 15px;
+      height: 15px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
 
     /* ── 'You are here' user pin ──────────────────────────── */
     .map-user-pin {
@@ -820,7 +867,8 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 12px;
+      min-height: 34px;
+      padding: 5px 12px;
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,0.14);
       background: rgba(255,255,255,0.04);
@@ -832,16 +880,68 @@
       white-space: nowrap;
     }
     .map-chip:hover { background: rgba(255,255,255,0.08); }
+    .map-chip-route {
+      min-width: 50px;
+      justify-content: center;
+      padding: 4px 9px;
+    }
     .map-chip.active {
       background: rgba(96,165,250,0.18);
       border-color: rgba(96,165,250,0.55);
       color: #fff;
     }
-    .map-chip-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
+    .map-chip-bus {
+      position: relative;
+      width: 30px;
+      height: 23px;
       flex-shrink: 0;
+      border-radius: 8px 8px 6px 6px;
+      border: 2px solid rgba(255,255,255,0.82);
+      box-shadow: 0 2px 7px rgba(0,0,0,0.34);
+      overflow: hidden;
+    }
+    .map-chip-bus::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      bottom: 4px;
+      height: 7px;
+      border-radius: 3px;
+      background:
+        linear-gradient(90deg,
+          rgba(255,255,255,0.22) 0 45%,
+          rgba(255,255,255,0.72) 45% 55%,
+          rgba(255,255,255,0.22) 55% 100%);
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .map-chip-bus::after {
+      content: "";
+      position: absolute;
+      left: 6px;
+      right: 6px;
+      bottom: 2px;
+      height: 2px;
+      border-radius: 999px;
+      background: rgba(12,18,31,0.44);
+    }
+    .map-chip-bus-sign {
+      position: absolute;
+      top: 2px;
+      left: 4px;
+      right: 4px;
+      height: 8px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(12,18,31,0.45);
+      border: 1px solid rgba(255,255,255,0.22);
+      color: #fff;
+      font-size: 0.58rem;
+      font-weight: 850;
+      line-height: 1;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.45);
     }
     .map-fab {
       position: absolute;
@@ -864,7 +964,7 @@
     /* Route info overlay */
     .map-route-info {
       position: absolute;
-      top: 58px;
+      top: var(--map-controls-offset);
       left: 12px;
       right: 12px;
       max-height: 44%;
@@ -872,30 +972,28 @@
       background: rgba(15,23,42,0.96);
       border: 1px solid rgba(255,255,255,0.14);
       border-radius: 14px;
-      padding: 14px 16px 16px;
+      padding: 14px 16px 0;
       color: var(--text);
       box-shadow: 0 12px 30px rgba(0,0,0,0.48);
       backdrop-filter: blur(14px);
       z-index: 5;
     }
     .map-route-info-close {
-      position: absolute;
-      top: 8px;
-      right: 10px;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
       border-radius: 999px;
       color: var(--text-dim);
-      font-size: 0.74rem;
+      font-family: inherit;
+      font-size: 0.76rem;
       font-weight: 700;
       line-height: 1;
-      padding: 6px 10px;
+      padding: 8px 13px;
       cursor: pointer;
     }
     .map-route-info-close:hover { color: #fff; background: rgba(255,255,255,0.1); }
     .map-route-info-reopen {
       position: absolute;
-      top: 58px;
+      top: var(--map-controls-offset);
       left: 12px;
       z-index: 5;
       border: 1px solid rgba(255,255,255,0.14);
@@ -912,7 +1010,6 @@
     }
     .map-route-info-reopen:hover { background: rgba(30,41,59,0.96); }
     .map-route-info h3 {
-      padding-right: 72px;
       margin-bottom: 4px;
       color: #fff;
       font-size: 1rem;
@@ -957,15 +1054,24 @@
     .route-service-row strong { color: var(--text); font-weight: 650; }
     .map-route-scroll-hint {
       position: sticky;
-      bottom: -16px;
-      margin: 10px -16px -16px;
-      padding: 18px 12px 9px;
+      bottom: 48px;
+      margin: 10px -16px 0;
+      padding: 18px 12px 8px;
       text-align: center;
       background: linear-gradient(180deg, rgba(15,23,42,0), rgba(15,23,42,0.98) 45%);
       color: var(--text-muted);
       font-size: 0.72rem;
       font-weight: 700;
       pointer-events: none;
+    }
+    .map-route-info-footer {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      justify-content: flex-end;
+      margin: 0 -16px;
+      padding: 10px 16px 12px;
+      background: linear-gradient(180deg, rgba(15,23,42,0), rgba(15,23,42,0.98) 30%);
     }
 
     /* Bus marker (mini bus + heading arrow) */
@@ -1861,16 +1967,25 @@
       <!-- Live map tab content -->
       <div id="map-panel" class="hidden" role="tabpanel" aria-label="Live bus map">
         <form id="map-stop-search-form" class="map-stop-search" autocomplete="off">
-          <input id="map-stop-search-input" type="text" inputmode="numeric" pattern="[0-9]*"
-                 placeholder="Stop ID (e.g. 0773)" aria-label="Look up bus stop by ID" />
-          <button type="submit" class="map-stop-search-btn" aria-label="Look up stop">Find</button>
+          <div class="map-stop-search-shell">
+            <span class="map-stop-search-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 21s6-5.2 6-11a6 6 0 0 0-12 0c0 5.8 6 11 6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>
+            </span>
+            <input id="map-stop-search-input" type="text" inputmode="numeric" pattern="[0-9]*"
+                   placeholder="Stop ID" aria-label="Look up bus stop by ID" />
+            <button type="submit" class="map-stop-search-btn" aria-label="Look up stop">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+            </button>
+          </div>
         </form>
         <div id="map-route-rail" class="map-route-rail" aria-label="Filter by route"></div>
         <div id="map-canvas"></div>
         <div id="map-route-info" class="map-route-info hidden" role="dialog" aria-label="Route schedule summary">
-          <button class="map-route-info-close" onclick="window.closeRouteInfo && window.closeRouteInfo()" aria-label="Hide route summary">Hide</button>
           <div id="map-route-info-body"></div>
           <div id="map-route-scroll-hint" class="map-route-scroll-hint hidden">Scroll for more</div>
+          <div class="map-route-info-footer">
+            <button class="map-route-info-close" onclick="window.closeRouteInfo && window.closeRouteInfo()" aria-label="Hide route summary">Hide</button>
+          </div>
         </div>
         <button id="map-route-info-reopen" type="button" class="map-route-info-reopen hidden" onclick="window.reopenRouteInfo && window.reopenRouteInfo()">Show route info</button>
         <button id="map-locate" type="button" class="map-fab" title="Center on me" aria-label="Center on me">⊙</button>
@@ -1887,7 +2002,7 @@
   <script src="/static/trip_planner.js?v=3" defer></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="/static/map.js?v=6" defer></script>
+  <script src="/static/map.js?v=7" defer></script>
 
   <!-- PWA chrome (offline banner, install button, iOS tip) -->
   <div id="offline-banner" hidden>You're offline. Showing last known information.</div>

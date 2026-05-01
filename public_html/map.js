@@ -105,9 +105,10 @@
     const chips = [
       `<button class="map-chip active" data-route="" aria-pressed="true">All</button>`,
       ...routes.map(r => `
-        <button class="map-chip" data-route="${escAttr(r.route_id)}" aria-pressed="false">
-          <span class="map-chip-dot" style="background:${r.color}"></span>
-          ${escHTML(r.short_name)}
+        <button class="map-chip map-chip-route" data-route="${escAttr(r.route_id)}" aria-pressed="false" aria-label="Show Route ${escAttr(r.short_name)}">
+          <span class="map-chip-bus" style="background:${escAttr(r.color)}" aria-hidden="true">
+            <span class="map-chip-bus-sign">${escHTML(r.short_name)}</span>
+          </span>
         </button>
       `),
     ];
@@ -640,9 +641,11 @@
     if (!raw) return;
     const digits = raw.replace(/\D/g, '');
     if (!digits) {
+      input.classList.add('is-invalid');
       renderSheet(`<h3>Enter a stop ID</h3><div class="meta">Stop IDs are printed on bus stop signs (e.g. 0773).</div>`);
       return;
     }
+    input.classList.remove('is-invalid');
 
     renderSheet(`<h3>Looking up stop ${escHTML(formatStopId(digits))}…</h3><div class="meta">One moment.</div>`);
 
@@ -655,6 +658,7 @@
     try {
       stop = await fetchJSON(`/api/map/stop/${encodeURIComponent(digits)}/schedule`);
     } catch (err) {
+      input.classList.add('is-invalid');
       renderSheet(`
         <h3>Stop ${escHTML(formatStopId(digits))} not found</h3>
         <div class="meta">Check the number on the bus stop sign and try again.</div>
@@ -662,6 +666,7 @@
       return;
     }
     if (!stop || stop.lat == null || stop.lon == null) {
+      input.classList.add('is-invalid');
       renderSheet(`
         <h3>Stop ${escHTML(formatStopId(digits))} not found</h3>
         <div class="meta">Check the number on the bus stop sign and try again.</div>
@@ -676,6 +681,7 @@
       lat:       stop.lat,
       lon:       stop.lon,
     });
+    input.classList.remove('is-invalid');
     input.blur();
   }
 
