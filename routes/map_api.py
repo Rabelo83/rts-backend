@@ -5,6 +5,8 @@ Backend endpoints powering the live Map tab.
 GET /api/map/routes              List of all routes (id, name, color) — for chip rail
 GET /api/map/route/<route_id>    Polyline shapes (per direction) + stops served by route
 GET /api/map/vehicles            All active vehicles across all routes (cached 5s)
+GET /api/map/stop/<stop_id>/schedule
+                                  Next scheduled departures for a stop
 
 GTFS data is already loaded in-memory by GTFSEngine; the routes/route metadata and
 shape coordinates come from the SQLite GTFS DB on first request and are cached for
@@ -17,9 +19,11 @@ import threading
 import time
 from pathlib import Path
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 
 import rts_api
+from routes import schedule_service
+from routes.parsing_helpers import format_time_12h, normalize_stop_id
 
 logger = logging.getLogger(__name__)
 
@@ -215,3 +219,41 @@ def api_map_vehicles():
             }
             _vehicle_cache_at = now
         return jsonify(_vehicle_cache)
+
+
+@map_bp.route("/api/map/stop/<stop_id>/schedule")
+def api_map_stop_schedule(stop_id):
+    normalized = normalize_stop_id(stop_id)
+    if not normalized:
+        return jsonify({"error": "invalid_stop_id"}), 400
+
+    limit_raw = request.args.get("limit", "6")
+    try:
+        limit = max(1, min(int(limit_raw), 12))
+    except (TypeError, ValueError):
+        limit = 6
+
+    data = schedule_service.get_schedule_all_routes("now", stop_id=normalized)
+    if data.get("error"):
+        return jsonify({"error": data["error"], "stop_id": normalized}), 404
+
+    rows = data.get("next_by_route") or []
+    departures = [
+        {
+            "route": route,
+            "time": time_str,
+            "time_label": format_time_12h(time_str),
+            "headsign": headsign,
+            "is_scheduled": True,
+        }
+        for route, time_str, headsign in rows[:limit]
+    ]
+
+    return jsonify({
+        "stop_id": normalized,
+        "stop_name": data.get("stop"),
+        "date": data.get("date"),
+        "after": data.get("time"),
+        "departures": departures,
+        "source": "gtfs_schedule",
+    })

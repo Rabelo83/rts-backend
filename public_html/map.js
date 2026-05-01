@@ -301,9 +301,10 @@
   async function showStopSheet(stop) {
     renderSheet(`
       <h3>${escHTML(stop.stop_name)}</h3>
-      <div class="meta">Stop ${escHTML(stop.stop_id)} · loading predictions…</div>
+      <div class="meta">Stop ${escHTML(stop.stop_id)} · loading arrivals…</div>
     `);
     let preds = [];
+    let scheduled = [];
     try {
       // /api/predictions normalizes BusTime fields to {route, direction,
       // destination, minutes, vehicle_id, arrival_time, delayed, ...}.
@@ -311,6 +312,12 @@
       preds = (data && data.predictions) || [];
     } catch {
       preds = [];
+    }
+    try {
+      const data = await fetchJSON(`/api/map/stop/${encodeURIComponent(stop.stop_id)}/schedule?limit=6`);
+      scheduled = (data && data.departures) || [];
+    } catch {
+      scheduled = [];
     }
     const askMsg = `What's coming up at stop ${stop.stop_id} (${stop.stop_name})?`;
 
@@ -322,20 +329,30 @@
       return Number.isFinite(n) ? `${n} min` : s;
     };
 
-    const predHTML = preds.length
-      ? preds.slice(0, 5).map(p => {
+    const liveHTML = preds.length
+      ? `<div class="map-sheet-section">Live ETAs</div>` + preds.slice(0, 5).map(p => {
           const route = p.route || '';
           const dest  = p.destination || '';
           const eta   = fmtEta(p.minutes);
           const dly   = p.delayed ? ' ⚠' : '';
           return `<div class="pred-row"><span>Route ${escHTML(route)} → ${escHTML(dest)}${dly}</span><span>${escHTML(eta)}</span></div>`;
         }).join('')
-      : `<div class="pred-row"><span>No predictions right now.</span><span></span></div>`;
+      : `<div class="map-sheet-section">Live ETAs</div><div class="pred-row"><span>No live predictions right now.</span><span></span></div>`;
+
+    const scheduleHTML = scheduled.length
+      ? `<div class="map-sheet-section">Scheduled next</div>` + scheduled.map(s => {
+          const route = s.route || '';
+          const dest  = s.headsign || '';
+          const time  = s.time_label || s.time || '';
+          return `<div class="pred-row"><span>Route ${escHTML(route)} → ${escHTML(dest)}</span><span>${escHTML(time)}</span></div>`;
+        }).join('')
+      : `<div class="map-sheet-section">Scheduled next</div><div class="pred-row"><span>No more scheduled departures today.</span><span></span></div>`;
 
     renderSheet(`
       <h3>${escHTML(stop.stop_name)}</h3>
       <div class="meta">Stop ${escHTML(stop.stop_id)}</div>
-      ${predHTML}
+      ${liveHTML}
+      ${scheduleHTML}
       <div class="map-sheet-actions">
         <button class="map-sheet-btn" onclick="window.askAssistantFromMap(${JSON.stringify(askMsg).replace(/"/g, '&quot;')})">Ask the Assistant</button>
         <button class="map-sheet-btn ghost" onclick="window.planTripFromMap(${JSON.stringify(stop.stop_name).replace(/"/g, '&quot;')})">Plan trip from here</button>
