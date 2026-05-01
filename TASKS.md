@@ -594,16 +594,18 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 
 ### Frontend (`public_html/map.js`)
 - [x] Lazy MapLibre init on first tab switch
-- [x] Route-chip rail with color dots; tap to filter
-- [x] Bus markers upgraded from plain circles to a front-facing mini-bus treatment while preserving route number/color + heading arrow
+- [x] Route selector supports multi-select chips; `All` clears the selected route set
+- [x] Selected route polylines render together with softer opacity so bus markers remain visually primary
+- [x] Bus markers upgraded from plain circles to side-view bus silhouettes while preserving route number/color + heading arrow
 - [x] Stop markers (highlighted when a route is selected)
+- [x] Stop markers use custom hover/focus cards with stop name, stop ID, and "tap for arrivals" cue
 - [x] Center-on-me FAB
 - [x] Polling pauses when tab is hidden
 - [x] Bottom sheet on tap-bus → "Ask the Assistant" deep-link to chat with context-loaded question
 - [x] Bottom sheet on tap-stop → live predictions + scheduled next departures + "Ask the Assistant" + "Plan trip from here" deep-links
 - [x] Stop sheet now surfaces the next actual scheduled departure even after service rolls past midnight / into the next service day
 - [x] Stop sheet shows a more prominent stop ID badge (`Stop ID 0369` style)
-- [x] Top route summary overlay opens from route chips or bus taps
+- [x] Top route summary overlay opens from bus taps or explicit reopen; route chips now filter/select routes rather than forcing route info open
 - [x] Route summary overlay can be hidden and reopened without losing context
 - [x] Route summary overlay shows a "Scroll for more" hint when content overflows one screen
 - [x] "Live Map" tab added to `chat.html`; `switchTab()` extended for 3-tab in `trip_planner.js`
@@ -615,7 +617,7 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 - [ ] Per-direction polyline coloring (inbound slightly desaturated)
 - [ ] Cluster overlapping stops at low zoom (~970 stops on screen at zoom 11 looks busy)
 - [ ] Tile preload optimization — currently fetches city tiles on first tab open
-- [ ] Optional bus-marker art pass if the current mini-bus still feels too badge-like once reviewed on-device
+- [ ] Optional selected-route summary / legend polish after real-device review
 
 ### Local dev gotcha
 macOS port 5000 is hijacked by AirPlay Receiver (returns 403 with `Server: AirTunes/...`). Run Flask on `--port 5050` or disable AirPlay Receiver in System Settings → AirDrop & Handoff.

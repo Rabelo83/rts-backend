@@ -2,7 +2,7 @@
 
 This file captures the **current state of the work-in-progress** so a delegated AI (Codex, Sonnet, Haiku, etc.) can pick up cold without reading the entire repo. Updated each session.
 
-> Last updated: **2026-05-01** (stop-ID search + geolocation pin + nearby-stops sheet shipped)
+> Last updated: **2026-05-01** (Live Map multi-select route filter + final map UX polish documented)
 
 ---
 
@@ -33,7 +33,11 @@ This file captures the **current state of the work-in-progress** so a delegated 
 
 | Commit | Subject | Why |
 |---|---|---|
-| `(pending)` | `feat(map): stop-ID search + you-are-here pin + nearby-stops sheet` | Two UX gaps in Live Map closed. Geolocation now drops a pulsing user pin and opens a "5 nearest stops" sheet; new search input lets users type a stop ID and jump to it. Schedule endpoint extended with lat/lon (one round trip). Mirrors chat agent's "ETA if available else next scheduled" semantics. |
+| `(latest)` | `feat(map): multi-select route filters + route line polish` | Route chips now support selecting multiple routes at once; `All` clears the filter. Selected routes render together with softer supporting polylines and deduped stop dots, while buses remain the primary visual objects. Docs refreshed for end-of-day handoff. |
+| `ccef4c1` | `fix(map): refine bus icons and stop hover cards` | Replaced front-facing bus badges with side-view bus silhouettes, added custom stop hover/focus cards, and fixed route tray / route-info overlap. |
+| `10d0896` | `fix(map): simplify live map info surfaces` | Route and stop info are mutually exclusive; stop sheet shows live ETAs first and scheduled departures only as fallback; route selector became expandable. |
+| `d054251` | `fix(map): polish live map controls` | Compacted stop-ID lookup, aligned route selector visuals with bus markers, and moved the route-info hide control to the bottom of the drawer. |
+| `3cc4d0c` | `feat(map): stop-ID search + you-are-here pin + nearby-stops sheet` | Two UX gaps in Live Map closed. Geolocation now drops a pulsing user pin and opens a "5 nearest stops" sheet; new search input lets users type a stop ID and jump to it. Schedule endpoint extended with lat/lon (one round trip). Mirrors chat agent's "ETA if available else next scheduled" semantics. |
 | `8b91ee6` | `fix(trip): kill pathological arrive-by + latest-first sort + engine KeyError` | Closes trust bug #1 from 2026-04-23 punch list. Pathological cap (`>2× shortest viable`), arrive-by sorts latest-departure-first, fixes pre-existing `_build_itinerary` crash on walk-transfer-after-transfer. |
 | `392e4fb` | `feat(map): refine live map route + stop overlays` (Codex) | Top-of-map route overview drawer, hide/reopen behavior, scroll hint, forward-looking stop schedules that roll into tomorrow/next service day, more prominent stop IDs, and more literal bus markers. |
 | `25be4b1` | `fix(map): show scheduled departures in stop sheet` | Stop taps now show GTFS-backed scheduled departures alongside live ETAs instead of just real-time predictions. |
@@ -64,12 +68,13 @@ Routing table (which tool to pick for which user query) lives in [routes/agent_c
   - `/api/map/stop/<id>/schedule` — scheduled departures (rolls forward to next service day) + lat/lon
   - `/api/map/nearby-stops?lat&lon&radius_m&limit` — used by the geolocation flow
 - **Frontend**: [public_html/map.js](../../public_html/map.js) — lazy-init on first tab switch, MapLibre + OpenFreeMap (`tiles.openfreemap.org/styles/liberty`), 10s polling paused on `visibilitychange`.
-- **Route overlay**: selecting a route chip or tapping a bus opens a top-of-map route summary drawer with today's directions, first/last runs, frequency, service-type hours, hide/reopen controls, and a scroll hint when content overflows.
-- **Stop overlay**: tapping a stop shows live ETAs and the **next actual scheduled departures**, even if service has rolled into tomorrow or the next service day. The stop sheet now labels that service day explicitly and shows a more prominent stop ID badge.
+- **Route selector**: route chips are multi-select. Empty selection means **All** active vehicles; tapping route chips adds/removes them; tapping **All** clears the set. Selected routes render together with softer polylines and deduped stop dots.
+- **Route overlay**: tapping a bus or reopening a route summary opens a top-of-map route drawer with today's directions, first/last runs, frequency, service-type hours, hide/reopen controls, and a scroll hint when content overflows.
+- **Stop overlay**: tapping a stop shows live ETAs when they exist; scheduled departures appear only as fallback when no live ETA exists. The schedule fallback rolls forward into tomorrow / next service day and labels that day explicitly.
 - **Stop-ID search** (2026-05-01): input above the route chip rail accepts a numeric stop ID; on submit pans the map and opens the same sheet as tapping a stop dot.
 - **Geolocation flow** (2026-05-01): center-on-me FAB drops a pulsing "You are here" pin and opens a sheet listing the 5 nearest stops within 500m. Each row is tappable.
 - **Differentiation lever**: the stop/bus sheets still carry "Ask the Assistant" / "Plan trip from here" deep-links, so the visual surface hands off into the AI surface with context preloaded.
-- **Current UI note**: bus markers are now a more literal front-facing mini-bus icon rather than plain circles; this is functional, but a future art pass may still improve the feel.
+- **Current UI note**: bus markers and route selector chips use a side-view bus silhouette with larger route numbers, including special sizing for 3-digit routes.
 
 ---
 
@@ -88,7 +93,7 @@ These are the live punch-list items. Each is a candidate task to delegate.
 - Per-direction polyline coloring (inbound desaturated)
 - Cluster overlapping stops at low zoom (~970 stops at zoom 11 = busy)
 - Real-device QA pass (iOS Safari + Android Chrome)
-- Optional marker-art pass if the current mini-bus icon still feels too badge-like on-device
+- Optional map-legend / selected-route count polish after real-device review
 
 ### IA reorg follow-ups
 - Real-device PWA install test — verify "Add to Home Screen" lands on `/` (not `/chat`) and that previously-installed PWAs migrate cleanly when SW v10 activates. iOS Safari is the high-risk path.

@@ -17,6 +17,20 @@ How to use:
 
 ---
 
+### 2026-05-01 — Live Map final UX polish: multi-select routes + clearer markers
+- Type: `feature, fix, docs`
+- Summary: End-of-day Live Map polish focused on making the map behave more like a rider-facing tool and less like a debug overlay.
+  - Route selector now supports **multi-select**: tapping route chips adds/removes routes; `All` clears the filter. Selected route count appears on the `Routes` toggle.
+  - Multiple selected routes render together with colored polylines and deduped stop dots. Route lines were softened and given a light casing so they read as context instead of cutting through bus markers.
+  - Route chips no longer automatically open route info; route info remains available from bus taps / reopen, avoiding ambiguity when multiple routes are selected.
+  - Bus markers and route chips use a side-view bus silhouette with larger route numbers and a 3-digit route mode.
+  - Native stop `title` tooltips were replaced with custom hover/focus cards that show stop name, stop ID, and a "Tap for arrivals" cue.
+  - Info surfaces remain mutually exclusive: route info and stop sheets do not stack on top of each other.
+- Files/Areas: `public_html/map.js`, `public_html/chat.html`, `prompts/context/STATE-OF-PLAY.md`, `TASKS.md`, `PROJECT_LOG.md`
+- Notes / Follow-up: Real-device QA remains the main open map task. Consider adding a selected-route legend only if multi-select feels unclear on mobile after testing.
+
+---
+
 ### 2026-05-01 — Live Map: stop-ID search + "you are here" + nearby-stops sheet
 - Type: `feature`
 - Summary: Two UX gaps closed in the Live Map:

@@ -20,8 +20,9 @@
   let initStarted   = false;
   let pollTimer     = null;
   let routes        = [];           // [{route_id, short_name, long_name, color}]
-  let activeRouteId = null;         // null = show all
-  let routeDetail   = null;         // currently loaded route detail (polylines + stops)
+  let selectedRouteIds = new Set(); // empty = show all
+  let routeDetailCache = new Map(); // route_id → route detail (polylines + stops)
+  let routeOverlayRun = 0;          // guards async multi-route overlay updates
   let stopMarkers   = [];           // MapLibre Markers for stops
   let busMarkers    = new Map();    // vehicle_id → Marker
   let routeInfoCache = new Map();   // route_id → route overview
@@ -109,7 +110,7 @@
       `<button class="map-route-toggle" type="button" aria-expanded="${routeRailExpanded ? 'true' : 'false'}">
         Routes <span aria-hidden="true">${routeRailExpanded ? '⌃' : '⌄'}</span>
       </button>`,
-      `<button class="map-chip active" data-route="" aria-pressed="true">All</button>`,
+      `<button class="map-chip map-chip-all active" data-route="" aria-pressed="true">All</button>`,
       ...routes.map(r => {
         const label = String(r.short_name || r.route_id || '');
         const longClass = label.length >= 3 ? ' long-route' : '';
@@ -134,40 +135,66 @@
       }
       const btn = e.target.closest('.map-chip');
       if (!btn) return;
-      selectRoute(btn.dataset.route || null);
+      toggleRouteSelection(btn.dataset.route || null);
     });
   }
 
-  async function selectRoute(routeId) {
-    activeRouteId = routeId;
-
-    document.querySelectorAll('.map-chip').forEach(c => {
-      const isActive = (c.dataset.route || null) === routeId;
-      c.classList.toggle('active', isActive);
-      c.setAttribute('aria-pressed', isActive);
-    });
-
-    clearRouteOverlay();
-
-    if (routeId) {
-      try {
-        setRouteRailExpanded(false);
-        showRouteInfo(routeId);
-        routeDetail = await fetchJSON(`/api/map/route/${encodeURIComponent(routeId)}`);
-        drawRoutePolylines(routeDetail);
-        drawRouteStops(routeDetail);
-        fitToRoute(routeDetail);
-      } catch (err) {
-        console.warn('[map] route detail failed:', err);
-      }
+  async function toggleRouteSelection(routeId) {
+    if (!routeId) {
+      selectedRouteIds.clear();
+    } else if (selectedRouteIds.has(routeId)) {
+      selectedRouteIds.delete(routeId);
     } else {
-      routeDetail = null;
-      currentRouteInfoId = null;
-      hideRouteInfo();
-      map.flyTo({ center: GAINESVILLE.center, zoom: GAINESVILLE.zoom });
+      selectedRouteIds.add(routeId);
     }
 
+    updateRouteChipStates();
+    hideRouteInfo(false);
+    await refreshSelectedRouteOverlay();
     redrawVehicleFilter();
+  }
+
+  function updateRouteChipStates() {
+    document.querySelectorAll('.map-chip').forEach(c => {
+      const routeId = c.dataset.route || '';
+      const isActive = routeId ? selectedRouteIds.has(routeId) : selectedRouteIds.size === 0;
+      c.classList.toggle('active', isActive);
+      c.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+
+    const toggle = document.querySelector('.map-route-toggle');
+    if (toggle) {
+      const n = selectedRouteIds.size;
+      toggle.firstChild.textContent = n ? `Routes (${n}) ` : 'Routes ';
+    }
+  }
+
+  async function refreshSelectedRouteOverlay() {
+    const run = ++routeOverlayRun;
+    clearRouteOverlay();
+
+    if (!selectedRouteIds.size) {
+      currentRouteInfoId = null;
+      map.flyTo({ center: GAINESVILLE.center, zoom: GAINESVILLE.zoom });
+      return;
+    }
+
+    try {
+      const details = await Promise.all([...selectedRouteIds].map(loadRouteDetail));
+      if (run !== routeOverlayRun) return;
+      drawRoutePolylines(details);
+      drawRouteStops(details);
+      fitToRoutes(details);
+    } catch (err) {
+      console.warn('[map] selected route overlay failed:', err);
+    }
+  }
+
+  async function loadRouteDetail(routeId) {
+    if (routeDetailCache.has(routeId)) return routeDetailCache.get(routeId);
+    const detail = await fetchJSON(`/api/map/route/${encodeURIComponent(routeId)}`);
+    routeDetailCache.set(routeId, detail);
+    return detail;
   }
 
   function setRouteRailExpanded(expanded) {
@@ -194,38 +221,57 @@
   }
 
   // ── Route polylines + stops (vector layers) ───────────────────────────────
-  function drawRoutePolylines(detail) {
-    const features = (detail.shapes || []).map(s => ({
+  function drawRoutePolylines(details) {
+    const features = details.flatMap(detail => (detail.shapes || []).map(s => ({
       type: 'Feature',
-      properties: { direction: s.direction, headsign: s.headsign },
+      properties: {
+        route_id: detail.route_id,
+        color: detail.color || colorForRoute(detail.route_id),
+        direction: s.direction,
+        headsign: s.headsign,
+      },
       geometry: {
         type: 'LineString',
         coordinates: s.points.map(p => [p[1], p[0]]), // [lat,lon] → [lon,lat]
       },
-    }));
+    })));
     if (!features.length) return;
     if (map.getSource('route-line')) {
       map.getSource('route-line').setData({ type: 'FeatureCollection', features });
     } else {
       map.addSource('route-line', { type: 'geojson', data: { type: 'FeatureCollection', features } });
       map.addLayer({
+        id: 'route-line-casing',
+        type: 'line',
+        source: 'route-line',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': '#ffffff',
+          'line-width': 6,
+          'line-opacity': 0.36,
+        },
+      });
+      map.addLayer({
         id: 'route-line-layer',
         type: 'line',
         source: 'route-line',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
-          'line-color': detail.color || '#60a5fa',
-          'line-width': 4,
-          'line-opacity': 0.85,
+          'line-color': ['get', 'color'],
+          'line-width': 3,
+          'line-opacity': 0.62,
         },
       });
     }
-    map.setPaintProperty('route-line-layer', 'line-color', detail.color || '#60a5fa');
   }
 
-  function drawRouteStops(detail) {
-    (detail.stops || []).forEach(s => {
+  function drawRouteStops(details) {
+    const seenStops = new Set();
+    details.flatMap(detail => detail.stops || []).forEach(s => {
       if (s.lat == null || s.lon == null) return;
+      const key = String(s.stop_id || `${s.lat},${s.lon}`);
+      if (seenStops.has(key)) return;
+      seenStops.add(key);
       const el = document.createElement('div');
       el.className = 'map-stop route-stop';
       el.tabIndex = 0;
@@ -257,12 +303,13 @@
   function clearRouteOverlay() {
     stopMarkers.forEach(m => m.remove());
     stopMarkers = [];
+    if (map.getLayer('route-line-casing')) map.removeLayer('route-line-casing');
     if (map.getLayer('route-line-layer')) map.removeLayer('route-line-layer');
     if (map.getSource('route-line'))      map.removeSource('route-line');
   }
 
-  function fitToRoute(detail) {
-    const all = (detail.shapes || []).flatMap(s => s.points);
+  function fitToRoutes(details) {
+    const all = details.flatMap(detail => (detail.shapes || []).flatMap(s => s.points));
     if (!all.length) return;
     const lats = all.map(p => p[0]);
     const lons = all.map(p => p[1]);
@@ -287,7 +334,7 @@
     vehicles.forEach(v => {
       if (v.lat == null || v.lon == null || !v.vehicle_id) return;
       seen.add(v.vehicle_id);
-      const filtered = activeRouteId && v.route !== activeRouteId;
+      const filtered = selectedRouteIds.size > 0 && !selectedRouteIds.has(v.route);
 
       let marker = busMarkers.get(v.vehicle_id);
       if (!marker) {
@@ -357,7 +404,7 @@
     for (const [, marker] of busMarkers) {
       const el = marker.getElement();
       const route = (el.dataset.route || '').trim();
-      el.style.display = (activeRouteId && route !== activeRouteId) ? 'none' : '';
+      el.style.display = (selectedRouteIds.size > 0 && !selectedRouteIds.has(route)) ? 'none' : '';
     }
   }
 
@@ -400,6 +447,7 @@
     const body  = document.getElementById('map-route-info-body');
     if (!panel || !body || !routeId) return;
 
+    setRouteRailExpanded(false);
     hideMapSheet();
     currentRouteInfoId = routeId;
     panel.classList.remove('hidden');
