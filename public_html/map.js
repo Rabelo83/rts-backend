@@ -26,6 +26,7 @@
   let busMarkers    = new Map();    // vehicle_id → Marker
   let routeInfoCache = new Map();   // route_id → route overview
   let currentRouteInfoId = null;    // last route shown in the top info panel
+  let routeRailExpanded = false;    // compact by default; expands into wrapped route tray
   let userMarker    = null;         // MapLibre Marker for "you are here"
 
   // ── Public entry point (called by switchTab) ──────────────────────────────
@@ -77,11 +78,13 @@
 
     const searchForm = document.getElementById('map-stop-search-form');
     if (searchForm) searchForm.addEventListener('submit', onStopSearchSubmit);
+    window.addEventListener('resize', syncMapControlOffset);
 
     await new Promise(resolve => map.once('load', resolve));
 
     routes = await fetchJSON('/api/map/routes').then(d => d.routes || []);
     renderRouteRail(routes);
+    syncMapControlOffset();
 
     await pollVehicles();
     pollTimer = setInterval(pollVehicles, VEHICLE_POLL_MS);
@@ -103,6 +106,9 @@
     const rail = document.getElementById('map-route-rail');
     if (!rail) return;
     const chips = [
+      `<button class="map-route-toggle" type="button" aria-expanded="${routeRailExpanded ? 'true' : 'false'}">
+        Routes <span aria-hidden="true">${routeRailExpanded ? '⌃' : '⌄'}</span>
+      </button>`,
       `<button class="map-chip active" data-route="" aria-pressed="true">All</button>`,
       ...routes.map(r => `
         <button class="map-chip map-chip-route" data-route="${escAttr(r.route_id)}" aria-pressed="false" aria-label="Show Route ${escAttr(r.short_name)}">
@@ -112,8 +118,18 @@
         </button>
       `),
     ];
+    rail.classList.toggle('expanded', routeRailExpanded);
     rail.innerHTML = chips.join('');
     rail.addEventListener('click', e => {
+      const toggle = e.target.closest('.map-route-toggle');
+      if (toggle) {
+        routeRailExpanded = !routeRailExpanded;
+        rail.classList.toggle('expanded', routeRailExpanded);
+        toggle.setAttribute('aria-expanded', routeRailExpanded ? 'true' : 'false');
+        toggle.querySelector('span').textContent = routeRailExpanded ? '⌃' : '⌄';
+        syncMapControlOffset();
+        return;
+      }
       const btn = e.target.closest('.map-chip');
       if (!btn) return;
       selectRoute(btn.dataset.route || null);
@@ -149,6 +165,15 @@
     }
 
     redrawVehicleFilter();
+  }
+
+  function syncMapControlOffset() {
+    const panel = document.getElementById('map-panel');
+    const search = document.getElementById('map-stop-search-form');
+    const rail = document.getElementById('map-route-rail');
+    if (!panel) return;
+    const offset = (search?.offsetHeight || 0) + (rail?.offsetHeight || 0) + 12;
+    panel.style.setProperty('--map-controls-offset', `${offset}px`);
   }
 
   // ── Route polylines + stops (vector layers) ───────────────────────────────
@@ -343,6 +368,7 @@
     const body  = document.getElementById('map-route-info-body');
     if (!panel || !body || !routeId) return;
 
+    hideMapSheet();
     currentRouteInfoId = routeId;
     panel.classList.remove('hidden');
     setRouteInfoReopenVisible(false);
@@ -366,11 +392,11 @@
     }
   }
 
-  function hideRouteInfo() {
+  function hideRouteInfo(showReopen = true) {
     const panel = document.getElementById('map-route-info');
     if (panel) panel.classList.add('hidden');
     setRouteInfoScrollHintVisible(false);
-    setRouteInfoReopenVisible(Boolean(currentRouteInfoId));
+    setRouteInfoReopenVisible(showReopen && Boolean(currentRouteInfoId));
   }
 
   function setRouteInfoReopenVisible(show) {
@@ -432,6 +458,7 @@
 
   async function showStopSheet(stop) {
     const stopIdLabel = formatStopId(stop.stop_id);
+    hideRouteInfo(false);
     renderSheet(`
       <h3>${escHTML(stop.stop_name)}</h3>
       <div class="map-sheet-stop-meta">
@@ -450,13 +477,15 @@
     } catch {
       preds = [];
     }
-    try {
-      const data = await fetchJSON(`/api/map/stop/${encodeURIComponent(stop.stop_id)}/schedule?limit=6`);
-      scheduled = (data && data.departures) || [];
-      scheduleServiceDay = (data && data.service_day_label) || '';
-    } catch {
-      scheduled = [];
-      scheduleServiceDay = '';
+    if (!preds.length) {
+      try {
+        const data = await fetchJSON(`/api/map/stop/${encodeURIComponent(stop.stop_id)}/schedule?limit=6`);
+        scheduled = (data && data.departures) || [];
+        scheduleServiceDay = (data && data.service_day_label) || '';
+      } catch {
+        scheduled = [];
+        scheduleServiceDay = '';
+      }
     }
     const askMsg = `What's coming up at stop ${stopIdLabel} (${stop.stop_name})?`;
 
@@ -468,7 +497,7 @@
       return Number.isFinite(n) ? `${n} min` : s;
     };
 
-    const liveHTML = preds.length
+    const arrivalHTML = preds.length
       ? `<div class="map-sheet-section">Live ETAs</div>` + preds.slice(0, 5).map(p => {
           const route = p.route || '';
           const dest  = p.destination || '';
@@ -476,29 +505,22 @@
           const dly   = p.delayed ? ' ⚠' : '';
           return `<div class="pred-row"><span>Route ${escHTML(route)} → ${escHTML(dest)}${dly}</span><span>${escHTML(eta)}</span></div>`;
         }).join('')
-      : `<div class="map-sheet-section">Live ETAs</div><div class="pred-row"><span>No live predictions right now.</span><span></span></div>`;
-
-    const scheduleHeading = scheduled.length
-      ? `Scheduled next${scheduleServiceDay ? ` · ${scheduleServiceDay}` : ''}`
-      : 'Scheduled next';
-
-    const scheduleHTML = scheduled.length
-      ? `<div class="map-sheet-section">${escHTML(scheduleHeading)}</div>` + scheduled.map(s => {
+      : scheduled.length
+        ? `<div class="map-sheet-section">Next scheduled departure${scheduleServiceDay ? ` · ${escHTML(scheduleServiceDay)}` : ''}</div>` + scheduled.map(s => {
           const route = s.route || '';
           const dest  = s.headsign || '';
           const time  = s.time_label || s.time || '';
           return `<div class="pred-row"><span>Route ${escHTML(route)} → ${escHTML(dest)}</span><span>${escHTML(time)}</span></div>`;
         }).join('')
-      : `<div class="map-sheet-section">${escHTML(scheduleHeading)}</div><div class="pred-row"><span>No scheduled departures found soon.</span><span></span></div>`;
+        : `<div class="map-sheet-section">Next scheduled departure</div><div class="pred-row"><span>No scheduled departures found soon.</span><span></span></div>`;
 
     renderSheet(`
       <h3>${escHTML(stop.stop_name)}</h3>
       <div class="map-sheet-stop-meta">
         <span class="map-stop-id-badge">Stop ID ${escHTML(stopIdLabel)}</span>
-        <div class="meta">${scheduleServiceDay ? `Next service ${escHTML(scheduleServiceDay)}` : 'Upcoming stop departures'}</div>
+        <div class="meta">${preds.length ? 'Live arrivals available' : (scheduleServiceDay ? `Next service ${escHTML(scheduleServiceDay)}` : 'Scheduled fallback')}</div>
       </div>
-      ${liveHTML}
-      ${scheduleHTML}
+      ${arrivalHTML}
       <div class="map-sheet-actions">
         <button class="map-sheet-btn" onclick="window.askAssistantFromMap(${JSON.stringify(askMsg).replace(/"/g, '&quot;')})">Ask the Assistant</button>
         <button class="map-sheet-btn ghost" onclick="window.planTripFromMap(${JSON.stringify(stop.stop_name).replace(/"/g, '&quot;')})">Plan trip from here</button>
@@ -512,6 +534,11 @@
     if (!sheet || !body) return;
     body.innerHTML = html;
     sheet.classList.remove('hidden');
+  }
+
+  function hideMapSheet() {
+    const sheet = document.getElementById('map-sheet');
+    if (sheet) sheet.classList.add('hidden');
   }
 
   // ── Deep-links from sheet to chat / trip planner ──────────────────────────
@@ -639,6 +666,7 @@
     if (!input) return;
     const raw = (input.value || '').trim();
     if (!raw) return;
+    hideRouteInfo(false);
     const digits = raw.replace(/\D/g, '');
     if (!digits) {
       input.classList.add('is-invalid');

@@ -718,10 +718,21 @@
       gap: 6px;
       padding: 9px 12px 10px;
       overflow-x: auto;
+      overflow-y: hidden;
       scrollbar-width: none;
       border-bottom: 1px solid var(--border);
       background: rgba(0,0,0,0.18);
       flex-shrink: 0;
+      max-height: 54px;
+      transition: max-height .18s ease, background .18s ease;
+    }
+    .map-route-rail.expanded {
+      flex-wrap: wrap;
+      align-content: flex-start;
+      overflow-x: hidden;
+      overflow-y: auto;
+      max-height: 136px;
+      background: rgba(5,10,22,0.38);
     }
 
     /* ── Stop-ID search bar above the route chip rail ─────── */
@@ -862,6 +873,32 @@
       color: var(--text-muted);
     }
     .map-route-rail::-webkit-scrollbar { display: none; }
+    .map-route-toggle {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      flex-shrink: 0;
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(96,165,250,0.36);
+      background: rgba(15,23,42,0.96);
+      color: #fff;
+      box-shadow: 6px 0 12px rgba(5,10,22,0.35);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .map-route-toggle span {
+      color: #93c5fd;
+      font-size: 0.9rem;
+      line-height: 1;
+    }
     .map-chip {
       flex-shrink: 0;
       display: inline-flex;
@@ -892,8 +929,8 @@
     }
     .map-chip-bus {
       position: relative;
-      width: 30px;
-      height: 23px;
+      width: 34px;
+      height: 25px;
       flex-shrink: 0;
       border-radius: 8px 8px 6px 6px;
       border: 2px solid rgba(255,255,255,0.82);
@@ -930,7 +967,7 @@
       top: 2px;
       left: 4px;
       right: 4px;
-      height: 8px;
+      height: 10px;
       border-radius: 4px;
       display: flex;
       align-items: center;
@@ -938,8 +975,8 @@
       background: rgba(12,18,31,0.45);
       border: 1px solid rgba(255,255,255,0.22);
       color: #fff;
-      font-size: 0.58rem;
-      font-weight: 850;
+      font-size: 0.72rem;
+      font-weight: 900;
       line-height: 1;
       text-shadow: 0 1px 3px rgba(0,0,0,0.45);
     }
@@ -1076,8 +1113,8 @@
 
     /* Bus marker (mini bus + heading arrow) */
     .map-bus {
-      width: 34px;
-      height: 38px;
+      width: 38px;
+      height: 42px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1088,8 +1125,8 @@
     .map-bus:hover { transform: scale(1.08); }
     .map-bus-body {
       position: relative;
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       border-radius: 9px 9px 7px 7px;
       border: 2px solid rgba(255,255,255,0.92);
       box-shadow: 0 3px 10px rgba(0,0,0,0.45);
@@ -1100,7 +1137,7 @@
       top: 2px;
       left: 4px;
       right: 4px;
-      height: 7px;
+      height: 11px;
       border-radius: 4px;
       background: rgba(12,18,31,0.42);
       border: 1px solid rgba(255,255,255,0.28);
@@ -1111,18 +1148,18 @@
     .map-bus-number {
       position: relative;
       color: #fff;
-      font-weight: 800;
-      font-size: 0.58rem;
+      font-weight: 900;
+      font-size: 0.78rem;
       line-height: 1;
       text-shadow: 0 1px 3px rgba(0,0,0,0.45);
-      letter-spacing: 0.01em;
+      letter-spacing: 0;
     }
     .map-bus-windshield {
       position: absolute;
-      top: 10px;
+      top: 15px;
       left: 4px;
       right: 4px;
-      height: 9px;
+      height: 8px;
       border-radius: 4px 4px 3px 3px;
       background:
         linear-gradient(90deg,
@@ -1162,7 +1199,7 @@
       border-left: 5px solid transparent;
       border-right: 5px solid transparent;
       border-bottom: 7px solid #fff;
-      transform-origin: 50% 27px;
+      transform-origin: 50% 30px;
     }
     .map-stop {
       width: 9px;
@@ -2002,7 +2039,7 @@
   <script src="/static/trip_planner.js?v=3" defer></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="/static/map.js?v=7" defer></script>
+  <script src="/static/map.js?v=8" defer></script>
 
   <!-- PWA chrome (offline banner, install button, iOS tip) -->
   <div id="offline-banner" hidden>You're offline. Showing last known information.</div>
