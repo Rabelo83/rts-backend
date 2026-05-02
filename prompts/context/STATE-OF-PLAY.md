@@ -65,12 +65,14 @@ Routing table (which tool to pick for which user query) lives in [routes/agent_c
   - `/api/map/route/<id>` — polylines + stops
   - `/api/map/route/<id>/overview` — first/last/frequency drawer
   - `/api/map/vehicles` — all active vehicles, 30s cache, batched 10/call; explicit BusTime limit/unavailable status when the vendor returns an error payload
+  - `/api/map/vehicle/<vehicle_id>/predictions` — upcoming stop ETAs for one tapped bus
   - `/api/map/stop/<id>/schedule` — scheduled departures (rolls forward to next service day) + lat/lon
   - `/api/map/nearby-stops?lat&lon&radius_m&limit` — used by the geolocation flow
 - **Frontend**: [public_html/map.js](../../public_html/map.js) — lazy-init on first tab switch, MapLibre + OpenFreeMap (`tiles.openfreemap.org/styles/liberty`), 30s vehicle polling paused on `visibilitychange`.
 - **BusTime quota**: [rts_api.py](../../rts_api.py) supports `BUS_API_KEYS` as a comma-separated list of authorized fallback keys. It tries the next key only when BusTime returns a transaction-limit error.
 - **Route selector**: compact mobile-first toolbar with `Routes: All` on the left and Stop ID search on the right. Route chips live in an expandable tray under the Routes button and are multi-select. Empty selection means **All** active vehicles; tapping route chips adds/removes them; tapping a bus also selects that bus's route; tapping **All** clears the set. Selected routes render together with softer polylines and deduped stop dots.
 - **Route overlay**: tapping a bus or reopening a route summary opens a top-of-map route drawer with today's directions, first/last runs, frequency, service-type hours, hide/reopen controls, and a scroll hint when content overflows.
+- **Bus overlay**: tapping a bus selects its route, opens the route summary, and opens a bottom sheet with destination plus upcoming stop ETAs for that specific vehicle. Speed is intentionally hidden as too operational/noisy for riders.
 - **Stop overlay**: tapping a stop shows live ETAs when they exist; scheduled departures appear only as fallback when no live ETA exists. The schedule fallback rolls forward into tomorrow / next service day and labels that day explicitly.
 - **Stop-ID search** (2026-05-01): input in the top map toolbar accepts a numeric stop ID; on submit pans the map and opens the same sheet as tapping a stop dot.
 - **Geolocation flow** (2026-05-01): center-on-me FAB drops a pulsing "You are here" pin and opens a sheet listing the 5 nearest stops within 500m. If browser/device location fails, the sheet now explains likely causes, offers retry, and falls back to Stop ID search.

@@ -6,7 +6,9 @@ GET /api/map/routes              List of all routes (id, name, color) — for ch
 GET /api/map/route/<route_id>    Polyline shapes (per direction) + stops served by route
 GET /api/map/route/<route_id>/overview
                                   First/last/frequency route summary
-GET /api/map/vehicles            All active vehicles across all routes (cached 5s)
+GET /api/map/vehicles            All active vehicles across all routes (cached 30s)
+GET /api/map/vehicle/<vehicle_id>/predictions
+                                  Upcoming stop ETAs for one active vehicle
 GET /api/map/stop/<stop_id>/schedule
                                   Next scheduled departures for a stop
 
@@ -187,8 +189,9 @@ def _is_transaction_limit_error(message: str | None) -> bool:
 
 def _fetch_all_vehicles() -> list[dict]:
     """
-    Fan out to BusTime in batches of 10 routes (the API's per-call limit) and merge
-    the results. Each call costs one BusTime request; 27 routes = 3 calls per refresh.
+    Fan out to BusTime in batches of 10 routes and merge the results. If a key
+    rejects a batched request with "No data found", fall back to single-route
+    calls for that batch so one empty route does not blank the whole map.
     """
     routes = _load_routes()
     route_ids = [r["route_id"] for r in routes]
@@ -207,24 +210,46 @@ def _fetch_all_vehicles() -> list[dict]:
             raise BustimeVehicleError(error_msg)
         if error_msg and not vehicles_raw:
             logger.info("BusTime getvehicles returned no vehicles for batch %s: %s", batch, error_msg)
+            vehicles_raw = _fetch_vehicles_route_by_route(batch)
+        cleaned.extend(_clean_vehicle_rows(vehicles_raw))
+    return cleaned
+
+
+def _fetch_vehicles_route_by_route(route_ids: list[str]) -> list[dict]:
+    vehicles: list[dict] = []
+    for route_id in route_ids:
+        try:
+            data = rts_api.get_vehicles(route_id)
+        except Exception as exc:
+            logger.warning("BusTime getvehicles failed for route %s: %s", route_id, exc)
             continue
-        for v in vehicles_raw:
-            try:
-                lat = float(v.get("lat"))
-                lon = float(v.get("lon"))
-            except (TypeError, ValueError):
-                continue
-            cleaned.append({
-                "vehicle_id":  v.get("vid"),
-                "lat":         lat,
-                "lon":         lon,
-                "heading":     v.get("hdg"),
-                "speed":       v.get("spd"),
-                "route":       v.get("rt"),
-                "destination": v.get("des"),
-                "delayed":     bool(v.get("dly", False)),
-                "timestamp":   v.get("tmstmp"),
-            })
+        error_msg = _bustime_error_message(data)
+        if error_msg and _is_transaction_limit_error(error_msg):
+            raise BustimeVehicleError(error_msg)
+        rows = data.get("vehicle", []) or data.get("vehicles", []) or []
+        vehicles.extend(rows)
+    return vehicles
+
+
+def _clean_vehicle_rows(rows: list[dict]) -> list[dict]:
+    cleaned: list[dict] = []
+    for v in rows:
+        try:
+            lat = float(v.get("lat"))
+            lon = float(v.get("lon"))
+        except (TypeError, ValueError):
+            continue
+        cleaned.append({
+            "vehicle_id":  v.get("vid"),
+            "lat":         lat,
+            "lon":         lon,
+            "heading":     v.get("hdg"),
+            "speed":       v.get("spd"),
+            "route":       v.get("rt"),
+            "destination": v.get("des"),
+            "delayed":     bool(v.get("dly", False)),
+            "timestamp":   v.get("tmstmp"),
+        })
     return cleaned
 
 
@@ -339,6 +364,58 @@ def api_map_vehicles():
                 }
             _vehicle_cache_at = now
         return jsonify(_vehicle_cache)
+
+
+@map_bp.route("/api/map/vehicle/<vehicle_id>/predictions")
+def api_map_vehicle_predictions(vehicle_id):
+    vehicle_id = str(vehicle_id or "").strip()
+    if not vehicle_id:
+        return jsonify({"error": "invalid_vehicle_id"}), 400
+
+    try:
+        limit = max(1, min(int(request.args.get("limit", "8")), 12))
+    except (TypeError, ValueError):
+        limit = 8
+
+    try:
+        data = rts_api.call_bustime("getpredictions", {"vid": vehicle_id, "top": limit})
+    except Exception as exc:
+        logger.warning("BusTime getpredictions failed for vehicle %s: %s", vehicle_id, exc)
+        return jsonify({
+            "vehicle_id": vehicle_id,
+            "predictions": [],
+            "realtime_status": "unavailable",
+            "realtime_message": "Unable to fetch upcoming stops for this bus right now.",
+        }), 200
+
+    error_msg = _bustime_error_message(data)
+    if error_msg and _is_transaction_limit_error(error_msg):
+        return jsonify({
+            "vehicle_id": vehicle_id,
+            "predictions": [],
+            "realtime_status": "limit_exceeded",
+            "realtime_message": error_msg,
+        }), 200
+
+    preds = data.get("prd", []) or []
+    return jsonify({
+        "vehicle_id": vehicle_id,
+        "predictions": [
+            {
+                "route": p.get("rt"),
+                "direction": p.get("rtdir"),
+                "destination": p.get("des"),
+                "stop_id": p.get("stpid"),
+                "stop_name": p.get("stpnm"),
+                "minutes": p.get("prdctdn"),
+                "arrival_time": p.get("prdtm"),
+                "delayed": bool(p.get("dly", False)),
+            }
+            for p in preds[:limit]
+        ],
+        "timestamp": data.get("tmstmp", ""),
+        "realtime_status": "ok",
+    })
 
 
 @map_bp.route("/api/map/stop/<stop_id>/schedule")

@@ -30,6 +30,7 @@
   let routeRailExpanded = false;    // compact by default; expands into wrapped route tray
   let userMarker    = null;         // MapLibre Marker for "you are here"
   let liveStatusKey = null;
+  let busSheetRun   = 0;
 
   // ── Public entry point (called by switchTab) ──────────────────────────────
   window.initMap = function initMap() {
@@ -462,6 +463,7 @@
 
   // ── Bottom sheet: bus / stop details + Ask-the-Assistant deep link ────────
   async function showBusSheet(v) {
+    const run = ++busSheetRun;
     const route = routes.find(r => r.route_id === v.route);
     const routeName = route ? `Route ${route.short_name} — ${route.long_name}` : `Route ${v.route}`;
     const headsign  = v.destination ? `Heading: ${escHTML(v.destination)}` : '';
@@ -474,16 +476,56 @@
 
     const askMsg = `Where is bus ${v.vehicle_id} on Route ${v.route} right now and when will it reach me?`;
 
+    renderBusSheet(v, routeName, headsign, delayed, askMsg, { loading: true });
+
+    if (!v.vehicle_id) return;
+    try {
+      const data = await fetchJSON(`/api/map/vehicle/${encodeURIComponent(v.vehicle_id)}/predictions?limit=8`);
+      if (run !== busSheetRun) return;
+      renderBusSheet(v, routeName, headsign, delayed, askMsg, {
+        predictions: data.predictions || [],
+        status: data.realtime_status || 'ok',
+      });
+    } catch (err) {
+      console.warn('[map] vehicle predictions failed:', err);
+      if (run !== busSheetRun) return;
+      renderBusSheet(v, routeName, headsign, delayed, askMsg, { status: 'unavailable' });
+    }
+  }
+
+  function renderBusSheet(v, routeName, headsign, delayed, askMsg, options = {}) {
+    const predictions = options.predictions || [];
+    const upcoming = options.loading
+      ? `<div class="map-sheet-section">Upcoming stops for this bus</div><div class="pred-row"><span>Loading stop ETAs…</span><span></span></div>`
+      : predictions.length
+        ? `<div class="map-sheet-section">Upcoming stops for this bus</div>` + predictions.map(p => `
+            <div class="pred-row">
+              <span>${escHTML(p.stop_name || 'Next stop')}<br><small>Stop ID ${escHTML(formatStopId(p.stop_id))}</small></span>
+              <span>${escHTML(formatVehicleEta(p))}</span>
+            </div>
+          `).join('')
+        : `<div class="map-sheet-section">Upcoming stops for this bus</div><div class="pred-row"><span>${options.status === 'limit_exceeded' ? 'Live ETAs are capped right now.' : 'No upcoming stop ETAs reported for this bus right now.'}</span><span></span></div>`;
+
     renderSheet(`
       <h3>Bus ${escHTML(v.vehicle_id || '')}</h3>
       <div class="meta">${escHTML(routeName)}</div>
       ${headsign ? `<div class="pred-row"><span>Destination</span><span>${escHTML(v.destination)}</span></div>` : ''}
-      ${v.speed != null ? `<div class="pred-row"><span>Speed</span><span>${escHTML(v.speed)} mph</span></div>` : ''}
       ${delayed ? `<div class="pred-row"><span></span><span>${delayed}</span></div>` : ''}
+      ${upcoming}
       <div class="map-sheet-actions">
         <button class="map-sheet-btn" onclick="window.askAssistantFromMap(${JSON.stringify(askMsg).replace(/"/g, '&quot;')})">Ask the Assistant</button>
       </div>
     `);
+  }
+
+  function formatVehicleEta(prediction) {
+    const raw = String(prediction?.minutes ?? '').trim();
+    if (!raw) return prediction?.arrival_time || 'ETA';
+    if (/^\d+$/.test(raw)) {
+      const n = Number(raw);
+      return n <= 0 ? 'Due' : `${n} min`;
+    }
+    return raw.toUpperCase();
   }
 
   async function showRouteInfo(routeId) {

@@ -197,3 +197,73 @@ def test_fetch_all_vehicles_keeps_batch_vehicles_when_one_route_has_no_data(monk
     assert len(vehicles) == 1
     assert vehicles[0]["vehicle_id"] == "1502"
     assert vehicles[0]["route"] == "1"
+
+
+def test_fetch_all_vehicles_falls_back_to_single_routes_when_batch_has_only_no_data(monkeypatch):
+    monkeypatch.setattr(map_api, "_routes_cache", [
+        {"route_id": "1"},
+        {"route_id": "7"},
+    ])
+    calls = []
+
+    def fake_get_vehicles(route_ids):
+        calls.append(route_ids)
+        if route_ids == "1,7":
+            return {"error": [{"msg": "No data found for parameter"}]}
+        if route_ids == "7":
+            return {
+                "vehicle": [
+                    {
+                        "vid": "2407",
+                        "lat": "29.650555",
+                        "lon": "-82.30585",
+                        "hdg": "0",
+                        "spd": 18,
+                        "rt": "7",
+                        "des": "Eastwood Meadows",
+                        "dly": False,
+                        "tmstmp": "20260502 09:11",
+                    }
+                ]
+            }
+        return {"error": [{"msg": "No data found for parameter"}]}
+
+    monkeypatch.setattr(map_api.rts_api, "get_vehicles", fake_get_vehicles)
+
+    vehicles = map_api._fetch_all_vehicles()
+
+    assert calls == ["1,7", "1", "7"]
+    assert len(vehicles) == 1
+    assert vehicles[0]["vehicle_id"] == "2407"
+
+
+def test_map_vehicle_predictions_returns_upcoming_stops(monkeypatch):
+    def fake_call(endpoint, params):
+        assert endpoint == "getpredictions"
+        assert params == {"vid": "2407", "top": 8}
+        return {
+            "prd": [
+                {
+                    "rt": "7",
+                    "rtdir": "Outbound",
+                    "des": "Eastwood Meadows",
+                    "stpid": "0001",
+                    "stpnm": "Rosa Parks RTS Downtown Station",
+                    "prdctdn": "3",
+                    "prdtm": "20260502 09:18",
+                    "dly": False,
+                }
+            ],
+            "tmstmp": "20260502 09:15",
+        }
+
+    monkeypatch.setattr(map_api.rts_api, "call_bustime", fake_call)
+
+    res = _app().test_client().get("/api/map/vehicle/2407/predictions")
+
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["vehicle_id"] == "2407"
+    assert data["realtime_status"] == "ok"
+    assert data["predictions"][0]["stop_name"] == "Rosa Parks RTS Downtown Station"
+    assert data["predictions"][0]["minutes"] == "3"

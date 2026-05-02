@@ -591,6 +591,7 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 - [x] `GET /api/map/route/<route_id>/overview` — route summary for the top overlay (today's directions, first/last, frequency, service-type hours)
 - [x] `GET /api/map/vehicles` — all vehicles across all routes, 30s TTL server cache, batched BusTime calls (10 routes/call). Amortizes load across concurrent viewers and protects BusTime quota.
 - [x] Batched vehicle parsing keeps valid vehicles when BusTime also returns "No data found" for one route in the batch
+- [x] `GET /api/map/vehicle/<vehicle_id>/predictions` — upcoming stop ETAs for one active bus
 - [x] `GET /api/map/stop/<stop_id>/schedule` — forward-looking GTFS schedule for a stop; rolls into tomorrow / next service day when today is done
 - [x] Optional `BUS_API_KEYS` fallback list for multiple authorized BusTime keys when one reaches its daily transaction cap
 
@@ -603,6 +604,7 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 - [x] Route chips live in an expandable tray under the Routes button instead of permanently occupying the control row
 - [x] Tapping the map collapses the expanded route tray
 - [x] Tapping a bus selects that bus's route and draws the matching route overlay
+- [x] Bus detail sheet removes speed and shows upcoming stop ETAs for the tapped vehicle when BusTime provides them
 - [x] Selected route polylines render together with softer opacity so bus markers remain visually primary
 - [x] Bus markers upgraded from plain circles to side-view bus silhouettes while preserving route number/color + heading arrow
 - [x] Stop markers (highlighted when a route is selected)
