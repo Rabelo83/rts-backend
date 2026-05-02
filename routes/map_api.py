@@ -152,12 +152,32 @@ def _load_route_detail(route_id: str) -> dict | None:
     return detail
 
 
-# ── Vehicle aggregation (5s server-side cache) ───────────────────────────────
+# ── Vehicle aggregation (30s server-side cache) ──────────────────────────────
 
-_VEHICLE_TTL_SEC = 5
+_VEHICLE_TTL_SEC = 30
 _vehicle_cache: dict | None = None
 _vehicle_cache_at: float = 0
 _vehicle_lock = threading.Lock()
+
+
+class BustimeVehicleError(RuntimeError):
+    """Raised when BusTime returns an explicit error payload for vehicles."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.message = message
+
+
+def _bustime_error_message(data: dict) -> str | None:
+    errors = data.get("error") if isinstance(data, dict) else None
+    if not errors:
+        return None
+    if isinstance(errors, list) and errors:
+        first = errors[0]
+        if isinstance(first, dict):
+            return str(first.get("msg") or first.get("message") or first)
+        return str(first)
+    return str(errors)
 
 
 def _fetch_all_vehicles() -> list[dict]:
@@ -176,6 +196,9 @@ def _fetch_all_vehicles() -> list[dict]:
         except Exception as exc:
             logger.warning("BusTime getvehicles failed for batch %s: %s", batch, exc)
             continue
+        error_msg = _bustime_error_message(data)
+        if error_msg:
+            raise BustimeVehicleError(error_msg)
         for v in data.get("vehicle", []) or data.get("vehicles", []) or []:
             try:
                 lat = float(v.get("lat"))
@@ -291,10 +314,20 @@ def api_map_vehicles():
     now = time.monotonic()
     with _vehicle_lock:
         if _vehicle_cache is None or (now - _vehicle_cache_at) > _VEHICLE_TTL_SEC:
-            _vehicle_cache = {
-                "vehicles":  _fetch_all_vehicles(),
-                "fetched_at": time.time(),
-            }
+            try:
+                _vehicle_cache = {
+                    "vehicles":  _fetch_all_vehicles(),
+                    "fetched_at": time.time(),
+                    "realtime_status": "ok",
+                }
+            except BustimeVehicleError as exc:
+                logger.warning("BusTime vehicle data unavailable: %s", exc.message)
+                _vehicle_cache = {
+                    "vehicles": [],
+                    "fetched_at": time.time(),
+                    "realtime_status": "limit_exceeded" if "limit" in exc.message.lower() else "unavailable",
+                    "realtime_message": exc.message,
+                }
             _vehicle_cache_at = now
         return jsonify(_vehicle_cache)
 

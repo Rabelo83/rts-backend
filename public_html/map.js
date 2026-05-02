@@ -13,7 +13,7 @@
   'use strict';
 
   const TILE_STYLE       = 'https://tiles.openfreemap.org/styles/liberty';
-  const VEHICLE_POLL_MS  = 10_000;
+  const VEHICLE_POLL_MS  = 30_000;
   const GAINESVILLE      = { center: [-82.345, 29.65], zoom: 11.7 };
 
   let map           = null;
@@ -29,6 +29,7 @@
   let currentRouteInfoId = null;    // last route shown in the top info panel
   let routeRailExpanded = false;    // compact by default; expands into wrapped route tray
   let userMarker    = null;         // MapLibre Marker for "you are here"
+  let liveStatusKey = null;
 
   // ── Public entry point (called by switchTab) ──────────────────────────────
   window.initMap = function initMap() {
@@ -344,9 +345,11 @@
       data = await fetchJSON('/api/map/vehicles');
     } catch (err) {
       console.warn('[map] vehicle poll failed:', err);
+      updateLiveStatus({ realtime_status: 'unavailable' });
       return;
     }
     const vehicles = data.vehicles || [];
+    updateLiveStatus(data);
     const seen = new Set();
 
     vehicles.forEach(v => {
@@ -377,6 +380,26 @@
         busMarkers.delete(vid);
       }
     }
+  }
+
+  function updateLiveStatus(data) {
+    const box = document.getElementById('map-live-status');
+    if (!box) return;
+    const status = data?.realtime_status || 'ok';
+    if (status === 'ok') {
+      liveStatusKey = null;
+      box.classList.add('hidden');
+      box.textContent = '';
+      return;
+    }
+    const rawMessage = String(data?.realtime_message || '').toLowerCase();
+    const message = status === 'limit_exceeded' || rawMessage.includes('limit')
+      ? 'Live bus feed limit reached. Routes and scheduled departures still work.'
+      : 'Live bus feed is unavailable. Routes and scheduled departures still work.';
+    if (liveStatusKey === message && !box.classList.contains('hidden')) return;
+    liveStatusKey = message;
+    box.textContent = message;
+    box.classList.remove('hidden');
   }
 
   function buildBusEl(v) {

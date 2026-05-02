@@ -139,3 +139,21 @@ def test_map_route_overview_returns_route_summary(monkeypatch):
     assert data["runs_today"] is True
     assert data["directions"][0]["headsign"] == "To UF Health"
     assert data["schedule_by_service_type"]["Saturday"]["last"] == "6:00 PM"
+
+
+def test_map_vehicles_surfaces_bustime_limit(monkeypatch):
+    monkeypatch.setattr(map_api, "_vehicle_cache", None)
+    monkeypatch.setattr(map_api, "_vehicle_cache_at", 0)
+
+    def fake_fetch():
+        raise map_api.BustimeVehicleError("Transaction limit for current day has been exceeded.")
+
+    monkeypatch.setattr(map_api, "_fetch_all_vehicles", fake_fetch)
+
+    res = _app().test_client().get("/api/map/vehicles")
+
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["vehicles"] == []
+    assert data["realtime_status"] == "limit_exceeded"
+    assert "limit" in data["realtime_message"].lower()

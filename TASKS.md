@@ -589,11 +589,14 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 - [x] `GET /api/map/routes` — 27 routes with color/name (process-lifetime cache)
 - [x] `GET /api/map/route/<route_id>` — polylines per direction + stops served (process-lifetime cache)
 - [x] `GET /api/map/route/<route_id>/overview` — route summary for the top overlay (today's directions, first/last, frequency, service-type hours)
-- [x] `GET /api/map/vehicles` — all vehicles across all routes, 5s TTL server cache, batched BusTime calls (10 routes/call). Amortizes load across concurrent viewers.
+- [x] `GET /api/map/vehicles` — all vehicles across all routes, 30s TTL server cache, batched BusTime calls (10 routes/call). Amortizes load across concurrent viewers and protects BusTime quota.
 - [x] `GET /api/map/stop/<stop_id>/schedule` — forward-looking GTFS schedule for a stop; rolls into tomorrow / next service day when today is done
+- [x] Optional `BUS_API_KEYS` fallback list for multiple authorized BusTime keys when one reaches its daily transaction cap
 
 ### Frontend (`public_html/map.js`)
 - [x] Lazy MapLibre init on first tab switch
+- [x] Live vehicle polling reduced to 30s client/server cadence to preserve BusTime daily quota
+- [x] BusTime vehicle limit/unavailable errors surface as an in-map status pill instead of silent empty data
 - [x] Mobile-first map toolbar combines `Routes: All` and Stop ID lookup in one row
 - [x] Route selector supports multi-select chips; `All` clears the selected route set
 - [x] Route chips live in an expandable tray under the Routes button instead of permanently occupying the control row

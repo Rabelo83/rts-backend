@@ -1,6 +1,22 @@
 # rts_api.py
 import requests
-from config import API_KEY, RTPIDATAFEED, BASE_API
+from config import API_KEYS, RTPIDATAFEED, BASE_API
+
+
+def _is_transaction_limit(data):
+    errors = data.get("error") if isinstance(data, dict) else None
+    if not errors:
+        return False
+    if not isinstance(errors, list):
+        errors = [errors]
+    for err in errors:
+        if isinstance(err, dict):
+            msg = str(err.get("msg") or err.get("message") or "")
+        else:
+            msg = str(err)
+        if "transaction limit" in msg.lower() or "limit" in msg.lower():
+            return True
+    return False
 
 def call_bustime(endpoint, extra_params=None):
     """
@@ -10,18 +26,25 @@ def call_bustime(endpoint, extra_params=None):
     if extra_params is None:
         extra_params = {}
 
-    params = {
-        "key": API_KEY,
-        "rtpidatafeed": RTPIDATAFEED,
-        "format": "json",
-        **extra_params
-    }
-
     url = f"{BASE_API}/{endpoint}"
-    resp = requests.get(url, params=params, timeout=12)
-    resp.raise_for_status()
-    data = resp.json()
-    return data.get("bustime-response", {}) or {}
+    last_payload = {}
+    for api_key in API_KEYS:
+        params = {
+            "key": api_key,
+            "rtpidatafeed": RTPIDATAFEED,
+            "format": "json",
+            **extra_params
+        }
+
+        resp = requests.get(url, params=params, timeout=12)
+        resp.raise_for_status()
+        data = resp.json()
+        payload = data.get("bustime-response", {}) or {}
+        last_payload = payload
+        if _is_transaction_limit(payload):
+            continue
+        return payload
+    return last_payload
 
 # ----- Raw passthroughs (for debugging) -----
 def get_routes_raw():

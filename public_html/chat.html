@@ -1032,6 +1032,26 @@
       z-index: 4;
     }
     .map-fab:hover { background: rgba(30,41,59,0.95); }
+    .map-live-status {
+      position: absolute;
+      left: 12px;
+      right: 68px;
+      bottom: 18px;
+      z-index: 4;
+      width: fit-content;
+      max-width: calc(100% - 92px);
+      border: 1px solid rgba(251,191,36,0.3);
+      border-radius: 999px;
+      background: rgba(15,23,42,0.94);
+      color: #fde68a;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.36);
+      backdrop-filter: blur(12px);
+      font-size: 0.72rem;
+      font-weight: 800;
+      line-height: 1.25;
+      padding: 8px 11px;
+      pointer-events: none;
+    }
 
     /* Route info overlay */
     .map-route-info {
@@ -2159,6 +2179,7 @@
         </div>
         <button id="map-route-info-reopen" type="button" class="map-route-info-reopen hidden" onclick="window.reopenRouteInfo && window.reopenRouteInfo()">Show route info</button>
         <button id="map-locate" type="button" class="map-fab" title="Center on me" aria-label="Center on me">⊙</button>
+        <div id="map-live-status" class="map-live-status hidden" aria-live="polite"></div>
         <div id="map-sheet" class="map-sheet hidden" role="dialog" aria-label="Selection details">
           <button class="map-sheet-close" onclick="window.closeMapSheet && window.closeMapSheet()" aria-label="Close">×</button>
           <div id="map-sheet-body"></div>
@@ -2172,7 +2193,7 @@
   <script src="/static/trip_planner.js?v=3" defer></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="/static/map.js?v=17" defer></script>
+  <script src="/static/map.js?v=18" defer></script>
 
   <!-- PWA chrome (offline banner, install button, iOS tip) -->
   <div id="offline-banner" hidden>You're offline. Showing last known information.</div>
