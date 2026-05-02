@@ -590,6 +590,7 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 - [x] `GET /api/map/route/<route_id>` — polylines per direction + stops served (process-lifetime cache)
 - [x] `GET /api/map/route/<route_id>/overview` — route summary for the top overlay (today's directions, first/last, frequency, service-type hours)
 - [x] `GET /api/map/vehicles` — all vehicles across all routes, 30s TTL server cache, batched BusTime calls (10 routes/call). Amortizes load across concurrent viewers and protects BusTime quota.
+- [x] Batched vehicle parsing keeps valid vehicles when BusTime also returns "No data found" for one route in the batch
 - [x] `GET /api/map/stop/<stop_id>/schedule` — forward-looking GTFS schedule for a stop; rolls into tomorrow / next service day when today is done
 - [x] Optional `BUS_API_KEYS` fallback list for multiple authorized BusTime keys when one reaches its daily transaction cap
 

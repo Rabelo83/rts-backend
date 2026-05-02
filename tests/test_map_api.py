@@ -157,3 +157,43 @@ def test_map_vehicles_surfaces_bustime_limit(monkeypatch):
     assert data["vehicles"] == []
     assert data["realtime_status"] == "limit_exceeded"
     assert "limit" in data["realtime_message"].lower()
+
+
+def test_fetch_all_vehicles_keeps_batch_vehicles_when_one_route_has_no_data(monkeypatch):
+    monkeypatch.setattr(map_api, "_routes_cache", [
+        {"route_id": "1"},
+        {"route_id": "6"},
+    ])
+
+    def fake_get_vehicles(route_ids):
+        assert route_ids == "1,6"
+        return {
+            "vehicle": [
+                {
+                    "vid": "1502",
+                    "lat": "29.645546",
+                    "lon": "-82.322725",
+                    "hdg": "359",
+                    "spd": 0,
+                    "rt": "1",
+                    "des": "Butler Plaza Transfer Station",
+                    "dly": False,
+                    "tmstmp": "20260502 08:58",
+                }
+            ],
+            "error": [
+                {
+                    "rtpidatafeed": "bustime",
+                    "rt": "6",
+                    "msg": "No data found for parameter",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(map_api.rts_api, "get_vehicles", fake_get_vehicles)
+
+    vehicles = map_api._fetch_all_vehicles()
+
+    assert len(vehicles) == 1
+    assert vehicles[0]["vehicle_id"] == "1502"
+    assert vehicles[0]["route"] == "1"

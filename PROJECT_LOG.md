@@ -24,6 +24,7 @@ How to use:
   - Vehicle polling was reduced from 10s/5s client/server cadence to 30s/30s to avoid exhausting the BusTime daily transaction allowance.
   - BusTime vehicle errors now surface as a non-blocking map status pill instead of silently looking like "no buses."
   - Added optional `BUS_API_KEYS` comma-separated fallback support for multiple authorized BusTime keys; the client retries the next key only when BusTime reports a daily transaction limit.
+  - Fixed BusTime batched vehicle parsing: keep valid vehicles when BusTime also includes "No data found" for one route in the same response.
   - Control layout is now mobile-first: `Routes: All` and Stop ID lookup share one toolbar row, and route chips live in an expandable tray below the Routes button instead of permanently crowding the map.
   - The route tray now collapses when the rider taps the map, while the Routes button remains the primary open/close control.
   - Tapping a bus now also selects that bus's route, updates the route toolbar/chips, and draws the route overlay before showing route info.

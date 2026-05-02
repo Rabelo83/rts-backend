@@ -180,6 +180,11 @@ def _bustime_error_message(data: dict) -> str | None:
     return str(errors)
 
 
+def _is_transaction_limit_error(message: str | None) -> bool:
+    msg = str(message or "").lower()
+    return "transaction limit" in msg or "limit" in msg
+
+
 def _fetch_all_vehicles() -> list[dict]:
     """
     Fan out to BusTime in batches of 10 routes (the API's per-call limit) and merge
@@ -196,10 +201,14 @@ def _fetch_all_vehicles() -> list[dict]:
         except Exception as exc:
             logger.warning("BusTime getvehicles failed for batch %s: %s", batch, exc)
             continue
+        vehicles_raw = data.get("vehicle", []) or data.get("vehicles", []) or []
         error_msg = _bustime_error_message(data)
-        if error_msg:
+        if error_msg and _is_transaction_limit_error(error_msg):
             raise BustimeVehicleError(error_msg)
-        for v in data.get("vehicle", []) or data.get("vehicles", []) or []:
+        if error_msg and not vehicles_raw:
+            logger.info("BusTime getvehicles returned no vehicles for batch %s: %s", batch, error_msg)
+            continue
+        for v in vehicles_raw:
             try:
                 lat = float(v.get("lat"))
                 lon = float(v.get("lon"))
@@ -325,7 +334,7 @@ def api_map_vehicles():
                 _vehicle_cache = {
                     "vehicles": [],
                     "fetched_at": time.time(),
-                    "realtime_status": "limit_exceeded" if "limit" in exc.message.lower() else "unavailable",
+                    "realtime_status": "limit_exceeded" if _is_transaction_limit_error(exc.message) else "unavailable",
                     "realtime_message": exc.message,
                 }
             _vehicle_cache_at = now
