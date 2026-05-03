@@ -27,9 +27,11 @@ How to use:
   - Fixed BusTime batched vehicle parsing: keep valid vehicles when BusTime also includes "No data found" for one route in the same response.
   - Added a single-route fallback when a BusTime key rejects batched multi-route vehicle calls with only "No data found."
   - Bus taps now remove the technical speed row and show upcoming stop ETAs for the selected bus when BusTime provides vehicle predictions.
+  - Bus and route information panels are now mutually exclusive: bus taps show only bus details; route chip taps show only route summary.
+  - Refined map sheet/route drawer spacing, line-height, and ETA alignment for small mobile screens.
   - Control layout is now mobile-first: `Routes: All` and Stop ID lookup share one toolbar row, and route chips live in an expandable tray below the Routes button instead of permanently crowding the map.
   - The route tray now collapses when the rider taps the map, while the Routes button remains the primary open/close control.
-  - Tapping a bus now also selects that bus's route, updates the route toolbar/chips, and draws the route overlay before showing route info.
+  - Tapping a bus now selects that bus's route, updates the route toolbar/chips, draws the route overlay, and keeps the bus detail sheet as the only open information panel.
   - Location failure UX now gives actionable copy, a retry button, and a Stop ID fallback instead of echoing the browser's vague geolocation error.
   - Geolocation now retries automatically with a laptop-friendly lower-accuracy request when Chrome cannot provide a high-accuracy fix.
   - Route summary and bus/stop sheets now sit above live bus markers, preventing selected bus icons from covering schedule text.

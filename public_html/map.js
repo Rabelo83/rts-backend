@@ -138,19 +138,25 @@
   }
 
   async function toggleRouteSelection(routeId) {
+    let routeToSummarize = null;
     if (!routeId) {
       selectedRouteIds.clear();
       setRouteRailExpanded(false);
+      hideRouteInfo(false);
+      hideMapSheet();
     } else if (selectedRouteIds.has(routeId)) {
       selectedRouteIds.delete(routeId);
+      if (currentRouteInfoId === routeId) hideRouteInfo(false);
+      hideMapSheet();
     } else {
       selectedRouteIds.add(routeId);
+      routeToSummarize = routeId;
     }
 
     updateRouteChipStates();
-    hideRouteInfo(false);
     await refreshSelectedRouteOverlay();
     redrawVehicleFilter();
+    if (routeToSummarize) await showRouteInfo(routeToSummarize);
   }
 
   async function ensureRouteSelected(routeId) {
@@ -471,8 +477,9 @@
 
     if (v.route) {
       await ensureRouteSelected(v.route);
-      showRouteInfo(v.route);
+      setRouteRailExpanded(false);
     }
+    hideRouteInfo(false);
 
     const askMsg = `Where is bus ${v.vehicle_id} on Route ${v.route} right now and when will it reach me?`;
 

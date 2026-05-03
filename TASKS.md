@@ -603,8 +603,10 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 - [x] Route selector supports multi-select chips; `All` clears the selected route set
 - [x] Route chips live in an expandable tray under the Routes button instead of permanently occupying the control row
 - [x] Tapping the map collapses the expanded route tray
+- [x] Route chip taps open the route summary while hiding bus/stop sheets
 - [x] Tapping a bus selects that bus's route and draws the matching route overlay
 - [x] Bus detail sheet removes speed and shows upcoming stop ETAs for the tapped vehicle when BusTime provides them
+- [x] Bus taps hide route summary so bus and route info never overlap
 - [x] Selected route polylines render together with softer opacity so bus markers remain visually primary
 - [x] Bus markers upgraded from plain circles to side-view bus silhouettes while preserving route number/color + heading arrow
 - [x] Stop markers (highlighted when a route is selected)
@@ -618,7 +620,7 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 - [x] Bottom sheet on tap-stop → live predictions + scheduled next departures + "Ask the Assistant" + "Plan trip from here" deep-links
 - [x] Stop sheet now surfaces the next actual scheduled departure even after service rolls past midnight / into the next service day
 - [x] Stop sheet shows a more prominent stop ID badge (`Stop ID 0369` style)
-- [x] Top route summary overlay opens from bus taps or explicit reopen; route chips now filter/select routes rather than forcing route info open
+- [x] Top route summary overlay opens from route chip taps or explicit reopen; bus taps keep only bus details open
 - [x] Route summary overlay can be hidden and reopened without losing context
 - [x] Route summary overlay shows a "Scroll for more" hint when content overflows one screen
 - [x] "Live Map" tab added to `chat.html`; `switchTab()` extended for 3-tab in `trip_planner.js`

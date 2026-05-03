@@ -1059,7 +1059,8 @@
       top: var(--map-controls-offset);
       left: 12px;
       right: 12px;
-      max-height: 44%;
+      box-sizing: border-box;
+      max-height: min(46%, 360px);
       overflow-y: auto;
       background: rgba(15,23,42,0.96);
       border: 1px solid rgba(255,255,255,0.14);
@@ -1105,6 +1106,7 @@
       margin-bottom: 4px;
       color: #fff;
       font-size: 1rem;
+      line-height: 1.22;
     }
     .map-route-info .meta {
       margin-bottom: 10px;
@@ -1345,6 +1347,7 @@
       left: 12px;
       right: 12px;
       bottom: 12px;
+      box-sizing: border-box;
       background: rgba(15,23,42,0.96);
       border: 1px solid rgba(255,255,255,0.12);
       border-radius: 14px;
@@ -1369,7 +1372,9 @@
     }
     .map-sheet h3 {
       font-size: 1rem;
+      line-height: 1.2;
       margin-bottom: 4px;
+      padding-right: 24px;
       color: #fff;
     }
     .map-sheet-stop-meta {
@@ -1409,11 +1414,23 @@
     }
     .map-sheet .pred-row {
       display: flex;
+      align-items: flex-start;
       justify-content: space-between;
       gap: 10px;
       padding: 6px 0;
       border-top: 1px solid rgba(255,255,255,0.06);
       font-size: 0.88rem;
+    }
+    .map-sheet .pred-row > span:first-child {
+      min-width: 0;
+      line-height: 1.25;
+    }
+    .map-sheet .pred-row > span:last-child {
+      flex: 0 0 auto;
+      max-width: 46%;
+      color: var(--text);
+      font-weight: 700;
+      text-align: right;
     }
     .map-sheet .pred-row small {
       color: var(--text-muted);
@@ -2198,7 +2215,7 @@
   <script src="/static/trip_planner.js?v=3" defer></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="/static/map.js?v=19" defer></script>
+  <script src="/static/map.js?v=20" defer></script>
 
   <!-- PWA chrome (offline banner, install button, iOS tip) -->
   <div id="offline-banner" hidden>You're offline. Showing last known information.</div>
