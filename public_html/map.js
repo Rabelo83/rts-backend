@@ -312,13 +312,18 @@
 
   function drawRouteStops(details) {
     const seenStops = new Set();
-    details.flatMap(detail => detail.stops || []).forEach(s => {
+    details.flatMap(detail => (detail.stops || []).map(stop => ({
+      ...stop,
+      route_color: detail.color || colorForRoute(detail.route_id),
+    }))).forEach(s => {
       if (s.lat == null || s.lon == null) return;
       const key = String(s.stop_id || `${s.lat},${s.lon}`);
       if (seenStops.has(key)) return;
       seenStops.add(key);
       const el = document.createElement('div');
       el.className = 'map-stop route-stop';
+      el.style.background = s.route_color;
+      el.style.boxShadow = `0 0 0 2px rgba(255,255,255,0.86), 0 0 0 5px ${hexToRgba(s.route_color, 0.2)}`;
       el.tabIndex = 0;
       el.setAttribute('role', 'button');
       el.setAttribute('aria-label', `${s.stop_name}, Stop ${formatStopId(s.stop_id)}. Show arrivals.`);
@@ -478,6 +483,13 @@
   function colorForRoute(routeId) {
     const r = routes.find(r => r.route_id === routeId || r.short_name === routeId);
     return (r && r.color) || '#60a5fa';
+  }
+
+  function hexToRgba(hex, alpha) {
+    const value = String(hex || '').replace('#', '').trim();
+    if (!/^[0-9a-fA-F]{6}$/.test(value)) return `rgba(96,165,250,${alpha})`;
+    const n = parseInt(value, 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
   }
 
   function formatStopId(stopId) {

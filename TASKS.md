@@ -610,6 +610,7 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 - [x] Bus taps preserve route summary context behind the `Show route info` reopen control
 - [x] Route summary drawer anchors to the top of the map canvas after route tray transitions
 - [x] Selected route polylines render together with softer opacity so bus markers remain visually primary
+- [x] Selected-route stop dots inherit route color with a white ring/soft halo for zoomed-out readability
 - [x] Bus markers upgraded from plain circles to side-view bus silhouettes while preserving route number/color + heading arrow
 - [x] Stop markers (highlighted when a route is selected)
 - [x] Stop markers use custom hover/focus cards with stop name, stop ID, and "tap for arrivals" cue

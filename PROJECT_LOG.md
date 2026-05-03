@@ -63,6 +63,7 @@ How to use:
   - Bus and route information panels are now mutually exclusive: bus taps show only bus details; route chip taps show only route summary.
   - Bus taps now hide route info into the "Show route info" reopen control instead of dropping route context.
   - Route info positioning now anchors to the actual top of the map canvas after route-tray transitions, preventing the drawer from drifting downward.
+  - Route stop dots now inherit the selected route color with a white ring/soft halo so route identity holds up when zoomed out.
   - Refined map sheet/route drawer spacing, line-height, and ETA alignment for small mobile screens.
   - Control layout is now mobile-first: `Routes: All` and Stop ID lookup share one toolbar row, and route chips live in an expandable tray below the Routes button instead of permanently crowding the map.
   - The route tray now collapses when the rider taps the map, while the Routes button remains the primary open/close control.
