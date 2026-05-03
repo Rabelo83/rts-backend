@@ -2,7 +2,7 @@
 
 This file captures the **current state of the work-in-progress** so a delegated AI (Codex, Sonnet, Haiku, etc.) can pick up cold without reading the entire repo. Updated each session.
 
-> Last updated: **2026-05-03** (Gainesville map hardcode removed → agency-config-driven default viewport)
+> Last updated: **2026-05-03** (Agent gained system-wide first/last bus tool; Gainesville map hardcode removed)
 
 ---
 
@@ -33,7 +33,8 @@ This file captures the **current state of the work-in-progress** so a delegated 
 
 | Commit | Subject | Why |
 |---|---|---|
-| `(pending)` | `fix(map): agency-config-driven default viewport` | Last Gainesville hardcode removed from `map.js`. New `map.default_view` block in `agency_config.yaml`; `/api/map/routes` payload now ships it alongside routes. Map fetches before construction so the agency's view is in place from frame 1. White-label rule #1 enforced. |
+| `(pending)` | `feat(agent): system-wide first/last bus tool` | Closes the gap exposed by a real 2026-05-03 conversation — user asked "first bus today across all routes," agent admitted "I don't have a tool" and fell back to `https://go-rts.com` (the competitor URL — captured as a deferred prompt fix). New `get_system_first_last_today` iterates the route inventory, returns earliest first / latest last + per-route breakdown. |
+| `7e2756d` | `fix(map): agency-config-driven default viewport` | Last Gainesville hardcode removed from `map.js`. New `map.default_view` block in `agency_config.yaml`; `/api/map/routes` payload now ships it alongside routes. Map fetches before construction so the agency's view is in place from frame 1. White-label rule #1 enforced. |
 | `(2026-05-01)` | `feat(map): multi-select route filters + route line polish` | Route chips now support selecting multiple routes at once; `All` clears the filter. Selected routes render together with softer supporting polylines and deduped stop dots, while buses remain the primary visual objects. |
 | `ccef4c1` | `fix(map): refine bus icons and stop hover cards` | Replaced front-facing bus badges with side-view bus silhouettes, added custom stop hover/focus cards, and fixed route tray / route-info overlap. |
 | `10d0896` | `fix(map): simplify live map info surfaces` | Route and stop info are mutually exclusive; stop sheet shows live ETAs first and scheduled departures only as fallback; route selector became expandable. |
@@ -51,9 +52,9 @@ This file captures the **current state of the work-in-progress** so a delegated 
 
 ---
 
-## Agent tools (12 total — `routes/agent_tools.py`)
+## Agent tools (13 total — `routes/agent_tools.py`)
 
-`search_stops`, `get_realtime_predictions`, `get_schedule`, `search_routes`, `suggest_destinations`, `get_route_overview`, `get_route_stops`, `get_route_vehicle_count`, `get_vehicle_location`, **`get_active_vehicles_systemwide`** (new 2026-04-30), `plan_trip`, `get_service_differences`.
+`search_stops`, `get_realtime_predictions`, `get_schedule`, `search_routes`, `suggest_destinations`, `get_route_overview`, `get_route_stops`, `get_route_vehicle_count`, `get_vehicle_location`, **`get_active_vehicles_systemwide`** (2026-04-30), **`get_system_first_last_today`** (new 2026-05-03), `plan_trip`, `get_service_differences`.
 
 Routing table (which tool to pick for which user query) lives in [routes/agent_claude.py](../../routes/agent_claude.py) — search for `## TOOL ROUTING`. Do **not** add system-prompt rules to fix tool-selection bugs; fix the routing table or the tool description instead.
 

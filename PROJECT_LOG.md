@@ -17,6 +17,23 @@ How to use:
 
 ---
 
+### 2026-05-03 — Agent: system-wide first/last bus tool
+- Type: `feature, fix`
+- Summary: Real conversation today exposed the gap. User asked "when will the first bus be running today" → "of every route" → "system-wide first bus across all routes" and the agent answered: "I don't have a tool that shows the first bus across all routes system-wide at once… Visit the live map at https://go-rts.com." Two failures in one — the missing tool, and falling back to the competitor's URL.
+
+  Closed the missing-tool half:
+  - **New tool `get_system_first_last_today(date?)`** — iterates the full route inventory (reusing the cached `_load_routes()` from map_api), calls the existing `get_route_day_summary` for each, collapses directions to a single first/last per route, returns sorted per-route list plus overall earliest first and latest last. Pure GTFS, no BusTime calls. Sub-second.
+  - **Routing-table entry** in `agent_claude.py` for "first bus / last bus / when does service start / system-wide" queries with no specific route. Includes "NEVER call get_route_overview N times" guard rail to prevent the agent from looping.
+  - Tool count: 13 (was 12).
+
+  Smoke-test on today (Sunday Schedule, 2026-05-03): 17 active routes, earliest first 9:30 AM (Route 75), latest last 6:40 PM (Route 126).
+
+  The other half — the agent suggesting `https://go-rts.com` as a fallback — captured as a deferred task in `TASKS.md > Open Items 2026-05-03`. User wants to keep RTS-call-out behavior for now, address the competitor-URL leak later.
+- Files/Areas: `routes/agent_tools.py` (schema + handler + dispatch), `routes/agent_claude.py` (routing table), `TASKS.md` (deferred-issue capture)
+- Notes / Follow-up: Pattern matches `get_active_vehicles_systemwide` (2026-04-30) — both close the agent's "no tool for the whole system" gap. Future: `get_system_route_status` for "are any routes delayed right now?" if it surfaces in production.
+
+---
+
 ### 2026-05-03 — Live Map: agency-config-driven default viewport (no Gainesville hardcode)
 - Type: `fix`
 - Summary: Removed the last `GAINESVILLE = { center: [-82.345, 29.65], zoom: 11.7 }` constant from `public_html/map.js`. White-label rule #1 in `prompts/context/project-brief.md` says no Gainesville-specific values in code; this was the longest-standing violation in the map (since the MVP commit `e856724`).

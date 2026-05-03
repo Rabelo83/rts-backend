@@ -356,6 +356,36 @@ TOOLS: list[dict] = [
     {
         "type": "function",
         "function": {
+            "name": "get_system_first_last_today",
+            "description": (
+                "Return the first and last scheduled bus today (or on a given date) "
+                "for EVERY route in service. "
+                "Use this whenever the user asks about system-wide first/last service "
+                "with NO specific route named: "
+                "'when is the first bus today', 'when does service start', "
+                "'when does the system shut down', 'when is the last bus tonight', "
+                "'what time do buses stop running today', 'first bus across all routes'. "
+                "Returns earliest first-bus time across the system, latest last-bus time, "
+                "and per-route first/last in a sorted list. "
+                "Schedule-based (GTFS), not real-time. "
+                "Use get_route_overview instead when the user names a specific route."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "description": "Optional natural date ('today', 'tomorrow', 'monday', '2026-05-04'). Defaults to today.",
+                    }
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "plan_trip",
             "description": (
                 "Plan a bus trip from one location to another. "
@@ -713,6 +743,7 @@ def dispatch_tool(name: str, arguments: dict, session_id: str | None = None) -> 
         "get_route_vehicle_count": _tool_get_route_vehicle_count,
         "get_vehicle_location": _tool_get_vehicle_location,
         "get_active_vehicles_systemwide": _tool_get_active_vehicles_systemwide,
+        "get_system_first_last_today":    _tool_get_system_first_last_today,
         "plan_trip": _tool_plan_trip,
     }
     handler = handlers.get(name)
@@ -1504,7 +1535,116 @@ def _tool_get_active_vehicles_systemwide() -> dict:
     }
 
 
-# ── Tool 11: plan_trip ────────────────────────────────────────────────────────
+# ── Tool 11: get_system_first_last_today ─────────────────────────────────────
+
+def _tool_get_system_first_last_today(date: str | None = None) -> dict:
+    """
+    Return first/last scheduled bus across every route in service today.
+
+    Closes the gap that surfaced 2026-05-03: agent had get_route_overview for
+    a single route but no system-wide aggregator. User asked "when is the
+    first bus today" without a route, agent admitted "I don't have a tool"
+    and fell back to suggesting an external URL.
+
+    Pure GTFS — no BusTime calls. Iterates the routes list (cached from the
+    routes table) and uses the existing get_route_day_summary helper.
+    """
+    target_date = None
+    if date:
+        try:
+            parsed = _sched.parse_date(date)
+            target_date = parsed.isoformat() if parsed else None
+        except Exception:
+            target_date = None
+
+    # Pull the route list once. Reusing map_api's cache keeps both surfaces
+    # consistent on the route inventory.
+    try:
+        from routes.map_api import _load_routes
+        routes_list = _load_routes()
+    except Exception as exc:
+        logger.warning("get_system_first_last_today: routes lookup failed: %s", exc)
+        return {
+            "status":  "db_unavailable",
+            "message": "Schedule data is unavailable right now.",
+        }
+
+    per_route: list[dict] = []
+    earliest_first = None
+    latest_last = None
+
+    for r in routes_list:
+        rid = r["route_id"]
+        try:
+            summary = _sched.get_route_day_summary(rid, target_date)
+        except Exception as exc:
+            logger.debug("get_system_first_last_today: %s summary failed: %s", rid, exc)
+            continue
+        if not summary or not summary.get("runs_today"):
+            continue
+
+        # Each direction has its own first/last; collapse to the route's
+        # overall first (earliest across directions) and last (latest).
+        firsts = [d.get("first") for d in summary.get("directions", []) if d.get("first")]
+        lasts  = [d.get("last")  for d in summary.get("directions", []) if d.get("last")]
+        if not firsts or not lasts:
+            continue
+
+        # Times are 12-hour strings ('5:30 AM', '11:42 PM'); sort by parsed minute.
+        def _to_min(s: str) -> int:
+            try:
+                from datetime import datetime as _dt
+                t = _dt.strptime(s.strip(), "%I:%M %p")
+                return t.hour * 60 + t.minute
+            except Exception:
+                return 24 * 60  # push unparseable to the end
+
+        first_str = min(firsts, key=_to_min)
+        last_str  = max(lasts,  key=_to_min)
+
+        per_route.append({
+            "route_id":  rid,
+            "long_name": summary.get("route_long_name", ""),
+            "first":     first_str,
+            "last":      last_str,
+        })
+
+        f_min = _to_min(first_str)
+        l_min = _to_min(last_str)
+        if earliest_first is None or f_min < earliest_first[1]:
+            earliest_first = (rid, f_min, first_str)
+        if latest_last is None or l_min > latest_last[1]:
+            latest_last = (rid, l_min, last_str)
+
+    if not per_route:
+        return {
+            "status":      "no_service",
+            "date":        target_date or "today",
+            "day_label":   _sched.get_active_service_label(),
+            "message":     "No routes are running on the selected date.",
+            "by_route":    [],
+        }
+
+    per_route.sort(key=lambda r: int(r["route_id"]) if r["route_id"].isdigit() else 9999)
+
+    return {
+        "status":            "ok",
+        "date":              target_date or "today",
+        "day_label":         _sched.get_active_service_label(),
+        "active_route_count": len(per_route),
+        "earliest_first": {
+            "route":    earliest_first[0],
+            "time":     earliest_first[2],
+        },
+        "latest_last": {
+            "route":    latest_last[0],
+            "time":     latest_last[2],
+        },
+        "by_route": per_route,
+    }
+
+
+# ── Tool 12: plan_trip ────────────────────────────────────────────────────────
 
 def _tool_plan_trip(
     origin: str,

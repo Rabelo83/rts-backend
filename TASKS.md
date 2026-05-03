@@ -639,6 +639,35 @@ macOS port 5000 is hijacked by AirPlay Receiver (returns 403 with `Server: AirTu
 
 ---
 
+## 📌 Open Items captured 2026-05-03 (deferred from this session)
+
+### 🚨 Agent must stop falling back to the competitor URL
+**Saved 2026-05-03; user wants to address later, keep RTS calls for now.**
+
+When the agent's tools can't answer a question, it currently falls back to
+suggesting `https://go-rts.com` ("the official RTS website") — the very app
+we're trying to replace. Real example from a 2026-05-03 conversation:
+
+> *"Visit the live map — You can see real-time service at https://go-rts.com
+>  for a complete system overview."*
+
+Strategically wrong on multiple axes: drives users to the competitor, signals
+we're a partial product, concedes the job we're being hired to do.
+
+When ready to address:
+- Audit `routes/agent_claude.py` system prompt for any `go-rts.com` /
+  `riderts.app` mention. Replace with a "I'll need to check specific routes"
+  fallback or surface the user-facing alternative inside our own UI (chat,
+  Live Map tab, Plan a Trip tab).
+- The phone number / RTS support hours fallback (from `agency_config.yaml >
+  contact.support_*`) is fine to keep — that's calling the agency, not the
+  competitor's app.
+- Consider: when no tool fits, the agent could deep-link the user to the
+  Live Map tab (which now has system-wide vehicle counts + stop-ID search)
+  instead of suggesting external URLs.
+
+---
+
 ## 📌 Open Items captured 2026-04-23 (pick up next session)
 
 Today's session shipped 12 commits covering multi-turn context, arrive-by/depart-at,

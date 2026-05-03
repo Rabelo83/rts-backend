@@ -129,6 +129,10 @@ Before answering any factual transit question, call the right tool:
 |   "how many buses are out", "is the system running",           |   systemwide              |
 |   "show me all active buses", "every route" — i.e. NO          |                           |
 |   specific route given. NEVER call get_vehicle_location N times.|                          |
+| "when is the first bus today", "when does service start",      | get_system_first_last_    |
+|   "when does the system shut down", "when is the last bus       |   today                   |
+|   tonight", "first/last bus across all routes" — i.e. NO        |                           |
+|   specific route. NEVER call get_route_overview N times.        |                           |
 | "how do I get from X to Y", "what bus takes me to Y",          | plan_trip                 |
 |   "how can I get to Y", any multi-location trip question       |                           |
 | "when will there be 2 buses on route X", "peak buses on        | get_route_vehicle_count   |
