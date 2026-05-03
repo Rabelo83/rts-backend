@@ -87,6 +87,29 @@ def get_geocoding_bbox() -> list:
     return get_agency_config()["geocoding"]["bbox"]
 
 
+def get_map_default_view() -> dict:
+    """
+    Return the default Live Map viewport for this agency:
+        {"center": [lon, lat], "zoom": float}
+
+    Reads from `map.default_view` in agency_config.yaml. Falls back to the
+    geocoding bbox center if the explicit map block is missing, so existing
+    deployments without the new key still work.
+    """
+    cfg = get_agency_config()
+    view = (cfg.get("map") or {}).get("default_view") or {}
+    center = view.get("center")
+    zoom = view.get("zoom")
+    if center and len(center) == 2 and zoom is not None:
+        return {"center": [float(center[0]), float(center[1])], "zoom": float(zoom)}
+
+    bbox = cfg["geocoding"]["bbox"]  # [W, S, E, N]
+    return {
+        "center": [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2],
+        "zoom":   12.0,
+    }
+
+
 def get_city_hint() -> str:
     return get_agency_config()["geocoding"]["city_hint"]
 

@@ -17,7 +17,7 @@
  * Bump SW_VERSION to force clients to discard old caches on next visit.
  */
 
-const SW_VERSION = 'v12';  // map: stop-ID search input + user pin + nearby-stops sheet
+const SW_VERSION = 'v13';  // map: agency-config-driven default_view (no Gainesville hardcode)
 const CACHE_NAME = `${SW_VERSION}-shell`;
 
 /**

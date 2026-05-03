@@ -2,7 +2,7 @@
 
 This file captures the **current state of the work-in-progress** so a delegated AI (Codex, Sonnet, Haiku, etc.) can pick up cold without reading the entire repo. Updated each session.
 
-> Last updated: **2026-05-01** (Live Map multi-select route filter + final map UX polish documented)
+> Last updated: **2026-05-03** (Gainesville map hardcode removed → agency-config-driven default viewport)
 
 ---
 
@@ -33,7 +33,8 @@ This file captures the **current state of the work-in-progress** so a delegated 
 
 | Commit | Subject | Why |
 |---|---|---|
-| `(latest)` | `feat(map): multi-select route filters + route line polish` | Route chips now support selecting multiple routes at once; `All` clears the filter. Selected routes render together with softer supporting polylines and deduped stop dots, while buses remain the primary visual objects. Docs refreshed for end-of-day handoff. |
+| `(pending)` | `fix(map): agency-config-driven default viewport` | Last Gainesville hardcode removed from `map.js`. New `map.default_view` block in `agency_config.yaml`; `/api/map/routes` payload now ships it alongside routes. Map fetches before construction so the agency's view is in place from frame 1. White-label rule #1 enforced. |
+| `(2026-05-01)` | `feat(map): multi-select route filters + route line polish` | Route chips now support selecting multiple routes at once; `All` clears the filter. Selected routes render together with softer supporting polylines and deduped stop dots, while buses remain the primary visual objects. |
 | `ccef4c1` | `fix(map): refine bus icons and stop hover cards` | Replaced front-facing bus badges with side-view bus silhouettes, added custom stop hover/focus cards, and fixed route tray / route-info overlap. |
 | `10d0896` | `fix(map): simplify live map info surfaces` | Route and stop info are mutually exclusive; stop sheet shows live ETAs first and scheduled departures only as fallback; route selector became expandable. |
 | `d054251` | `fix(map): polish live map controls` | Compacted stop-ID lookup, aligned route selector visuals with bus markers, and moved the route-info hide control to the bottom of the drawer. |

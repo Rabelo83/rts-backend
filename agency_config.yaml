@@ -30,6 +30,14 @@ geocoding:
   bbox: [-82.55, 29.55, -82.10, 29.85]
   city_hint: "Gainesville FL"
 
+map:
+  # Default Live Map viewport when the user opens the Map tab.
+  # White-label rule: map.js must NOT hardcode coordinates — every value lives
+  # here. New agencies override this block with their own center/zoom.
+  default_view:
+    center: [-82.345, 29.65]   # [lon, lat]
+    zoom: 11.7
+
 languages:
   default: "en"
   supported: ["en", "es"]

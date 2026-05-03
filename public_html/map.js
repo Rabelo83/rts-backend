@@ -14,7 +14,12 @@
 
   const TILE_STYLE       = 'https://tiles.openfreemap.org/styles/liberty';
   const VEHICLE_POLL_MS  = 30_000;
-  const GAINESVILLE      = { center: [-82.345, 29.65], zoom: 11.7 };
+  // Last-resort fallback only — used for the very first map() construction
+  // before /api/map/routes responds with the agency's actual default_view.
+  // Do NOT add agency-specific coordinates here; they belong in
+  // agency_config.yaml > map.default_view.
+  const FALLBACK_VIEW    = { center: [0, 0], zoom: 1 };
+  let defaultView        = null;     // {center: [lon, lat], zoom} from /api/map/routes
 
   let map           = null;
   let initStarted   = false;
@@ -68,11 +73,24 @@
       throw new Error('MapLibre GL not loaded');
     }
 
+    // Fetch routes + default_view BEFORE constructing the map so the agency's
+    // configured viewport is in place from frame 1 (no Gainesville-flash for
+    // a future agency, no jump on first paint).
+    let routesPayload;
+    try {
+      routesPayload = await fetchJSON('/api/map/routes');
+    } catch (err) {
+      console.warn('[map] /api/map/routes failed, using fallback view:', err);
+      routesPayload = { routes: [], default_view: FALLBACK_VIEW };
+    }
+    routes      = routesPayload.routes || [];
+    defaultView = routesPayload.default_view || FALLBACK_VIEW;
+
     map = new maplibregl.Map({
       container: 'map-canvas',
       style:     TILE_STYLE,
-      center:    GAINESVILLE.center,
-      zoom:      GAINESVILLE.zoom,
+      center:    defaultView.center,
+      zoom:      defaultView.zoom,
       attributionControl: { compact: true },
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
@@ -91,7 +109,6 @@
 
     await new Promise(resolve => map.once('load', resolve));
 
-    routes = await fetchJSON('/api/map/routes').then(d => d.routes || []);
     renderRouteRail(routes);
     syncMapControlOffset();
 
@@ -195,7 +212,8 @@
 
     if (!selectedRouteIds.size) {
       currentRouteInfoId = null;
-      map.flyTo({ center: GAINESVILLE.center, zoom: GAINESVILLE.zoom });
+      const view = defaultView || FALLBACK_VIEW;
+      map.flyTo({ center: view.center, zoom: view.zoom });
       return;
     }
 

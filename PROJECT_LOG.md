@@ -17,6 +17,22 @@ How to use:
 
 ---
 
+### 2026-05-03 — Live Map: agency-config-driven default viewport (no Gainesville hardcode)
+- Type: `fix`
+- Summary: Removed the last `GAINESVILLE = { center: [-82.345, 29.65], zoom: 11.7 }` constant from `public_html/map.js`. White-label rule #1 in `prompts/context/project-brief.md` says no Gainesville-specific values in code; this was the longest-standing violation in the map (since the MVP commit `e856724`).
+
+  Wiring:
+  - **`agency_config.yaml`** gains a new top-level `map.default_view: { center: [lon, lat], zoom }` block.
+  - **`utils/agency_config.py`** gets `get_map_default_view()` — reads `map.default_view`, falls back to the `geocoding.bbox` center if the explicit block is missing (so any pre-existing white-label deployment keeps working without a config edit).
+  - **`/api/map/routes`** payload now includes `default_view` alongside `routes`. Co-located so the frontend gets both in one round trip on map init — avoids creating a separate `/api/agency/config` endpoint.
+  - **`map.js`** fetches `/api/map/routes` BEFORE constructing the MapLibre map, then uses the agency's `default_view` for both initial creation AND the "clear filter" `flyTo`. Single `FALLBACK_VIEW = {center:[0,0], zoom:1}` remains as a last-resort if the endpoint fails outright — no agency-specific coords anywhere in JS.
+
+  Pattern matches `landmarks.coordinates`: any new agency just edits `agency_config.yaml`, no code changes. Cache: `map.js?v=20` → `?v=21`, `SW_VERSION` v12 → v13.
+- Files/Areas: `agency_config.yaml`, `utils/agency_config.py`, `routes/map_api.py`, `public_html/map.js`, `public_html/chat.html`, `public_html/service-worker.js`
+- Notes / Follow-up: Smoke-tested locally — getter returns `{center:[-82.345, 29.65], zoom:11.7}`, endpoint payload includes `default_view`. Closes a STATE-OF-PLAY open item.
+
+---
+
 ### 2026-05-01 — Live Map final UX polish: multi-select routes + clearer markers
 - Type: `feature, fix, docs`
 - Summary: End-of-day Live Map polish focused on making the map behave more like a rider-facing tool and less like a debug overlay.

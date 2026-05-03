@@ -308,7 +308,14 @@ def _find_next_stop_schedule(stop_id: str, limit: int) -> dict:
 
 @map_bp.route("/api/map/routes")
 def api_map_routes():
-    return jsonify({"routes": _load_routes()})
+    # Co-locate the default viewport with the route list so the frontend gets
+    # both in a single call on map init. Avoids hardcoding agency coordinates
+    # in map.js (white-label rule from prompts/context/project-brief.md).
+    from utils.agency_config import get_map_default_view
+    return jsonify({
+        "routes":       _load_routes(),
+        "default_view": get_map_default_view(),
+    })
 
 
 @map_bp.route("/api/map/route/<route_id>")
