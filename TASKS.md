@@ -622,6 +622,7 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 - [x] Bottom sheet on tap-bus → "Ask the Assistant" deep-link to chat with context-loaded question
 - [x] Bottom sheet on tap-stop → live predictions + scheduled next departures + "Ask the Assistant" + "Plan trip from here" deep-links
 - [x] Stop sheet now surfaces the next actual scheduled departure even after service rolls past midnight / into the next service day
+- [x] Stop sheet clearly states when the current schedule feed has no future scheduled departures for a stop
 - [x] Stop sheet shows a more prominent stop ID badge (`Stop ID 0369` style)
 - [x] Top route summary overlay opens from route chip taps or explicit reopen; bus taps keep only bus details open
 - [x] Route summary overlay can be hidden and reopened without losing context
@@ -629,6 +630,7 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 - [x] "Live Map" tab added to `chat.html`; `switchTab()` extended for 3-tab in `trip_planner.js`
 
 ### To do — polish + real-device QA
+- [ ] Refresh GTFS schedule feed after 2026-05-03; current calendar ends: Weekday 2026-05-01, Saturday 2026-05-02, Sunday 2026-05-03
 - [ ] Real-device test pass (iOS Safari + Android Chrome). User to validate visually.
 - [ ] Greyed-out chips for routes with no service today (use `service_ids_for_date` from engine)
 - [ ] Smoother marker tween between polls (currently snaps to new position)

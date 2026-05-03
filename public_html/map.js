@@ -717,7 +717,7 @@
           const time  = s.time_label || s.time || '';
           return `<div class="pred-row"><span>Route ${escHTML(route)} → ${escHTML(dest)}</span><span>${escHTML(time)}</span></div>`;
         }).join('')
-        : `<div class="map-sheet-section">Next scheduled departure</div><div class="pred-row"><span>No scheduled departures found soon.</span><span></span></div>`;
+        : `<div class="map-sheet-section">Next scheduled departure</div><div class="pred-row"><span>No future scheduled departures in the current schedule feed.</span><span></span></div>`;
 
     renderSheet(`
       <h3>${escHTML(stop.stop_name)}</h3>
