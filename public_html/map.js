@@ -247,6 +247,8 @@
       if (icon) icon.textContent = routeRailExpanded ? '⌃' : '⌄';
     }
     syncMapControlOffset();
+    requestAnimationFrame(syncMapControlOffset);
+    setTimeout(syncMapControlOffset, 220);
   }
 
   function collapseRouteRailFromMap() {
@@ -257,10 +259,9 @@
 
   function syncMapControlOffset() {
     const panel = document.getElementById('map-panel');
-    const controls = document.querySelector('.map-controls');
-    const rail = document.getElementById('map-route-rail');
+    const canvas = document.getElementById('map-canvas');
     if (!panel) return;
-    const offset = (controls?.offsetHeight || 0) + (rail?.offsetHeight || 0) + 12;
+    const offset = (canvas?.offsetTop || 0) + 12;
     panel.style.setProperty('--map-controls-offset', `${offset}px`);
   }
 
@@ -496,8 +497,9 @@
     if (v.route) {
       await ensureRouteSelected(v.route);
       setRouteRailExpanded(false);
+      currentRouteInfoId = v.route;
     }
-    hideRouteInfo(false);
+    hideRouteInfo(true);
 
     const askMsg = `Where is bus ${v.vehicle_id} on Route ${v.route} right now and when will it reach me?`;
 

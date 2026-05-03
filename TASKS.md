@@ -607,6 +607,8 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 - [x] Tapping a bus selects that bus's route and draws the matching route overlay
 - [x] Bus detail sheet removes speed and shows upcoming stop ETAs for the tapped vehicle when BusTime provides them
 - [x] Bus taps hide route summary so bus and route info never overlap
+- [x] Bus taps preserve route summary context behind the `Show route info` reopen control
+- [x] Route summary drawer anchors to the top of the map canvas after route tray transitions
 - [x] Selected route polylines render together with softer opacity so bus markers remain visually primary
 - [x] Bus markers upgraded from plain circles to side-view bus silhouettes while preserving route number/color + heading arrow
 - [x] Stop markers (highlighted when a route is selected)
