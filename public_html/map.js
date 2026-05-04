@@ -673,7 +673,7 @@
         <div class="meta">Loading arrivals…</div>
       </div>
     `);
-    requestAnimationFrame(() => keepSelectedStopInView(stop, { zoom: 16, duration: 420 }));
+    focusSelectedStopAfterSheetLayout(stop, { zoom: 16, duration: 420 });
     let preds = [];
     let scheduled = [];
     let scheduleServiceDay = '';
@@ -734,7 +734,7 @@
         <button class="map-sheet-btn ghost" onclick="window.planTripFromMap(${JSON.stringify(stop.stop_name).replace(/"/g, '&quot;')})">Plan trip from here</button>
       </div>
     `);
-    requestAnimationFrame(() => keepSelectedStopInView(stop, { zoom: 16, duration: 260 }));
+    focusSelectedStopAfterSheetLayout(stop, { zoom: 16, duration: 260 });
   }
 
   function renderSheet(html) {
@@ -941,18 +941,26 @@
 
     const sheetHeight = sheet && !sheet.classList.contains('hidden') ? sheet.offsetHeight : 0;
     const bottomClearance = Math.min(container.clientHeight * 0.45, sheetHeight + 56);
-    const point = map.project([lon, lat]);
-    const targetCenter = map.unproject([point.x, point.y + (bottomClearance / 2)]);
     const requestedZoom = Number(options.zoom);
     const targetZoom = Number.isFinite(requestedZoom)
       ? Math.max(map.getZoom(), requestedZoom)
       : map.getZoom();
 
     map.easeTo({
-      center: targetCenter,
+      center: [lon, lat],
       zoom: targetZoom,
+      offset: [0, -(bottomClearance / 2)],
       duration: options.duration ?? 420,
       essential: true,
+    });
+  }
+
+  function focusSelectedStopAfterSheetLayout(stop, options = {}) {
+    requestAnimationFrame(() => {
+      keepSelectedStopInView(stop, options);
+      window.setTimeout(() => {
+        keepSelectedStopInView(stop, { ...options, duration: 160 });
+      }, (options.duration ?? 420) + 80);
     });
   }
 

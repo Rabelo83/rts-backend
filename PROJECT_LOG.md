@@ -21,7 +21,7 @@ How to use:
 - Type: `fix`
 - Summary: Stop-ID search and stop taps now keep the highlighted stop visible above the ETA bottom sheet instead of centering it behind the overlay. The phone layout also gets a viewport-fit pass: mobile inputs stay at 16px to prevent browser auto-zoom, the app shell uses the real small viewport height, and the map sheet respects safe-area insets.
 - Files/Areas: `public_html/map.js`, `public_html/chat.html`
-- Notes / Follow-up: Real-device QA should confirm iPhone/Android no longer require pinch-zoom after focusing the Stop ID search.
+- Notes / Follow-up: Follow-up same day replaced the custom projection math with MapLibre's native camera `offset`, plus a short settle pass after sheet layout, because changing zoom and projecting in the same animation could leave searched stops partially off-screen after repeated searches.
 
 ---
 
