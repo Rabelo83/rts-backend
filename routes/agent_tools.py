@@ -69,7 +69,8 @@ TOOLS: list[dict] = [
                 "Use this when the user asks 'when is the next bus', 'ETA', "
                 "'how long until the bus', or any question about live arrivals. "
                 "Requires a 4-digit stop ID — call search_stops first if you "
-                "only have a place name."
+                "only have a place name. If the user asks for a specific route "
+                "at this stop, pass route_id so the live predictions are filtered."
             ),
             "parameters": {
                 "type": "object",
@@ -77,6 +78,10 @@ TOOLS: list[dict] = [
                     "stop_id": {
                         "type": "string",
                         "description": "4-digit zero-padded GTFS stop ID (e.g. '0001', '0520').",
+                    },
+                    "route_id": {
+                        "type": "string",
+                        "description": "Optional route number to filter live predictions (e.g. '1', '43', '75').",
                     }
                 },
                 "required": ["stop_id"],
@@ -484,12 +489,15 @@ TOOLS: list[dict] = [
 #   No match:
 #     {"status": "not_found", "name": "Walmart on Archer", "message": "No stops found matching that name."}
 #
-# get_realtime_predictions(stop_id: str) → dict
+# get_realtime_predictions(stop_id: str, route_id?: str) → dict
 # ──────────────────────────────────────────────
 #   Predictions available:
 #     {"status": "ok", "stop_id": "0001", "stop_name": "Rosa Parks Downtown Station",
 #      "predictions": [{"route": "10", "headsign": "To Butler Plaza TS", "minutes": 3, "delayed": false},
 #                      {"route": "43", "headsign": "To Santa Fe College", "minutes": 12, "delayed": false}]}
+#   Specific route not currently predicted at this stop:
+#     {"status": "no_route_prediction", "route": "1", "stop_id": "0001", "stop_name": "...",
+#      "available_routes": ["7", "15", "26"], "message": "..."}
 #   No buses coming:
 #     {"status": "no_service", "stop_id": "0001", "stop_name": "...",
 #      "message": "No active bus predictions at this stop right now."}
@@ -853,8 +861,9 @@ def _tool_search_stops(name: str, route_id: str | None = None) -> dict:
 
 # ── Tool 2: get_realtime_predictions ────────────────────────────────────────
 
-def _tool_get_realtime_predictions(stop_id: str) -> dict:
+def _tool_get_realtime_predictions(stop_id: str, route_id: str | None = None) -> dict:
     """Get live Bustime predictions at a stop."""
+    route_id = _normalize_route_id(route_id)
     try:
         data = get_predictions_cached(stop_id) or {}
     except Exception as exc:
@@ -894,10 +903,27 @@ def _tool_get_realtime_predictions(stop_id: str) -> dict:
             "delayed": delayed,
         })
 
+    if route_id:
+        route_predictions = [p for p in formatted if p.get("route") == route_id]
+        if not route_predictions:
+            return {
+                "status": "no_route_prediction",
+                "route": route_id,
+                "stop_id": stop_id,
+                "stop_name": stop_name,
+                "available_routes": sorted({p.get("route") for p in formatted if p.get("route")}),
+                "message": (
+                    f"No live Route {route_id} prediction at {stop_name} right now. "
+                    "Try the schedule as a fallback."
+                ),
+            }
+        formatted = route_predictions
+
     return {
         "status": "ok",
         "stop_id": stop_id,
         "stop_name": stop_name,
+        "route_filter": route_id,
         "predictions": formatted,
     }
 

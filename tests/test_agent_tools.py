@@ -43,3 +43,39 @@ class TestScheduleRouteAwareAliases:
         assert result["status"] == "multiple_stops"
         stop_ids = {c["stop_id_padded"] for c in result["candidates"]}
         assert {"0042", "0446", "0664"}.issubset(stop_ids)
+
+
+class TestRealtimeRouteFilter:
+    def test_realtime_predictions_can_filter_to_specific_route(self, monkeypatch):
+        from routes import agent_tools
+
+        monkeypatch.setattr(agent_tools, "get_predictions_cached", lambda stop_id: {
+            "prd": [
+                {"rt": "7", "des": "Eastwood Meadows", "prdctdn": "DUE", "stpnm": "Rosa Parks Downtown Station"},
+                {"rt": "1", "des": "Butler Plaza Transfer Station", "prdctdn": "28", "stpnm": "Rosa Parks Downtown Station"},
+            ]
+        })
+
+        result = dispatch_tool("get_realtime_predictions", {"stop_id": "0001", "route_id": "1"})
+
+        assert result["status"] == "ok"
+        assert result["route_filter"] == "1"
+        assert result["predictions"] == [
+            {"route": "1", "headsign": "Butler Plaza Transfer Station", "minutes": 28, "delayed": False}
+        ]
+
+    def test_realtime_predictions_reports_missing_route_without_gtfs_claim(self, monkeypatch):
+        from routes import agent_tools
+
+        monkeypatch.setattr(agent_tools, "get_predictions_cached", lambda stop_id: {
+            "prd": [
+                {"rt": "7", "des": "Eastwood Meadows", "prdctdn": "DUE", "stpnm": "Rosa Parks Downtown Station"},
+                {"rt": "26", "des": "GNV Airport", "prdctdn": "26", "stpnm": "Rosa Parks Downtown Station"},
+            ]
+        })
+
+        result = dispatch_tool("get_realtime_predictions", {"stop_id": "0001", "route_id": "1"})
+
+        assert result["status"] == "no_route_prediction"
+        assert result["route"] == "1"
+        assert result["available_routes"] == ["26", "7"]

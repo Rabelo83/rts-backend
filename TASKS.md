@@ -135,6 +135,7 @@ Closes the 10% gap the LLM judge cannot cover — factual accuracy of times, sto
 - [x] Fixed `OPENAI_MODEL_V4` fallback in `agent_gpt_v3.py` to respect `OPENAI_MODEL` env var
 - [x] Fixed `sys.path` for local Flask test client in `run_and_judge.py`
 - [x] Real-time first rule added to system prompt — agent now tries `get_realtime_predictions` before `get_schedule` for route+stop queries
+- [x] Route+stop "next" questions now pass `route_id` into `get_realtime_predictions`, so live ETA wins over stale GTFS before schedule fallback
 
 ### Level 2 — Production Feedback Loop ✅ DONE (2026-03-19)
 - [x] Real user queries logged to `data/analytics.sqlite`

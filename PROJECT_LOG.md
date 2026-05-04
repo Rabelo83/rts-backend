@@ -17,6 +17,14 @@ How to use:
 
 ---
 
+### 2026-05-04 — Agent: route+stop "next" uses ETA before stale GTFS
+- Type: `fix`
+- Summary: Fixed a contradiction where the prompt told the agent to use static GTFS for route+stop questions even when the user asked for "next" / ETA. With the current GTFS calendar stale, this caused a bad answer: live predictions showed Route 1 arriving at Rosa Parks, then the follow-up "next route 1 at rosa parks?" answered "Route 1 does not run today." The agent now treats live ETA as first source for route+stop "next" questions, and `get_realtime_predictions` accepts an optional `route_id` so it can return route-filtered predictions directly.
+- Files/Areas: `routes/agent_claude.py`, `routes/agent_tools.py`, `tests/test_agent_tools.py`
+- Notes / Follow-up: Static GTFS remains the fallback for first/last/schedule/date questions or when realtime is unavailable/no matching route prediction.
+
+---
+
 ### 2026-05-04 — Live Map: selected stop camera + mobile viewport fit
 - Type: `fix`
 - Summary: Stop-ID search and stop taps now keep the highlighted stop visible above the ETA bottom sheet instead of centering it behind the overlay. The phone layout also gets a viewport-fit pass: mobile inputs stay at 16px to prevent browser auto-zoom, the app shell uses the real small viewport height, and the map sheet respects safe-area insets.

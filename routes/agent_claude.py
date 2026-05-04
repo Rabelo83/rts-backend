@@ -98,19 +98,23 @@ tool result from this conversation. Never use training knowledge about
 {agency_full_name} bus schedules — it may be outdated or wrong.
 If no tool returned data, tell the user clearly. Do not guess.
 
-CRITICAL: If the tool returns no_trips or an empty result for a specific
-route+stop combination, the route does NOT serve that stop. Say so explicitly:
+CRITICAL: If the tool returns route_not_at_stop for a specific route+stop
+combination, the route does NOT serve that stop. Say so explicitly:
 "Route X does not appear to serve stop Y." Do NOT invent times or schedules.
+If the tool returns no_trips, say only that the current schedule feed has no
+scheduled departures for that route/stop/date/time. Do NOT turn no_trips into
+"the route does not run" or "the route does not serve this stop."
 
 ## ALWAYS CALL A TOOL FIRST
 Before answering any factual transit question, call the right tool:
 
 | User says...                                                    | Tool to call              |
 |-----------------------------------------------------------------|---------------------------|
-| "ETA", "next bus", "how long", "is the bus coming" — AND       | get_realtime_predictions  |
-|   NO specific route mentioned (stop only)                      |                           |
-| specific route + stop mentioned together ("route 15 stop 221") | get_schedule (route_id +  |
-|   — with or without a time                                     |   stop_id, kind="next")   |
+| "ETA", "next bus", "next route X", "how long", "is the bus    | get_realtime_predictions  |
+|   coming" at a stop — with OR without a route number           |   (include route_id if    |
+|                                                                 |   the user gave one)      |
+| specific route + stop + specific time/date, "first bus",       | get_schedule              |
+|   "last bus", or "schedule"                                   |                           |
 | specific time/date + stop, "first bus at stop X", "schedule"   | get_schedule              |
 | "what routes go to X", "how do I get to Y"                     | search_routes             |
 | ambiguous destination type ("library", "DMV", "Walmart")      | suggest_destinations      |
@@ -141,10 +145,18 @@ Before answering any factual transit question, call the right tool:
 
 ## ROUTE + STOP COMBINATION RULE
 When the user provides BOTH a route number AND a stop ID/name:
-- ALWAYS call get_schedule with BOTH route_id= and stop_id=.
-- NEVER call get_realtime_predictions alone — it does not filter by route.
-- If get_schedule returns no_trips or route_not_found, tell the user that
+- If the user asks for "next", "ETA", "arriving", "right now", or "how long",
+  ALWAYS call get_realtime_predictions with BOTH stop_id= and route_id= first.
+  Live ETA is ground truth for active service, especially when the GTFS feed is stale.
+- Use get_schedule with BOTH route_id= and stop_id= only for static schedule
+  questions: first bus, last bus, a specific time/date, or "show me the schedule".
+- If get_realtime_predictions returns no_route_prediction/no_service/api_unavailable,
+  THEN fall back to get_schedule with the same route_id + stop_id.
+- If get_schedule returns route_not_at_stop after that fallback, tell the user that
   route does NOT serve that stop. Do NOT fabricate a schedule.
+- If get_schedule returns no_trips after that fallback, say the current schedule
+  feed has no scheduled departure for that route/stop. Do NOT claim the route
+  does not run if realtime was unavailable or the GTFS calendar may be stale.
 
 ## STOP ID RULES
 - User gives a numeric stop ID ("stop 1", "stop 773") → use it directly,
@@ -238,8 +250,8 @@ or after you asked them to choose a stop:
 ## REAL-TIME FIRST RULE
 When the user asks "when is the next [Route X] from [stop]?" — ALWAYS try
 real-time predictions first:
-1. Resolve the stop → call get_realtime_predictions(stop_id)
-2. Filter the results for Route X and report the ETA if found.
+1. Resolve the stop → call get_realtime_predictions(stop_id, route_id=Route X)
+2. Report the route-filtered ETA if found.
 3. Only if the route is not in the real-time results (or api_unavailable)
    → fall back to get_schedule(route_id, stop_name).
 4. If the stop/place name is ambiguous in a route-specific hospital/campus
@@ -393,7 +405,7 @@ def _fallback_from_tool_results(tool_results: list[dict], lang: str) -> str:
                 "Try the Trip Planner tab for more options, or call "
                 f"{get_support_phone()} ({get_support_hours()})."
             )
-        if status in ("no_trips", "no_service") and msg:
+        if status in ("no_trips", "no_service", "no_route_prediction") and msg:
             return msg
         if status == "api_unavailable":
             return (
