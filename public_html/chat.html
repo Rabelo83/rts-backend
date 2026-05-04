@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>RTS Live Assistant</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
   <!-- PWA: manifest + shared chrome styles (travel together) -->
   <link rel="manifest" href="/manifest.json">
@@ -46,6 +46,7 @@
     /* ── Base ───────────────────────────────────────────────── */
     html, body {
       height: 100%;
+      width: 100%;
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background: var(--bg);
       color: var(--text);
@@ -54,6 +55,8 @@
 
     body {
       height: 100dvh;
+      min-height: 100svh;
+      width: 100%;
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -2067,14 +2070,32 @@
 
     /* ── Responsive ──────────────────────────────────────────── */
     @media (max-width: 600px) {
+      html,
+      body {
+        width: 100%;
+        min-width: 0;
+        overflow: hidden;
+      }
+      body {
+        height: 100svh;
+        min-height: 100svh;
+      }
+      input,
+      textarea,
+      select {
+        font-size: 16px;
+      }
       .chat-main {
         padding: 0;
         align-items: stretch;
+        width: 100%;
       }
       #chat-panel {
-        width: 100%;
+        width: 100vw;
         max-width: none;
+        max-height: 100%;
         height: 100%;
+        min-height: 0;
         border-radius: 0;
         border: none;
         box-shadow: none;
@@ -2111,7 +2132,16 @@
       }
       .map-stop-search-shell {
         width: 100%;
-        min-height: 40px;
+        min-height: 44px;
+        padding: 4px 4px 4px 10px;
+      }
+      .map-stop-search input {
+        height: 32px;
+        font-size: 16px;
+      }
+      .map-stop-search-btn {
+        width: 34px;
+        height: 34px;
       }
       .map-route-rail.expanded {
         max-height: 170px;
@@ -2119,6 +2149,13 @@
       }
       .map-chip {
         min-height: 38px;
+      }
+      .map-sheet {
+        left: 8px;
+        right: 8px;
+        bottom: max(8px, env(safe-area-inset-bottom, 0px));
+        max-height: min(54%, 360px);
+        padding: 14px 14px calc(env(safe-area-inset-bottom, 0px) + 14px);
       }
     }
   </style>
@@ -2238,7 +2275,7 @@
   <script src="/static/trip_planner.js?v=3" defer></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="/static/map.js?v=25" defer></script>
+  <script src="/static/map.js?v=26" defer></script>
 
   <!-- PWA chrome (offline banner, install button, iOS tip) -->
   <div id="offline-banner" hidden>You're offline. Showing last known information.</div>

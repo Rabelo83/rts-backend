@@ -1,7 +1,7 @@
 {
   "project": "RTS Backend + Web Assistant",
-  "updated_at": "2026-03-19",
-  "note": "Session 19: Migrated agent from GPT-4o-mini to Claude API (v3). Clean system prompt rewrite, 30/30 test pass, deployed to Render. Dashboard redesign with live metrics, PIN login, analytics backup, SQLite session persistence, Render Persistent Disk.",
+  "updated_at": "2026-05-04",
+  "note": "Live Map polish: selected Stop ID searches keep the highlighted stop visible above the ETA sheet, and mobile viewport/input sizing was tightened so phone users do not need to pinch-zoom out after focusing controls.",
   "vision": {
     "statement": "An AI-powered transit assistant for Gainesville RTS riders that understands plain-language questions and guides the customer to the right answer — whether that's a real-time ETA or a scheduled departure time.",
     "cx_journey": "Customer arrives at the assistant and types a question in plain language (e.g. 'When does the next 75 leave Butler Plaza?'). The assistant leads the interaction — asking clarifying questions when needed — until it can deliver the specific ETA or schedule information the rider needs.",
@@ -39,6 +39,13 @@
       "status": "completed",
       "area": "Frontend",
       "details": "Static pages in public_html include main interface, standalone chat, and wizard workflow."
+    },
+    {
+      "id": "done-live-map-selected-stop-mobile-fit",
+      "title": "Live Map selected-stop visibility and mobile viewport fit",
+      "status": "completed",
+      "area": "Frontend",
+      "details": "Stop ID search and stop taps offset the map camera so the highlighted stop stays above the ETA sheet. Mobile inputs use 16px font sizing, the app shell fits the small viewport height, and bottom sheets respect safe-area insets."
     },
     {
       "id": "done-ai-assistant",

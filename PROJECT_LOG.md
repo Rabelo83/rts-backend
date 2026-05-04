@@ -17,6 +17,14 @@ How to use:
 
 ---
 
+### 2026-05-04 — Live Map: selected stop camera + mobile viewport fit
+- Type: `fix`
+- Summary: Stop-ID search and stop taps now keep the highlighted stop visible above the ETA bottom sheet instead of centering it behind the overlay. The phone layout also gets a viewport-fit pass: mobile inputs stay at 16px to prevent browser auto-zoom, the app shell uses the real small viewport height, and the map sheet respects safe-area insets.
+- Files/Areas: `public_html/map.js`, `public_html/chat.html`
+- Notes / Follow-up: Real-device QA should confirm iPhone/Android no longer require pinch-zoom after focusing the Stop ID search.
+
+---
+
 ### 2026-05-03 — Agent: system-wide first/last bus tool
 - Type: `feature, fix`
 - Summary: Real conversation today exposed the gap. User asked "when will the first bus be running today" → "of every route" → "system-wide first bus across all routes" and the agent answered: "I don't have a tool that shows the first bus across all routes system-wide at once… Visit the live map at https://go-rts.com." Two failures in one — the missing tool, and falling back to the competitor's URL.

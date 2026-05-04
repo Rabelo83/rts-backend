@@ -673,6 +673,7 @@
         <div class="meta">Loading arrivals…</div>
       </div>
     `);
+    requestAnimationFrame(() => keepSelectedStopInView(stop, { zoom: 16, duration: 420 }));
     let preds = [];
     let scheduled = [];
     let scheduleServiceDay = '';
@@ -733,6 +734,7 @@
         <button class="map-sheet-btn ghost" onclick="window.planTripFromMap(${JSON.stringify(stop.stop_name).replace(/"/g, '&quot;')})">Plan trip from here</button>
       </div>
     `);
+    requestAnimationFrame(() => keepSelectedStopInView(stop, { zoom: 16, duration: 260 }));
   }
 
   function renderSheet(html) {
@@ -927,12 +929,36 @@
       .addTo(map);
   }
 
+  function keepSelectedStopInView(stop, options = {}) {
+    if (!map || !stop || stop.lat == null || stop.lon == null) return;
+    const lon = Number(stop.lon);
+    const lat = Number(stop.lat);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+
+    const container = map.getContainer();
+    const sheet = document.getElementById('map-sheet');
+    if (!container || !container.clientHeight) return;
+
+    const sheetHeight = sheet && !sheet.classList.contains('hidden') ? sheet.offsetHeight : 0;
+    const bottomClearance = Math.min(container.clientHeight * 0.45, sheetHeight + 56);
+    const point = map.project([lon, lat]);
+    const targetCenter = map.unproject([point.x, point.y + (bottomClearance / 2)]);
+    const requestedZoom = Number(options.zoom);
+    const targetZoom = Number.isFinite(requestedZoom)
+      ? Math.max(map.getZoom(), requestedZoom)
+      : map.getZoom();
+
+    map.easeTo({
+      center: targetCenter,
+      zoom: targetZoom,
+      duration: options.duration ?? 420,
+      essential: true,
+    });
+  }
+
   // Bridge from the nearby-stops list back into the existing stop sheet flow.
   window.openStopFromNearby = function(stop) {
     if (!stop) return;
-    if (stop.lat != null && stop.lon != null) {
-      map.flyTo({ center: [stop.lon, stop.lat], zoom: 16, duration: 500 });
-    }
     showStopSheet(stop);
   };
 
@@ -979,7 +1005,6 @@
       return;
     }
 
-    map.flyTo({ center: [stop.lon, stop.lat], zoom: 16, duration: 600 });
     showStopSheet({
       stop_id:   stop.stop_id,
       stop_name: stop.stop_name,

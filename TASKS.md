@@ -1,6 +1,6 @@
 # RTS Project Task Tracker
 
-Last updated: 2026-05-01
+Last updated: 2026-05-04
 
 This file is a project task tracker for the RTS backend/web assistant project. It captures:
 - what has already been completed to reach the current state
@@ -625,6 +625,8 @@ Replacement-grade pillar: Go RTS / RideRTS ship a live bus map. Stack chosen for
 - [x] Stop sheet clearly states when the current schedule feed has no future scheduled departures for a stop
 - [x] Stop sheet shows a more prominent stop ID badge (`Stop ID 0369` style)
 - [x] Stop ID search / stop taps show a pulsing selected-stop marker on the map
+- [x] Stop ID search / stop taps keep the selected stop visible above the ETA bottom sheet instead of hiding it behind the overlay
+- [x] Mobile map viewport pass: 16px inputs prevent browser auto-zoom, the shell fits the small viewport, and bottom sheets respect safe-area insets
 - [x] Top route summary overlay opens from route chip taps or explicit reopen; bus taps keep only bus details open
 - [x] Route summary overlay can be hidden and reopened without losing context
 - [x] Route summary overlay shows a "Scroll for more" hint when content overflows one screen
