@@ -34,6 +34,7 @@
   let currentRouteInfoId = null;    // last route shown in the top info panel
   let routeRailExpanded = false;    // compact by default; expands into wrapped route tray
   let userMarker    = null;         // MapLibre Marker for "you are here"
+  let selectedStopMarker = null;    // search/tap focus marker for the active stop
   let liveStatusKey = null;
   let busSheetRun   = 0;
 
@@ -662,6 +663,7 @@
   }
 
   async function showStopSheet(stop) {
+    highlightSelectedStop(stop);
     const stopIdLabel = formatStopId(stop.stop_id);
     hideRouteInfo(false);
     renderSheet(`
@@ -908,6 +910,21 @@
     el.className = 'map-user-pin';
     el.title = 'You are here';
     userMarker = new maplibregl.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
+  }
+
+  function highlightSelectedStop(stop) {
+    if (!stop || stop.lat == null || stop.lon == null) return;
+    const lon = Number(stop.lon);
+    const lat = Number(stop.lat);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+
+    if (selectedStopMarker) selectedStopMarker.remove();
+    const el = document.createElement('div');
+    el.className = 'map-selected-stop';
+    el.title = `Selected stop ${formatStopId(stop.stop_id)}`;
+    selectedStopMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([lon, lat])
+      .addTo(map);
   }
 
   // Bridge from the nearby-stops list back into the existing stop sheet flow.

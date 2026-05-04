@@ -1339,6 +1339,30 @@
       font-size: 0.66rem;
       font-weight: 800;
     }
+    .map-selected-stop {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      background: #2563eb;
+      box-shadow:
+        0 0 0 5px rgba(37,99,235,0.28),
+        0 8px 18px rgba(15,23,42,0.45);
+      position: relative;
+      pointer-events: none;
+    }
+    .map-selected-stop::after {
+      content: "";
+      position: absolute;
+      inset: -10px;
+      border-radius: 50%;
+      border: 2px solid rgba(37,99,235,0.48);
+      animation: map-selected-stop-pulse 1.45s ease-out infinite;
+    }
+    @keyframes map-selected-stop-pulse {
+      0% { transform: scale(0.72); opacity: 0.95; }
+      100% { transform: scale(1.55); opacity: 0; }
+    }
 
     /* Bottom sheet */
     .map-sheet {
@@ -2214,7 +2238,7 @@
   <script src="/static/trip_planner.js?v=3" defer></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="/static/map.js?v=24" defer></script>
+  <script src="/static/map.js?v=25" defer></script>
 
   <!-- PWA chrome (offline banner, install button, iOS tip) -->
   <div id="offline-banner" hidden>You're offline. Showing last known information.</div>

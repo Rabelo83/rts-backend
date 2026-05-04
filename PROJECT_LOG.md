@@ -65,6 +65,7 @@ How to use:
   - Route info positioning now anchors to the actual top of the map canvas after route-tray transitions, preventing the drawer from drifting downward.
   - Route stop dots now inherit the selected route color with a white ring/soft halo so route identity holds up when zoomed out.
   - Stop fallback wording now says "No future scheduled departures in the current schedule feed" when GTFS has no upcoming service, avoiding the misleading "found soon" phrasing.
+  - Stop ID search and stop taps now drop a pulsing selected-stop marker on the map so riders can see which stop the sheet belongs to.
   - Refined map sheet/route drawer spacing, line-height, and ETA alignment for small mobile screens.
   - Control layout is now mobile-first: `Routes: All` and Stop ID lookup share one toolbar row, and route chips live in an expandable tray below the Routes button instead of permanently crowding the map.
   - The route tray now collapses when the rider taps the map, while the Routes button remains the primary open/close control.
