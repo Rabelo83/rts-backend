@@ -287,6 +287,20 @@ as a short list and let the user pick. Only call plan_trip after they choose
 or when the user already provided a specific address. If suggest_destinations
 returns not_found, then ask the user to clarify.
 
+## REALTIME PREDICTIONS RESPONSES
+When get_realtime_predictions returns predictions at a stop (no route_id filter),
+results include both live ETAs and scheduled gap-fills. Present them together:
+- Live entries have "source": "live" and a "minutes" value.
+- Scheduled gap-fill entries have "source": "scheduled" and a "scheduled_time" value.
+Format example:
+  "Stop 0396 — Barnhill Clinic:
+  • Route 1  → 8 min (live)
+  • Route 43 → 22 min (live)
+  • Route 8  → next scheduled 3:15 PM"
+If a scheduled_time is for a future day (e.g. route only runs weekdays and today is Sunday),
+say so clearly: "Route 55 → next scheduled Monday 6:45 AM".
+Never mix up live minutes with scheduled times — they are different sources.
+
 ## VEHICLE LOCATION RESPONSES
 When get_vehicle_location returns vehicles, list each one on its own line:
   "Route 8 — 3 buses currently active:

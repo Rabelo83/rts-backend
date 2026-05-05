@@ -861,6 +861,43 @@ def _tool_search_stops(name: str, route_id: str | None = None) -> dict:
 
 # ── Tool 2: get_realtime_predictions ────────────────────────────────────────
 
+def _gap_fill_with_schedule(live_predictions: list, stop_id: str) -> list:
+    """Append next scheduled departure for routes that serve this stop but have no live prediction.
+
+    BusTime only returns predictions within ~45 min. This fills the gap so riders see
+    all routes that serve the stop, not just the ones with an imminent bus.
+    """
+    from datetime import datetime
+    try:
+        now = datetime.now(_sched.TZ)
+        date_iso = now.date().isoformat()
+        date_compact = now.strftime("%Y%m%d")
+        time_str = now.strftime("%H:%M:%S")
+        conn = _sched.connect_db()
+        try:
+            rows = _sched.next_departures_all_routes(
+                conn, stop_id, date_iso, date_compact, time_str
+            )
+        finally:
+            conn.close()
+        live_routes = {p["route"] for p in live_predictions}
+        result = list(live_predictions)
+        for row in rows:
+            rt = str(row["route_short_name"])
+            if rt not in live_routes:
+                result.append({
+                    "route": rt,
+                    "headsign": row["trip_headsign"] or "",
+                    "minutes": None,
+                    "scheduled_time": format_time_12h(row["departure_time"]),
+                    "source": "scheduled",
+                })
+        return result
+    except Exception as exc:
+        logger.debug("Gap-fill schedule lookup failed for stop %s: %s", stop_id, exc)
+        return live_predictions
+
+
 def _tool_get_realtime_predictions(stop_id: str, route_id: str | None = None) -> dict:
     """Get live Bustime predictions at a stop."""
     route_id = _normalize_route_id(route_id)
@@ -901,6 +938,7 @@ def _tool_get_realtime_predictions(stop_id: str, route_id: str | None = None) ->
             "headsign": headsign,
             "minutes": minutes,
             "delayed": delayed,
+            "source": "live",
         })
 
     if route_id:
@@ -918,6 +956,8 @@ def _tool_get_realtime_predictions(stop_id: str, route_id: str | None = None) ->
                 ),
             }
         formatted = route_predictions
+    else:
+        formatted = _gap_fill_with_schedule(formatted, stop_id)
 
     return {
         "status": "ok",
