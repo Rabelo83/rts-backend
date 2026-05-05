@@ -21,7 +21,7 @@ realtime:
   rtpidatafeed: "bustime"
 
 gtfs:
-  static_feed_path: "Backend Basics/RTSGTFS_Spring2026_V6"
+  static_feed_path: "Backend Basics/RTSGTFS_Summer2026_V1"
   db_path: "Backend Basics/db/rts_gtfs.sqlite"
   refresh_mode: "on_deploy"               # later: scheduled
 

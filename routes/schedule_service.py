@@ -224,7 +224,8 @@ def get_active_service_label(date_et: date | None = None) -> str:
 
         if not base:
             return "No Service"
-        if "Reduced_Service" in base:
+        # Match any service_id that signals reduced service (underscore or hyphen variants)
+        if any("Reduced" in s for s in base):
             return "Reduced Service"
         if "Weekday" in base or "Mon-Thur" in base:
             return "Regular Weekday"
@@ -281,6 +282,7 @@ def get_route_first_last_by_service_type(route_id: str) -> dict:
         _label = {
             "Weekday": "Weekday", "Mon-Thur": "Weekday",
             "Reduced_Service": "Reduced Service",
+            "Reduced-Mo-Th": "Reduced Service", "Reduced-Fr": "Reduced Service",
             "Saturday": "Saturday", "Sunday": "Sunday",
         }
         result = {}

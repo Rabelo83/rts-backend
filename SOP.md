@@ -112,3 +112,84 @@ gunicorn server:app --workers 3 --timeout 60
 - routes/bustime.py: real-time endpoints
 - public_html/: frontend UI
 - Backend Basics/db/: GTFS DB, scripts, answering layer
+
+---
+
+## GTFS Seasonal Update Checklist
+
+Run this every time RTS provides a new GTFS zip (Spring → Summer, Summer → Fall, etc.).
+
+### 1. Inspect the new feed before building the DB
+
+```bash
+# From the extracted GTFS folder:
+cat feed_info.txt          # confirm feed_start_date / feed_end_date
+cat calendar.txt           # list all service_id names and their date windows
+cat routes.txt | cut -d',' -f1,3   # list route_short_names
+```
+
+**What to look for:**
+- Feed date window makes sense (no overlap with old feed, no gap)
+- All expected routes are present (compare count vs previous feed)
+- Note every `service_id` value — these are the names the code hardcodes
+
+### 2. Check for service_id naming changes (most common breakage point)
+
+Open `routes/schedule_service.py` and verify these two places match the new service_id values:
+
+**`get_active_service_label()` (~line 227)**
+This function pattern-matches service_id strings to return human labels.
+Currently recognises: `Reduced_Service`, anything containing `"Reduced"`, `Weekday`, `Mon-Thur`, `Saturday`, `Sunday`.
+If the new feed introduces a new name (e.g. `Reduced-Mo-Th`, `Summer-Weekday`), add it here.
+
+**`get_route_first_last_by_service_type()` `_label` dict (~line 282)**
+This maps raw service_id → display label used in agent responses.
+Add any new service_id values that should appear as "Weekday", "Reduced Service", etc.
+
+**`agent_tools.py` `get_service_differences()` (~line 1273)**
+Maps user-facing strings ("reduced") → service_id for DB queries.
+If reduced-service service_ids changed, update the mapping here too.
+
+### 3. Check for dropped routes
+
+```bash
+# diff route lists between old and new feed:
+cut -d',' -f1,3 Backend\ Basics/RTSGTFS_<OLD>/routes.txt | sort > /tmp/old_routes.txt
+cut -d',' -f1,3 Backend\ Basics/RTSGTFS_<NEW>/routes.txt | sort > /tmp/new_routes.txt
+diff /tmp/old_routes.txt /tmp/new_routes.txt
+```
+
+Dropped routes are expected (e.g. UF routes go away in summer). No code change needed — the engine handles missing routes gracefully. Just note them so you don't debug phantom "route not found" issues post-deploy.
+
+### 4. Build and deploy
+
+```bash
+# Build the DB locally first:
+python "Backend Basics/db/build_gtfs_db.py"
+
+# Spot-check the result:
+sqlite3 "Backend Basics/db/rts_gtfs.sqlite" "SELECT * FROM feed_info;"
+sqlite3 "Backend Basics/db/rts_gtfs.sqlite" "SELECT COUNT(*) FROM trips;"
+
+# Copy to data/ for the app:
+cp "Backend Basics/db/rts_gtfs.sqlite" data/rts_gtfs.sqlite
+```
+
+Then push to GitHub → Render auto-deploys.
+
+### 5. Post-deploy smoke tests
+
+After deploy, hit these in order:
+
+1. `GET /api/health` — `gtfs_engine.loaded` must be `true`
+2. `GET /api/gtfs-info` — confirm stop/trip counts match what you saw locally
+3. Ask the agent: *"What time does Route 1 start on weekdays?"* — should return a time, not an error
+4. Ask the agent: *"Does Route 75 run on Sundays?"* — tests Sunday service label
+5. If summer: ask about a route that was dropped (e.g. Route 55 in summer 2026) — agent should say it doesn't run, not crash
+
+### History of service_id names by season
+
+| Feed | Weekday ID | Reduced ID | Saturday | Sunday |
+|---|---|---|---|---|
+| Spring 2026 (V6) | `Weekday` | `Reduced_Service` | `Saturday` | `Sunday` |
+| Summer 2026 (V1) | `Weekday` | `Reduced-Mo-Th`, `Reduced-Fr` | `Saturday` | `Sunday` |
