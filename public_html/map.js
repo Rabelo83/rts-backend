@@ -677,24 +677,19 @@
     let preds = [];
     let scheduled = [];
     let scheduleServiceDay = '';
-    try {
-      // /api/predictions normalizes BusTime fields to {route, direction,
-      // destination, minutes, vehicle_id, arrival_time, delayed, ...}.
-      const data = await fetchJSON(`/api/predictions?stop_id=${encodeURIComponent(stop.stop_id)}`);
-      preds = (data && data.predictions) || [];
-    } catch {
-      preds = [];
-    }
-    if (!preds.length) {
-      try {
-        const data = await fetchJSON(`/api/map/stop/${encodeURIComponent(stop.stop_id)}/schedule?limit=6`);
-        scheduled = (data && data.departures) || [];
-        scheduleServiceDay = (data && data.service_day_label) || '';
-      } catch {
-        scheduled = [];
-        scheduleServiceDay = '';
-      }
-    }
+    // Fetch live ETAs and schedule in parallel — always both so we can merge them
+    const [predResult, schedResult] = await Promise.allSettled([
+      fetchJSON(`/api/predictions?stop_id=${encodeURIComponent(stop.stop_id)}`),
+      fetchJSON(`/api/map/stop/${encodeURIComponent(stop.stop_id)}/schedule?limit=12`),
+    ]);
+    preds     = (predResult.status  === 'fulfilled' && predResult.value?.predictions)   || [];
+    scheduled = (schedResult.status === 'fulfilled' && schedResult.value?.departures)   || [];
+    scheduleServiceDay = (schedResult.status === 'fulfilled' && schedResult.value?.service_day_label) || '';
+
+    // Gap-fill: only show scheduled entries for routes that have no live ETA
+    const liveRoutes = new Set(preds.map(p => p.route));
+    const gapFill = scheduled.filter(s => !liveRoutes.has(s.route));
+
     const askMsg = `What's coming up at stop ${stopIdLabel} (${stop.stop_name})?`;
 
     const fmtEta = m => {
@@ -705,7 +700,7 @@
       return Number.isFinite(n) ? `${n} min` : s;
     };
 
-    const arrivalHTML = preds.length
+    const liveHTML = preds.length
       ? `<div class="map-sheet-section">Live ETAs</div>` + preds.slice(0, 5).map(p => {
           const route = p.route || '';
           const dest  = p.destination || '';
@@ -713,20 +708,30 @@
           const dly   = p.delayed ? ' ⚠' : '';
           return `<div class="pred-row"><span>Route ${escHTML(route)} → ${escHTML(dest)}${dly}</span><span>${escHTML(eta)}</span></div>`;
         }).join('')
-      : scheduled.length
-        ? `<div class="map-sheet-section">Next scheduled departure${scheduleServiceDay ? ` · ${escHTML(scheduleServiceDay)}` : ''}</div>` + scheduled.map(s => {
+      : '';
+
+    const schedHTML = gapFill.length
+      ? `<div class="map-sheet-section">${preds.length ? 'Also at this stop' : `Next scheduled${scheduleServiceDay ? ` · ${escHTML(scheduleServiceDay)}` : ''}`}</div>` + gapFill.map(s => {
           const route = s.route || '';
           const dest  = s.headsign || '';
           const time  = s.time_label || s.time || '';
           return `<div class="pred-row"><span>Route ${escHTML(route)} → ${escHTML(dest)}</span><span>${escHTML(time)}</span></div>`;
         }).join('')
-        : `<div class="map-sheet-section">Next scheduled departure</div><div class="pred-row"><span>No future scheduled departures in the current schedule feed.</span><span></span></div>`;
+      : '';
+
+    const arrivalHTML = (liveHTML || schedHTML)
+      ? liveHTML + schedHTML
+      : `<div class="map-sheet-section">Next scheduled departure</div><div class="pred-row"><span>No future scheduled departures in the current schedule feed.</span><span></span></div>`;
+
+    const metaLabel = preds.length
+      ? `Live arrivals + ${gapFill.length ? gapFill.length + ' scheduled' : 'schedule'}`
+      : (scheduleServiceDay ? `Next service ${escHTML(scheduleServiceDay)}` : 'Scheduled');
 
     renderSheet(`
       <h3>${escHTML(stop.stop_name)}</h3>
       <div class="map-sheet-stop-meta">
         <span class="map-stop-id-badge">Stop ID ${escHTML(stopIdLabel)}</span>
-        <div class="meta">${preds.length ? 'Live arrivals available' : (scheduleServiceDay ? `Next service ${escHTML(scheduleServiceDay)}` : 'Scheduled fallback')}</div>
+        <div class="meta">${metaLabel}</div>
       </div>
       ${arrivalHTML}
       <div class="map-sheet-actions">

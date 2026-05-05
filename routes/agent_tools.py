@@ -866,32 +866,51 @@ def _gap_fill_with_schedule(live_predictions: list, stop_id: str) -> list:
 
     BusTime only returns predictions within ~45 min. This fills the gap so riders see
     all routes that serve the stop, not just the ones with an imminent bus.
+    Looks up to 14 days forward so routes with no service today (e.g. weekend-only)
+    still surface with their next scheduled departure and a day label.
     """
-    from datetime import datetime
+    from datetime import datetime, timedelta
     try:
-        now = datetime.now(_sched.TZ)
-        date_iso = now.date().isoformat()
-        date_compact = now.strftime("%Y%m%d")
-        time_str = now.strftime("%H:%M:%S")
-        conn = _sched.connect_db()
-        try:
-            rows = _sched.next_departures_all_routes(
-                conn, stop_id, date_iso, date_compact, time_str
-            )
-        finally:
-            conn.close()
-        live_routes = {p["route"] for p in live_predictions}
+        today = datetime.now(_sched.TZ).date()
+        covered = {p["route"] for p in live_predictions}
         result = list(live_predictions)
-        for row in rows:
-            rt = str(row["route_short_name"])
-            if rt not in live_routes:
-                result.append({
-                    "route": rt,
-                    "headsign": row["trip_headsign"] or "",
-                    "minutes": None,
-                    "scheduled_time": format_time_12h(row["departure_time"]),
-                    "source": "scheduled",
-                })
+
+        for offset in range(15):
+            target = today + timedelta(days=offset)
+            text = "now" if offset == 0 else f"{target.isoformat()} midnight"
+            data = _sched.get_schedule_all_routes(text, stop_id=stop_id)
+            if data.get("error"):
+                break
+            rows = data.get("next_by_route") or []
+            if not rows:
+                continue
+
+            if target == today:
+                day_label = None
+            elif target == today + timedelta(days=1):
+                day_label = "Tomorrow"
+            else:
+                day_label = target.strftime("%a %b %-d")
+
+            for rt, t, hs in rows:
+                route = str(rt)
+                if route not in covered:
+                    entry = {
+                        "route": route,
+                        "headsign": hs or "",
+                        "minutes": None,
+                        "scheduled_time": format_time_12h(t),
+                        "source": "scheduled",
+                    }
+                    if day_label:
+                        entry["scheduled_day"] = day_label
+                    result.append(entry)
+                    covered.add(route)
+
+            # Stop once every route at this stop has been found on some day
+            if not any(True for _ in rows if str(_[0]) not in covered):
+                break
+
         return result
     except Exception as exc:
         logger.debug("Gap-fill schedule lookup failed for stop %s: %s", stop_id, exc)

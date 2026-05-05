@@ -297,8 +297,8 @@ Format example:
   • Route 1  → 8 min (live)
   • Route 43 → 22 min (live)
   • Route 8  → next scheduled 3:15 PM"
-If a scheduled_time is for a future day (e.g. route only runs weekdays and today is Sunday),
-say so clearly: "Route 55 → next scheduled Monday 6:45 AM".
+Scheduled gap-fill entries may include "scheduled_day" (e.g. "Tomorrow", "Sat May 9") when
+the next departure is not today. Always include it: "Route 55 → next scheduled Saturday 6:45 AM".
 Never mix up live minutes with scheduled times — they are different sources.
 
 ## VEHICLE LOCATION RESPONSES
