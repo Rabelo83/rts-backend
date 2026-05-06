@@ -234,8 +234,20 @@ The agent prompt instructs Claude to always include the day label when present.
 - Gap-fill routes → "Also at this stop" section (when mixed with live) or "Next scheduled · [day]" (schedule-only)
 - Both fetched in parallel (`Promise.allSettled`) so neither blocks the other
 
+### Per-route forward look-ahead (important)
+
+Both the agent and map walk **day by day** and accumulate results **per route**. They do NOT stop at the first day that has any trips — they keep going until a full day passes with no new routes added (up to 14 days).
+
+This means:
+- A route whose last bus passed at 6 PM will still appear with tomorrow's time and a day label ("Tomorrow" or "Sat May 9")
+- Weekend-only routes surface on weekday stop sheets with their next Saturday/Sunday time
+- The label appears inline per route: "Route 43 → To Santa Fe (Tomorrow)  6:01 AM"
+
+**Common pitfall when debugging**: if you revert to stopping at the first non-empty day (the old `if rows: return ...` pattern), routes that finished service today will silently disappear from the stop sheet even though they still serve that stop.
+
 ### If something looks wrong
 
 - Agent shows routes missing at a busy stop → check `_gap_fill_with_schedule()` in `agent_tools.py`
 - Map shows only live ETAs with no scheduled fill → check `showStopSheet()` in `map.js` (look for `Promise.allSettled`)
 - Gap-fill returns no results at all → check `get_schedule_all_routes()` in `schedule_service.py`; the stop_id must match `stop_id_padded` in GTFS (4-digit zero-padded)
+- A route disappears from the stop sheet in the evening → the per-route look-ahead is broken; check termination logic in `_find_next_stop_schedule()` and `_gap_fill_with_schedule()`
