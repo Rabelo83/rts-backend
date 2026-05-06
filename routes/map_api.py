@@ -262,44 +262,49 @@ def _human_day_label(target_date, today):
 
 
 def _find_next_stop_schedule(stop_id: str, limit: int) -> dict:
+    """Return next scheduled departure per route at this stop, looking up to 14 days forward.
+
+    Walks day by day and accumulates per-route results. A route whose service
+    ended for today will appear with tomorrow's (or the next service day's) time
+    and a day label. Stops when a full day passes with no new routes added.
+    """
     today = datetime.now(schedule_service.TZ).date()
-    last_payload = None
+    covered = {}   # route_short_name -> departure dict
+    stop_name = None
+    prev_count = 0
 
     for offset in range(_SCHEDULE_LOOKAHEAD_DAYS + 1):
         target_date = today + timedelta(days=offset)
         text = "now" if offset == 0 else f"{target_date.isoformat()} midnight"
         data = schedule_service.get_schedule_all_routes(text, stop_id=stop_id)
         if data.get("error"):
-            return data
-        last_payload = data
-        rows = data.get("next_by_route") or []
-        if rows:
-            return {
-                "stop_id": stop_id,
-                "stop_name": data.get("stop"),
-                "date": data.get("date"),
-                "after": data.get("time"),
-                "service_day_label": _human_day_label(target_date, today),
-                "departures": [
-                    {
-                        "route": route,
-                        "time": time_str,
-                        "time_label": format_time_12h(time_str),
-                        "headsign": headsign,
-                        "is_scheduled": True,
-                    }
-                    for route, time_str, headsign in rows[:limit]
-                ],
-                "source": "gtfs_schedule",
-            }
+            if not covered:
+                return data
+            break
+        stop_name = stop_name or data.get("stop")
+        day_label = _human_day_label(target_date, today)
+        for route, time_str, headsign in (data.get("next_by_route") or []):
+            if route not in covered:
+                covered[route] = {
+                    "route": route,
+                    "time": time_str,
+                    "time_label": format_time_12h(time_str),
+                    "headsign": headsign,
+                    "service_day_label": day_label if target_date != today else None,
+                    "is_scheduled": True,
+                }
+        # Stop once a full day passes without finding any new routes
+        if offset > 0 and len(covered) == prev_count and covered:
+            break
+        prev_count = len(covered)
 
+    departures = list(covered.values())[:limit]
+    all_today = all(d.get("service_day_label") is None for d in departures)
     return {
         "stop_id": stop_id,
-        "stop_name": last_payload.get("stop") if last_payload else None,
-        "date": last_payload.get("date") if last_payload else None,
-        "after": last_payload.get("time") if last_payload else None,
-        "service_day_label": None,
-        "departures": [],
+        "stop_name": stop_name,
+        "service_day_label": "Today" if (departures and all_today) else None,
+        "departures": departures,
         "source": "gtfs_schedule",
     }
 

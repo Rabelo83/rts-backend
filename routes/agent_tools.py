@@ -875,6 +875,7 @@ def _gap_fill_with_schedule(live_predictions: list, stop_id: str) -> list:
         covered = {p["route"] for p in live_predictions}
         result = list(live_predictions)
 
+        prev_count = len(covered)
         for offset in range(15):
             target = today + timedelta(days=offset)
             text = "now" if offset == 0 else f"{target.isoformat()} midnight"
@@ -907,9 +908,10 @@ def _gap_fill_with_schedule(live_predictions: list, stop_id: str) -> list:
                     result.append(entry)
                     covered.add(route)
 
-            # Stop once every route at this stop has been found on some day
-            if not any(True for _ in rows if str(_[0]) not in covered):
+            # Stop once a full day passes with no new routes found
+            if offset > 0 and len(covered) == prev_count and covered:
                 break
+            prev_count = len(covered)
 
         return result
     except Exception as exc:

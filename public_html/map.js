@@ -712,10 +712,11 @@
 
     const schedHTML = gapFill.length
       ? `<div class="map-sheet-section">${preds.length ? 'Also at this stop' : `Next scheduled${scheduleServiceDay ? ` · ${escHTML(scheduleServiceDay)}` : ''}`}</div>` + gapFill.map(s => {
-          const route = s.route || '';
-          const dest  = s.headsign || '';
-          const time  = s.time_label || s.time || '';
-          return `<div class="pred-row"><span>Route ${escHTML(route)} → ${escHTML(dest)}</span><span>${escHTML(time)}</span></div>`;
+          const route   = s.route || '';
+          const dest    = s.headsign || '';
+          const time    = s.time_label || s.time || '';
+          const dayNote = s.service_day_label ? ` (${escHTML(s.service_day_label)})` : '';
+          return `<div class="pred-row"><span>Route ${escHTML(route)} → ${escHTML(dest)}${dayNote}</span><span>${escHTML(time)}</span></div>`;
         }).join('')
       : '';
 
@@ -724,7 +725,7 @@
       : `<div class="map-sheet-section">Next scheduled departure</div><div class="pred-row"><span>No future scheduled departures in the current schedule feed.</span><span></span></div>`;
 
     const metaLabel = preds.length
-      ? `Live arrivals + ${gapFill.length ? gapFill.length + ' scheduled' : 'schedule'}`
+      ? (gapFill.length ? `Live arrivals + ${gapFill.length} scheduled` : 'Live arrivals')
       : (scheduleServiceDay ? `Next service ${escHTML(scheduleServiceDay)}` : 'Scheduled');
 
     renderSheet(`
