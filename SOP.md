@@ -193,3 +193,49 @@ After deploy, hit these in order:
 |---|---|---|---|---|
 | Spring 2026 (V6) | `Weekday` | `Reduced_Service` | `Saturday` | `Sunday` |
 | Summer 2026 (V1) | `Weekday` | `Reduced-Mo-Th`, `Reduced-Fr` | `Saturday` | `Sunday` |
+
+---
+
+## Live ETA + Schedule Gap-Fill (How It Works)
+
+BusTime only returns predictions for buses arriving within ~45 minutes. At a multi-route stop,
+this means some routes appear live while others (no bus in the next 45 min) are silently absent.
+
+### The gap-fill pattern
+
+Both the chat agent and the map stop sheet follow this logic:
+
+1. **Fetch live predictions** from BusTime (`/api/predictions?stop_id=...`)
+2. **Fetch scheduled departures** from GTFS (`/api/map/stop/<id>/schedule` or `get_schedule_all_routes`)
+3. **Merge**: show live ETA for any route that has a prediction; show next scheduled time for any route that doesn't
+
+The schedule lookup searches **up to 14 days forward** so routes with no service today (e.g. weekend-only routes on a weekday) still surface with their next departure and a day label ("Tomorrow", "Sat May 9", etc.).
+
+### Where each piece lives
+
+| Surface | Live ETAs | Gap-fill | Merge point |
+|---|---|---|---|
+| Chat agent | `_tool_get_realtime_predictions` in `routes/agent_tools.py` | `_gap_fill_with_schedule()` (same file) | Inside `_tool_get_realtime_predictions` |
+| Map stop sheet | `/api/predictions` endpoint | `/api/map/stop/<id>/schedule` → `_find_next_stop_schedule()` in `routes/map_api.py` | `showStopSheet()` in `public_html/map.js` |
+
+### What the agent receives
+
+Gap-fill entries in the predictions list have:
+- `"source": "scheduled"` (live entries have `"source": "live"`)
+- `"scheduled_time"`: formatted time string (e.g. `"3:15 PM"`)
+- `"scheduled_day"`: only present when the departure is NOT today (e.g. `"Tomorrow"`, `"Sat May 9"`)
+- `"minutes": null` (no live countdown)
+
+The agent prompt instructs Claude to always include the day label when present.
+
+### What the map displays
+
+- Live routes → "Live ETAs" section with countdown in minutes
+- Gap-fill routes → "Also at this stop" section (when mixed with live) or "Next scheduled · [day]" (schedule-only)
+- Both fetched in parallel (`Promise.allSettled`) so neither blocks the other
+
+### If something looks wrong
+
+- Agent shows routes missing at a busy stop → check `_gap_fill_with_schedule()` in `agent_tools.py`
+- Map shows only live ETAs with no scheduled fill → check `showStopSheet()` in `map.js` (look for `Promise.allSettled`)
+- Gap-fill returns no results at all → check `get_schedule_all_routes()` in `schedule_service.py`; the stop_id must match `stop_id_padded` in GTFS (4-digit zero-padded)
