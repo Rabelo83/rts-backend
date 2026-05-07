@@ -701,7 +701,7 @@
     };
 
     const liveHTML = preds.length
-      ? `<div class="map-sheet-section">Live ETAs</div>` + preds.slice(0, 5).map(p => {
+      ? `<div class="map-sheet-section">Live ETAs</div>` + preds.map(p => {
           const route = p.route || '';
           const dest  = p.destination || '';
           const eta   = fmtEta(p.minutes);
