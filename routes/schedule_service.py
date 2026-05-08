@@ -608,11 +608,17 @@ def next_departures_all_routes(conn, stop_id_padded, date_iso, date_compact, tim
       EXCEPT
       SELECT service_id FROM exception_remove
     ),
+    trip_last_seq AS (
+      SELECT trip_id, MAX(stop_sequence) AS max_seq
+      FROM stop_times
+      GROUP BY trip_id
+    ),
     ranked AS (
       SELECT r.route_short_name, st.departure_time, t.trip_headsign,
-             ROW_NUMBER() OVER (PARTITION BY r.route_short_name, t.trip_headsign ORDER BY st.departure_time) AS rn
+             ROW_NUMBER() OVER (PARTITION BY r.route_short_name ORDER BY st.departure_time) AS rn
       FROM stops s
       JOIN stop_times st ON st.stop_id = s.stop_id
+      JOIN trip_last_seq tls ON tls.trip_id = st.trip_id AND st.stop_sequence < tls.max_seq
       JOIN trips t ON t.trip_id = st.trip_id
       JOIN routes r ON r.route_id = t.route_id
       JOIN active_services a ON a.service_id = t.service_id
