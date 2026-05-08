@@ -608,8 +608,10 @@ def next_departures_all_routes(conn, stop_id_padded, date_iso, date_compact, tim
       EXCEPT
       SELECT service_id FROM exception_remove
     ),
-    trip_last_seq AS (
-      SELECT trip_id, MAX(stop_sequence) AS max_seq
+    trip_bounds AS (
+      SELECT trip_id,
+             MIN(stop_sequence) AS min_seq,
+             MAX(stop_sequence) AS max_seq
       FROM stop_times
       GROUP BY trip_id
     ),
@@ -618,12 +620,14 @@ def next_departures_all_routes(conn, stop_id_padded, date_iso, date_compact, tim
              ROW_NUMBER() OVER (PARTITION BY r.route_short_name ORDER BY st.departure_time) AS rn
       FROM stops s
       JOIN stop_times st ON st.stop_id = s.stop_id
-      JOIN trip_last_seq tls ON tls.trip_id = st.trip_id AND st.stop_sequence < tls.max_seq
+      JOIN trip_bounds tb ON tb.trip_id = st.trip_id
       JOIN trips t ON t.trip_id = st.trip_id
       JOIN routes r ON r.route_id = t.route_id
       JOIN active_services a ON a.service_id = t.service_id
       WHERE s.stop_id_padded = :stop_id
         AND st.departure_time >= :time
+        AND CAST(st.stop_sequence - tb.min_seq AS REAL)
+            / NULLIF(tb.max_seq - tb.min_seq, 0) < 0.5
     )
     SELECT route_short_name, departure_time, trip_headsign
     FROM ranked
