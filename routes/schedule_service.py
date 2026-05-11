@@ -615,9 +615,10 @@ def next_departures_all_routes(conn, stop_id_padded, date_iso, date_compact, tim
       FROM stop_times
       GROUP BY trip_id
     ),
-    ranked AS (
+    candidates AS (
       SELECT r.route_short_name, st.departure_time, t.trip_headsign,
-             ROW_NUMBER() OVER (PARTITION BY r.route_short_name ORDER BY st.departure_time) AS rn
+             CAST(st.stop_sequence - tb.min_seq AS REAL)
+               / NULLIF(tb.max_seq - tb.min_seq, 0) AS rel_pos
       FROM stops s
       JOIN stop_times st ON st.stop_id = s.stop_id
       JOIN trip_bounds tb ON tb.trip_id = st.trip_id
@@ -626,8 +627,24 @@ def next_departures_all_routes(conn, stop_id_padded, date_iso, date_compact, tim
       JOIN active_services a ON a.service_id = t.service_id
       WHERE s.stop_id_padded = :stop_id
         AND st.departure_time >= :time
-        AND CAST(st.stop_sequence - tb.min_seq AS REAL)
-            / NULLIF(tb.max_seq - tb.min_seq, 0) < 0.5
+    ),
+    routes_with_outbound AS (
+      -- Routes that have at least one departure where this stop is in the first half
+      -- of the trip (true outbound departures, not inbound arrivals at a hub).
+      SELECT DISTINCT route_short_name FROM candidates WHERE rel_pos < 0.5
+    ),
+    ranked AS (
+      SELECT c.route_short_name, c.departure_time, c.trip_headsign,
+             ROW_NUMBER() OVER (PARTITION BY c.route_short_name ORDER BY c.departure_time) AS rn
+      FROM candidates c
+      WHERE
+        -- Prefer outbound-only trips for hub stops (avoids "→ Downtown" at Downtown)
+        (c.route_short_name IN (SELECT route_short_name FROM routes_with_outbound)
+         AND c.rel_pos < 0.5)
+        OR
+        -- Fallback: show best available for terminal/end-of-line stops that only
+        -- appear in the latter half of trips (e.g. Haystacks on route 75)
+        c.route_short_name NOT IN (SELECT route_short_name FROM routes_with_outbound)
     )
     SELECT route_short_name, departure_time, trip_headsign
     FROM ranked
