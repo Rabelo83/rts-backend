@@ -105,7 +105,7 @@
                 role="listitem"
                 data-route="${esc(r.short_name)}"
                 style="--chip-color:${color}"
-                onclick="window._schedSelectRoute(${JSON.stringify(r.short_name)})"
+                onclick="window._schedSelectRoute(${JSON.stringify(r.short_name).replace(/"/g, '&quot;')})"
                 aria-pressed="${active}">
           <span class="sched-chip-num">${esc(r.short_name)}</span>
           <span class="sched-chip-name">${esc(r.long_name || '')}</span>
@@ -168,7 +168,7 @@
     const svcBtns = (data.available_service_types || [])
       .map(st => `
         <button class="sched-svc-btn${st === _selectedSvc ? ' active' : ''}"
-                onclick="window._schedSetSvc(${JSON.stringify(st)})">
+                onclick="window._schedSetSvc(${JSON.stringify(st).replace(/"/g, '&quot;')})">
           ${esc(SVC_LABELS[st] || st)}
         </button>`
       ).join('');
@@ -177,7 +177,7 @@
     const dirs = data.directions || [];
     const dirBtns = dirs.map(d => `
       <button class="sched-dir-btn${d === _selectedDir ? ' active' : ''}"
-              onclick="window._schedSetDir(${JSON.stringify(d)})">
+              onclick="window._schedSetDir(${JSON.stringify(d).replace(/"/g, '&quot;')})">
         ${esc(d)}
       </button>`
     ).join('');
