@@ -657,7 +657,10 @@
       flex-shrink: 0;
       position: relative;
       z-index: 2;
+      overflow-x: auto;
+      scrollbar-width: none;
     }
+    .panel-tabs::-webkit-scrollbar { display: none; }
 
     .tab-btn {
       background: none;
@@ -2127,6 +2130,259 @@
     /* Last row in timeline — trim excess bottom padding */
     .tp-timeline .tp-row:last-child .tp-col-body { padding-bottom: 4px; }
 
+    /* ── Schedules panel ─────────────────────────────────────── */
+    #schedule-panel {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    #schedule-panel::-webkit-scrollbar { width: 4px; }
+    #schedule-panel::-webkit-scrollbar-track { background: transparent; }
+    #schedule-panel::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+    }
+
+    /* Route picker */
+    .sched-picker-header { display: flex; flex-direction: column; gap: 8px; }
+
+    .sched-search-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .sched-search-icon {
+      position: absolute;
+      left: 12px;
+      width: 16px; height: 16px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    .sched-search-input {
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.92rem;
+      padding: 10px 14px 10px 36px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .sched-search-input:focus { border-color: var(--border-focus); }
+
+    .sched-picker-hint {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    /* Route list grid */
+    .sched-route-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
+    }
+
+    .sched-route-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 0.82rem;
+      padding: 10px 12px;
+      cursor: pointer;
+      text-align: left;
+      transition: background .13s, border-color .13s, color .13s;
+      min-width: 0;
+    }
+    .sched-route-chip:hover {
+      background: rgba(255,255,255,0.09);
+      border-color: rgba(255,255,255,0.18);
+      color: var(--text);
+    }
+    .sched-route-chip.active {
+      background: rgba(59,130,246,0.15);
+      border-color: rgba(59,130,246,0.4);
+      color: #60a5fa;
+    }
+    .sched-chip-num {
+      background: var(--chip-color, #3b82f6);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.78rem;
+      padding: 2px 7px;
+      border-radius: 6px;
+      flex-shrink: 0;
+      min-width: 26px;
+      text-align: center;
+    }
+    .sched-chip-name {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
+    /* Detail section */
+    .sched-detail-header { display: flex; align-items: center; gap: 10px; }
+    .sched-route-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 14px;
+    }
+    .sched-badge-num {
+      background: var(--chip-color, #3b82f6);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.88rem;
+      padding: 3px 10px;
+      border-radius: 7px;
+      flex-shrink: 0;
+    }
+    .sched-badge-name {
+      font-size: 0.88rem;
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+
+    /* Service-day + direction selectors */
+    .sched-svc-row, .sched-dir-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .sched-svc-btn, .sched-dir-btn {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 7px 16px;
+      cursor: pointer;
+      transition: background .13s, border-color .13s, color .13s;
+      white-space: nowrap;
+    }
+    .sched-svc-btn:hover, .sched-dir-btn:hover {
+      background: rgba(255,255,255,0.10);
+      color: var(--text);
+    }
+    .sched-svc-btn.active, .sched-dir-btn.active {
+      background: rgba(59,130,246,0.18);
+      border-color: rgba(59,130,246,0.45);
+      color: #60a5fa;
+    }
+
+    /* Timetable */
+    .sched-scroll-hint {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 2px 0 6px;
+      letter-spacing: 0.02em;
+    }
+    .sched-table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .sched-table {
+      border-collapse: collapse;
+      width: max-content;
+      min-width: 100%;
+      font-size: 0.82rem;
+    }
+    .sched-table thead {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .sched-th {
+      background: rgba(15,23,42,0.95);
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+      color: var(--text-dim);
+      font-weight: 600;
+      font-size: 0.75rem;
+      padding: 10px 12px;
+      white-space: nowrap;
+      max-width: 140px;
+      text-align: left;
+    }
+    .sched-th-text {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 130px;
+    }
+    .sched-table tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      transition: background .1s;
+    }
+    .sched-table tbody tr:last-child { border-bottom: none; }
+    .sched-table tbody tr:hover { background: rgba(255,255,255,0.04); }
+    .sched-td {
+      padding: 8px 12px;
+      color: var(--text);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .sched-td-null { color: var(--text-muted); }
+
+    /* State messages */
+    .sched-state-msg {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      padding: 20px 0;
+    }
+    .sched-state-msg.sched-error { color: #f87171; }
+
+    .sched-spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.15);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: sched-spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes sched-spin { to { transform: rotate(360deg); } }
+
+    .sched-no-service {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 28px 0;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      text-align: center;
+    }
+    .sched-table-note {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin: 6px 0 0;
+    }
+
     /* ── Responsive ──────────────────────────────────────────── */
     @media (max-width: 600px) {
       html,
@@ -2163,7 +2419,12 @@
       .chat-brand-text h1 { font-size: 1.15rem; }
       .chat-brand-text p { display: none; }
       .live-badge { display: none; }
-      .tab-btn { font-size: 1rem; padding: 12px 20px 14px; }
+      .tab-btn { font-size: 0.9rem; padding: 12px 14px 14px; }
+      #schedule-panel { padding: 12px; gap: 10px; }
+      .sched-route-list { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+      .sched-th { max-width: 100px; padding: 9px 8px; }
+      .sched-th-text { max-width: 90px; }
+      .sched-td { padding: 7px 8px; font-size: 0.78rem; }
       #chat-messages { padding: 18px 14px 12px; gap: 18px; }
       .bubble { font-size: 1.08rem; padding: 14px 16px; line-height: 1.5; }
       .msg-time { font-size: 0.8rem; }
@@ -2258,9 +2519,10 @@
 
       <!-- Panel tabs -->
       <div class="panel-tabs" role="tablist">
-        <button class="tab-btn active" role="tab" aria-selected="true"  data-tab="chat" onclick="switchTab('chat')">&#x1F4AC; Chat</button>
-        <button class="tab-btn"        role="tab" aria-selected="false" data-tab="trip" onclick="switchTab('trip')">&#x1F68C; Plan a Trip</button>
-        <button class="tab-btn"        role="tab" aria-selected="false" data-tab="map"  onclick="switchTab('map')">&#x1F5FA;&#xFE0F; Live Map</button>
+        <button class="tab-btn active" role="tab" aria-selected="true"  data-tab="chat"     onclick="switchTab('chat')">&#x1F4AC; Chat</button>
+        <button class="tab-btn"        role="tab" aria-selected="false" data-tab="trip"     onclick="switchTab('trip')">&#x1F68C; Plan a Trip</button>
+        <button class="tab-btn"        role="tab" aria-selected="false" data-tab="map"      onclick="switchTab('map')">&#x1F5FA;&#xFE0F; Live Map</button>
+        <button class="tab-btn"        role="tab" aria-selected="false" data-tab="schedule" onclick="switchTab('schedule')">&#x1F4C5; Schedules</button>
       </div>
 
       <!-- Chat tab content -->
@@ -2288,6 +2550,9 @@
 
       <!-- Trip planner tab content -->
       <div id="trip-panel" class="hidden" role="tabpanel" aria-label="Trip planner"></div>
+
+      <!-- Schedules tab content -->
+      <div id="schedule-panel" class="hidden" role="tabpanel" aria-label="Route schedules"></div>
 
       <!-- Live map tab content -->
       <div id="map-panel" class="hidden" role="tabpanel" aria-label="Live bus map">
@@ -2331,7 +2596,8 @@
   </main>
 
   <script src="/static/chat_v2.js?v=8" defer></script>
-  <script src="/static/trip_planner.js?v=3" defer></script>
+  <script src="/static/trip_planner.js?v=4" defer></script>
+  <script src="/static/schedules.js?v=1" defer></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="/static/map.js?v=28" defer></script>

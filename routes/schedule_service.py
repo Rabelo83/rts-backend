@@ -1237,6 +1237,262 @@ def get_route_departure_schedule(route_id: str, date_str: str | None = None) -> 
         conn.close()
 
 
+# ── Timetable helpers ─────────────────────────────────────────────────────────
+
+# Maps GTFS service_id values → user-facing service type slugs
+_SERVICE_ID_TO_SLUG: dict[str, str] = {
+    "Weekday":         "weekday",
+    "Mon-Thur":        "weekday",
+    "Saturday":        "saturday",
+    "Sunday":          "sunday",
+    "Reduced_Service": "reduced",
+    "Reduced-Mo-Th":   "reduced",
+    "Reduced-Fr":      "reduced",
+}
+
+# Maps service type slugs → all possible GTFS service_id values
+_SLUG_TO_SERVICE_IDS: dict[str, tuple[str, ...]] = {
+    "weekday":  ("Weekday", "Mon-Thur"),
+    "saturday": ("Saturday",),
+    "sunday":   ("Sunday",),
+    "reduced":  ("Reduced_Service", "Reduced-Mo-Th", "Reduced-Fr"),
+}
+
+# Human-readable labels for service type slugs
+_SLUG_LABELS: dict[str, str] = {
+    "weekday":  "Weekday",
+    "saturday": "Saturday",
+    "sunday":   "Sunday",
+    "reduced":  "Reduced",
+}
+
+
+def _select_key_stops(stops: list, max_stops: int = 8) -> list:
+    """Pick up to max_stops evenly-spaced stops from an ordered stop list.
+
+    Always includes the first and last stop.
+    """
+    n = len(stops)
+    if n <= max_stops:
+        return list(stops)
+    if max_stops <= 2:
+        return [stops[0], stops[-1]]
+    indices: set[int] = {0, n - 1}
+    inner = max_stops - 2
+    for i in range(inner):
+        idx = round((i + 1) * (n - 1) / (inner + 1))
+        indices.add(idx)
+    return [stops[i] for i in sorted(indices)]
+
+
+def get_route_timetable(
+    route_id: str,
+    service_type: str = "weekday",
+    direction: str | None = None,
+) -> dict | None:
+    """Return a timetable grid for a route, service type, and direction.
+
+    route_id:     route short name ("1", "10", …)
+    service_type: "weekday" | "saturday" | "sunday" | "reduced"
+    direction:    trip_headsign; defaults to first alphabetically
+
+    Response shape:
+    {
+        "route": "1",
+        "route_name": "...",
+        "service_type": "weekday",
+        "service_label": "Weekday",
+        "available_service_types": ["weekday", "saturday", "sunday"],
+        "direction": "To Butler Plaza",
+        "directions": ["To Butler Plaza", "To Downtown Station"],
+        "stops": [{"stop_id": "0001", "stop_name": "...", "is_key_stop": true}, ...],
+        "rows": [{"trip_id": "...", "times": ["6:30 AM", "6:42 AM", null, "7:00 AM"]}, ...]
+    }
+    Returns None if route not found or DB unavailable.
+    """
+    if not route_id:
+        return None
+
+    conn = connect_db()
+    if conn is None:
+        return None
+
+    try:
+        rte = conn.execute(
+            "SELECT route_short_name, route_long_name FROM routes WHERE route_short_name = ?",
+            (route_id,),
+        ).fetchone()
+        if not rte:
+            return None
+
+        # All service_ids present in DB for this route
+        all_svc_rows = conn.execute(
+            """
+            SELECT DISTINCT t.service_id FROM trips t
+            JOIN routes r ON r.route_id = t.route_id
+            WHERE r.route_short_name = ?
+            """,
+            (route_id,),
+        ).fetchall()
+        route_service_ids: set[str] = {r["service_id"] for r in all_svc_rows}
+
+        # Available service type slugs for this route (preserving canonical order)
+        available_service_types = [
+            slug
+            for slug in ("weekday", "saturday", "sunday", "reduced")
+            if any(sid in route_service_ids for sid in _SLUG_TO_SERVICE_IDS[slug])
+        ]
+
+        # Requested service type → matching service_ids present in DB
+        wanted_ids = [
+            sid for sid in _SLUG_TO_SERVICE_IDS.get(service_type, ("Weekday",))
+            if sid in route_service_ids
+        ]
+
+        _empty = {
+            "route": route_id,
+            "route_name": rte["route_long_name"],
+            "service_type": service_type,
+            "service_label": _SLUG_LABELS.get(service_type, service_type.title()),
+            "available_service_types": available_service_types,
+            "direction": direction or "",
+            "directions": [],
+            "stops": [],
+            "rows": [],
+        }
+
+        if not wanted_ids:
+            return _empty
+
+        ph = ",".join("?" * len(wanted_ids))
+
+        # Available directions for this service type
+        dir_rows = conn.execute(
+            f"""
+            SELECT DISTINCT t.trip_headsign FROM trips t
+            JOIN routes r ON r.route_id = t.route_id
+            WHERE r.route_short_name = ?
+              AND t.service_id IN ({ph})
+            ORDER BY t.trip_headsign
+            """,
+            (route_id, *wanted_ids),
+        ).fetchall()
+        available_directions = [r["trip_headsign"] for r in dir_rows if r["trip_headsign"]]
+
+        # Resolve direction
+        if not direction and available_directions:
+            direction = available_directions[0]
+        elif direction and direction not in available_directions:
+            direction = available_directions[0] if available_directions else None
+
+        if not direction:
+            _empty["directions"] = available_directions
+            return _empty
+
+        # Representative trip (most stops) → key stop selection
+        rep_row = conn.execute(
+            f"""
+            SELECT t.trip_id, COUNT(st.stop_id) AS stop_count FROM trips t
+            JOIN routes r ON r.route_id = t.route_id
+            JOIN stop_times st ON st.trip_id = t.trip_id
+            WHERE r.route_short_name = ?
+              AND t.trip_headsign = ?
+              AND t.service_id IN ({ph})
+            GROUP BY t.trip_id ORDER BY stop_count DESC LIMIT 1
+            """,
+            (route_id, direction, *wanted_ids),
+        ).fetchone()
+
+        key_stop_ids: list[str] = []
+        stop_objects: list[dict] = []
+
+        if rep_row:
+            rep_stops = conn.execute(
+                """
+                SELECT s.stop_id_padded, s.stop_name FROM stop_times st
+                JOIN stops s ON s.stop_id = st.stop_id
+                WHERE st.trip_id = ? ORDER BY st.stop_sequence
+                """,
+                (rep_row["trip_id"],),
+            ).fetchall()
+            selected = _select_key_stops(list(rep_stops), max_stops=8)
+            key_stop_ids = [r["stop_id_padded"] for r in selected]
+            stop_objects = [
+                {"stop_id": r["stop_id_padded"], "stop_name": r["stop_name"], "is_key_stop": True}
+                for r in selected
+            ]
+
+        # All trips ordered by first departure
+        trip_rows = conn.execute(
+            f"""
+            WITH trip_first_seq AS (
+                SELECT trip_id, MIN(stop_sequence) AS min_seq FROM stop_times GROUP BY trip_id
+            )
+            SELECT t.trip_id, st.departure_time AS first_dep FROM trips t
+            JOIN routes r ON r.route_id = t.route_id
+            JOIN trip_first_seq tfs ON tfs.trip_id = t.trip_id
+            JOIN stop_times st ON st.trip_id = t.trip_id AND st.stop_sequence = tfs.min_seq
+            WHERE r.route_short_name = ?
+              AND t.trip_headsign = ?
+              AND t.service_id IN ({ph})
+            ORDER BY first_dep
+            """,
+            (route_id, direction, *wanted_ids),
+        ).fetchall()
+
+        rows: list[dict] = []
+        if trip_rows and key_stop_ids:
+            trip_ids = [r["trip_id"] for r in trip_rows]
+            trip_ph = ",".join("?" * len(trip_ids))
+            stop_ph = ",".join("?" * len(key_stop_ids))
+
+            times_rows = conn.execute(
+                f"""
+                SELECT st.trip_id, s.stop_id_padded, st.departure_time FROM stop_times st
+                JOIN stops s ON s.stop_id = st.stop_id
+                WHERE st.trip_id IN ({trip_ph})
+                  AND s.stop_id_padded IN ({stop_ph})
+                ORDER BY st.trip_id, st.stop_sequence
+                """,
+                (*trip_ids, *key_stop_ids),
+            ).fetchall()
+
+            # Build {trip_id: {stop_id_padded: departure_time}}
+            time_map: dict[str, dict[str, str]] = {}
+            for tr in times_rows:
+                tid = tr["trip_id"]
+                sid = tr["stop_id_padded"]
+                if tid not in time_map:
+                    time_map[tid] = {}
+                # Keep earliest time when a stop appears more than once in a trip
+                if sid not in time_map[tid] or tr["departure_time"] < time_map[tid][sid]:
+                    time_map[tid][sid] = tr["departure_time"]
+
+            for trip_row in trip_rows:
+                tid = trip_row["trip_id"]
+                trip_times = time_map.get(tid, {})
+                times = [
+                    format_time_12h(trip_times[sid]) if sid in trip_times else None
+                    for sid in key_stop_ids
+                ]
+                rows.append({"trip_id": tid, "times": times})
+
+        return {
+            "route": route_id,
+            "route_name": rte["route_long_name"],
+            "service_type": service_type,
+            "service_label": _SLUG_LABELS.get(service_type, service_type.title()),
+            "available_service_types": available_service_types,
+            "direction": direction,
+            "directions": available_directions,
+            "stops": stop_objects,
+            "rows": rows,
+        }
+
+    finally:
+        conn.close()
+
+
 def get_route_stops(route_id: str, direction_hint: str | None = None) -> dict:
     """Return ordered list of stops for a route, optionally filtered by direction/headsign.
 

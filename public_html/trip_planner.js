@@ -6,20 +6,23 @@
 /* ── Tab switching ────────────────────────────────────────────────────── */
 
 window.switchTab = function switchTab(tab) {
-  const chatEls = ['chat-messages', 'starter-questions', 'chat-end-row', 'chat-input-row'];
-  const tripEl  = document.getElementById('trip-panel');
-  const mapEl   = document.getElementById('map-panel');
-  const isChat  = tab === 'chat';
-  const isTrip  = tab === 'trip';
-  const isMap   = tab === 'map';
+  const chatEls    = ['chat-messages', 'starter-questions', 'chat-end-row', 'chat-input-row'];
+  const tripEl     = document.getElementById('trip-panel');
+  const mapEl      = document.getElementById('map-panel');
+  const scheduleEl = document.getElementById('schedule-panel');
+  const isChat     = tab === 'chat';
+  const isTrip     = tab === 'trip';
+  const isMap      = tab === 'map';
+  const isSchedule = tab === 'schedule';
 
   chatEls.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('hidden', !isChat);
   });
 
-  if (tripEl) tripEl.classList.toggle('hidden', !isTrip);
-  if (mapEl)  mapEl.classList.toggle('hidden', !isMap);
+  if (tripEl)     tripEl.classList.toggle('hidden', !isTrip);
+  if (mapEl)      mapEl.classList.toggle('hidden', !isMap);
+  if (scheduleEl) scheduleEl.classList.toggle('hidden', !isSchedule);
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
     const active = btn.dataset.tab === tab;
@@ -32,6 +35,11 @@ window.switchTab = function switchTab(tab) {
   // becoming visible so it picks up the right canvas size.
   if (isMap && typeof window.initMap === 'function') {
     window.initMap();
+  }
+
+  // Lazy-init the schedules tab on first open.
+  if (isSchedule && typeof window.initSchedules === 'function') {
+    window.initSchedules();
   }
 };
 

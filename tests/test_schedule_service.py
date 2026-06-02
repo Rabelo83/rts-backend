@@ -1,5 +1,5 @@
 """
-Tests for routes/schedule_service.py — parse_date and parse_time.
+Tests for routes/schedule_service.py — parse_date, parse_time, and timetable.
 Run with: pytest tests/test_schedule_service.py -v
 """
 import sys
@@ -10,7 +10,7 @@ from datetime import date, timedelta
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import routes.schedule_service as schedule_service
-from routes.schedule_service import parse_date, parse_time
+from routes.schedule_service import parse_date, parse_time, _select_key_stops
 
 
 # ──────────────────────────────────────────────
@@ -211,3 +211,183 @@ def test_get_route_departure_schedule_groups_departures(monkeypatch):
     assert data["directions"][0]["headsign"] == "To Santa Fe College"
     assert data["directions"][0]["departures"][0]["time_label"] == "7:00 AM"
     assert data["directions"][1]["origin_stop_name"] == "Santa Fe"
+
+
+# ──────────────────────────────────────────────
+# _select_key_stops
+# ──────────────────────────────────────────────
+
+class TestSelectKeyStops:
+    def _stops(self, n):
+        return [{"stop_id_padded": str(i), "stop_name": f"Stop {i}"} for i in range(n)]
+
+    def test_fewer_than_max_returns_all(self):
+        stops = self._stops(5)
+        result = _select_key_stops(stops, max_stops=8)
+        assert result == stops
+
+    def test_exactly_max_returns_all(self):
+        stops = self._stops(8)
+        result = _select_key_stops(stops, max_stops=8)
+        assert len(result) == 8
+
+    def test_always_includes_first_and_last(self):
+        stops = self._stops(20)
+        result = _select_key_stops(stops, max_stops=8)
+        assert result[0] == stops[0]
+        assert result[-1] == stops[-1]
+
+    def test_returns_correct_count(self):
+        stops = self._stops(30)
+        result = _select_key_stops(stops, max_stops=8)
+        assert len(result) == 8
+
+    def test_max_two(self):
+        stops = self._stops(10)
+        result = _select_key_stops(stops, max_stops=2)
+        assert len(result) == 2
+        assert result[0] == stops[0]
+        assert result[-1] == stops[-1]
+
+    def test_single_stop(self):
+        stops = self._stops(1)
+        result = _select_key_stops(stops, max_stops=8)
+        assert result == stops
+
+    def test_ordered(self):
+        stops = self._stops(20)
+        result = _select_key_stops(stops, max_stops=6)
+        indices = [stops.index(s) for s in result]
+        assert indices == sorted(indices)
+
+
+# ──────────────────────────────────────────────
+# get_route_timetable
+# ──────────────────────────────────────────────
+
+class TestGetRouteTimetable:
+    """Tests for get_route_timetable() using a monkeypatched DB connection."""
+
+    def _fake_conn(self, service_ids=("Weekday",), direction="To Butler Plaza"):
+        """Return a fake connection object that answers the queries in get_route_timetable."""
+        import sqlite3
+
+        class Row(dict):
+            """Dict that also supports attribute-style access (like sqlite3.Row)."""
+            def __getitem__(self, key):
+                return super().__getitem__(key)
+            def keys(self):
+                return super().keys()
+
+        class FakeCursor:
+            def __init__(self, rows=None, one=None):
+                self._rows = [Row(r) for r in (rows or [])]
+                self._one  = Row(one) if one else None
+            def fetchall(self):  return self._rows
+            def fetchone(self):  return self._one
+
+        call_log = []
+
+        class FakeConn:
+            def execute(self, sql, params=None):
+                sql_c = " ".join(sql.split())
+                call_log.append(sql_c[:60])
+
+                # Route lookup
+                if "route_short_name, route_long_name FROM routes WHERE route_short_name" in sql_c:
+                    return FakeCursor(one={"route_short_name": "1", "route_long_name": "Downtown to Butler"})
+
+                # All service_ids for route
+                if "SELECT DISTINCT t.service_id FROM trips" in sql_c:
+                    return FakeCursor(rows=[{"service_id": sid} for sid in service_ids])
+
+                # Available directions
+                if "SELECT DISTINCT t.trip_headsign FROM trips" in sql_c:
+                    return FakeCursor(rows=[{"trip_headsign": direction}])
+
+                # Representative trip
+                if "SELECT t.trip_id, COUNT(st.stop_id) AS stop_count" in sql_c:
+                    return FakeCursor(one={"trip_id": "T001", "stop_count": 5})
+
+                # Stops for representative trip
+                if "SELECT s.stop_id_padded, s.stop_name FROM stop_times st" in sql_c:
+                    return FakeCursor(rows=[
+                        {"stop_id_padded": "0001", "stop_name": "Stop A"},
+                        {"stop_id_padded": "0002", "stop_name": "Stop B"},
+                        {"stop_id_padded": "0003", "stop_name": "Stop C"},
+                    ])
+
+                # All trips ordered by first departure
+                if "trip_first_seq" in sql_c and "SELECT t.trip_id, st.departure_time AS first_dep" in sql_c:
+                    return FakeCursor(rows=[
+                        {"trip_id": "T001", "first_dep": "06:30:00"},
+                        {"trip_id": "T002", "first_dep": "07:00:00"},
+                    ])
+
+                # Times for all trips × key stops
+                if "SELECT st.trip_id, s.stop_id_padded, st.departure_time FROM stop_times" in sql_c:
+                    return FakeCursor(rows=[
+                        {"trip_id": "T001", "stop_id_padded": "0001", "departure_time": "06:30:00"},
+                        {"trip_id": "T001", "stop_id_padded": "0002", "departure_time": "06:40:00"},
+                        {"trip_id": "T001", "stop_id_padded": "0003", "departure_time": "07:00:00"},
+                        {"trip_id": "T002", "stop_id_padded": "0001", "departure_time": "07:00:00"},
+                        {"trip_id": "T002", "stop_id_padded": "0002", "departure_time": "07:10:00"},
+                        {"trip_id": "T002", "stop_id_padded": "0003", "departure_time": "07:30:00"},
+                    ])
+
+                raise AssertionError(f"Unexpected SQL in test: {sql_c[:80]}")
+
+            def close(self):
+                pass
+
+        return FakeConn(), call_log
+
+    def test_returns_correct_shape(self, monkeypatch):
+        conn, _ = self._fake_conn()
+        monkeypatch.setattr(schedule_service, "connect_db", lambda: conn)
+        data = schedule_service.get_route_timetable("1", "weekday")
+        assert data is not None
+        assert data["route"] == "1"
+        assert data["service_type"] == "weekday"
+        assert data["service_label"] == "Weekday"
+
+    def test_stops_and_rows(self, monkeypatch):
+        conn, _ = self._fake_conn()
+        monkeypatch.setattr(schedule_service, "connect_db", lambda: conn)
+        data = schedule_service.get_route_timetable("1", "weekday")
+        assert len(data["stops"]) == 3
+        assert len(data["rows"]) == 2
+        assert data["rows"][0]["times"][0] == "6:30 AM"
+        assert data["rows"][1]["times"][-1] == "7:30 AM"
+
+    def test_available_service_types_includes_weekday(self, monkeypatch):
+        conn, _ = self._fake_conn(service_ids=("Weekday", "Saturday"))
+        monkeypatch.setattr(schedule_service, "connect_db", lambda: conn)
+        data = schedule_service.get_route_timetable("1", "weekday")
+        assert "weekday" in data["available_service_types"]
+        assert "saturday" in data["available_service_types"]
+
+    def test_returns_none_for_missing_db(self, monkeypatch):
+        monkeypatch.setattr(schedule_service, "connect_db", lambda: None)
+        assert schedule_service.get_route_timetable("1") is None
+
+    def test_returns_none_for_unknown_route(self, monkeypatch):
+        class FakeConn:
+            def execute(self, sql, params=None):
+                class FC:
+                    def fetchone(self): return None
+                    def fetchall(self): return []
+                return FC()
+            def close(self): pass
+
+        monkeypatch.setattr(schedule_service, "connect_db", lambda: FakeConn())
+        assert schedule_service.get_route_timetable("999") is None
+
+    def test_empty_rows_when_no_service(self, monkeypatch):
+        """Service type requested but no matching service_ids in DB → empty timetable."""
+        conn, _ = self._fake_conn(service_ids=("Weekday",))
+        monkeypatch.setattr(schedule_service, "connect_db", lambda: conn)
+        data = schedule_service.get_route_timetable("1", "saturday")
+        assert data is not None
+        assert data["rows"] == []
+        assert data["stops"] == []
