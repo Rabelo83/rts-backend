@@ -2,7 +2,7 @@
 
 This file captures the **current state of the work-in-progress** so a delegated AI (Codex, Sonnet, Haiku, etc.) can pick up cold without reading the entire repo. Updated each session.
 
-> Last updated: **2026-05-04** (Live Map selected-stop focus and mobile viewport fit pass)
+> Last updated: **2026-06-02** (Live Map route schedule drill-in + post-deploy backend fix)
 
 ---
 
@@ -26,6 +26,8 @@ This file captures the **current state of the work-in-progress** so a delegated 
 1. **💬 Chat** — Claude Haiku tool-use agent (12 tools)
 2. **🚌 Plan a Trip** — RAPTOR trip planner (in-memory, sub-second)
 3. **🗺️ Live Map** — MapLibre GL + OpenFreeMap, live BusTime markers, route filter rail, bottom sheet on tap with deep-links to chat / trip planner
+   - Route summaries now include a DB-backed `View full schedule` drill-in.
+   - Tapped buses now include `View route schedule` so riders can jump from a live vehicle into that route's timetable.
 
 ---
 
@@ -33,6 +35,8 @@ This file captures the **current state of the work-in-progress** so a delegated 
 
 | Commit | Subject | Why |
 |---|---|---|
+| `(pending)` | `fix(schedule): import formatter for route schedule drill-in` | Post-deploy fix for the new full-schedule flow. The first version returned `route_not_found` for valid routes because `get_route_departure_schedule()` called `format_time_12h()` without importing it, then swallowed the `NameError` and surfaced a false 404. |
+| `(pending)` | `feat(map): add route schedule drill-in` | First rider-facing non-chat schedule surface. Route summary drawers and bus sheets can now open DB-backed route schedules grouped by direction, with `Today` / `Tomorrow` toggles. This is a first step toward a broader schedule UX, not the final product shape. |
 | `(pending)` | `fix(agent): prefer ETA for route-stop next questions` | Current GTFS calendar is stale, but BusTime live predictions still show active vehicles. The Claude prompt now sends route+stop "next"/ETA questions to realtime first, and `get_realtime_predictions` accepts `route_id` so the tool can return only that route's ETA before falling back to schedule. |
 | `(pending)` | `fix(map): keep selected stop visible above sheet` | Stop-ID search and stop taps now use MapLibre's camera `offset` after the ETA sheet renders, so the pulsing selected-stop marker remains visible above the bottom sheet even while zooming. Mobile CSS also uses 16px inputs, `100svh`, and safe-area sheet spacing to avoid the phone browser zooming/oversizing the app. |
 | `(pending)` | `feat(agent): system-wide first/last bus tool` | Closes the gap exposed by a real 2026-05-03 conversation — user asked "first bus today across all routes," agent admitted "I don't have a tool" and fell back to `https://go-rts.com` (the competitor URL — captured as a deferred prompt fix). New `get_system_first_last_today` iterates the route inventory, returns earliest first / latest last + per-route breakdown. |
@@ -68,6 +72,7 @@ Routing table (which tool to pick for which user query) lives in [routes/agent_c
   - `/api/map/routes` — chip rail data
   - `/api/map/route/<id>` — polylines + stops
   - `/api/map/route/<id>/overview` — first/last/frequency drawer
+  - `/api/map/route/<id>/schedule` — full scheduled departures grouped by direction/origin stop for one route/day
   - `/api/map/vehicles` — all active vehicles, 30s cache, batched 10/call; explicit BusTime limit/unavailable status when the vendor returns an error payload
   - `/api/map/vehicle/<vehicle_id>/predictions` — upcoming stop ETAs for one tapped bus
   - `/api/map/stop/<id>/schedule` — scheduled departures (rolls forward to next service day) + lat/lon
@@ -76,7 +81,9 @@ Routing table (which tool to pick for which user query) lives in [routes/agent_c
 - **BusTime quota**: [rts_api.py](../../rts_api.py) supports `BUS_API_KEYS` as a comma-separated list of authorized fallback keys. It tries the next key only when BusTime returns a transaction-limit error.
 - **Route selector**: compact mobile-first toolbar with `Routes: All` on the left and Stop ID search on the right. Route chips live in an expandable tray under the Routes button and are multi-select. Empty selection means **All** active vehicles; tapping route chips adds/removes them and opens that route's summary; tapping **All** clears the set. Selected routes render together with softer polylines and deduped route-colored stop dots.
 - **Route overlay**: tapping a route chip or reopening a route summary opens a top-of-map route drawer anchored to the map canvas with today's directions, first/last runs, frequency, service-type hours, hide/reopen controls, and a scroll hint when content overflows.
+- **Route schedule drill-in** (2026-06-02): the route drawer now exposes `View full schedule`, which opens a bottom sheet with GTFS-backed route departures grouped by direction/headsign and origin stop. The sheet currently supports `Today` / `Tomorrow` toggles and is intentionally an on-demand view, not a preload of all route schedules.
 - **Bus overlay**: tapping a bus selects its route and opens a bottom sheet with destination plus upcoming stop ETAs for that specific vehicle. Speed is intentionally hidden as too operational/noisy for riders. Bus taps hide route info into the `Show route info` reopen control so the rider can return without overlapping panels.
+- **Bus → schedule bridge** (2026-06-02): tapped bus sheets now include `View route schedule`, giving riders a non-chat path from a live bus to the route's upcoming scheduled departures.
 - **Agent ETA rule**: for route+stop "next"/ETA questions, realtime wins. `get_realtime_predictions(stop_id, route_id?)` can filter live predictions to the requested route; static GTFS is only fallback for first/last/schedule/date questions or when realtime has no match/unavailable.
 - **Stop overlay**: tapping a stop shows live ETAs when they exist; scheduled departures appear only as fallback when no live ETA exists. The selected stop gets a pulsing focus marker on the map, and the map camera offsets that marker above the bottom sheet so it stays visible. The schedule fallback rolls forward into tomorrow / next service day and labels that day explicitly.
 - **Stop-ID search** (2026-05-01): input in the top map toolbar accepts a numeric stop ID; on submit pans the map, drops the selected-stop marker, and opens the same sheet as tapping a stop dot. Mobile inputs are kept at 16px to avoid iOS/Chrome auto-zoom after focus.
@@ -96,6 +103,7 @@ These are the live punch-list items. Each is a candidate task to delegate.
 - **Walk-cap not enforced on final leg** — already fixed for trip planner output (`_MAX_FINAL_WALK_MIN = 12`) but verify it applies to all paths including hub-relay fallback.
 
 ### Live Map polish (post-MVP)
+- Dedicated top-level `Schedules` tab is **not** built yet. Current schedule UX lives inside Live Map as a drill-in. Product direction being discussed: `Chat | Plan a Trip | Live Map | Schedules`.
 - Greyed-out chips for routes with no service today (use `engine.service_ids_for_date()`)
 - Smoother marker tween between polls (currently snaps)
 - Per-direction polyline coloring (inbound desaturated)

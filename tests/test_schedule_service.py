@@ -9,6 +9,7 @@ from datetime import date, timedelta
 # Make sure the project root is importable
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import routes.schedule_service as schedule_service
 from routes.schedule_service import parse_date, parse_time
 
 
@@ -148,3 +149,65 @@ class TestParseDate:
     def test_case_insensitive(self):
         assert parse_date("TOMORROW") == date.today() + timedelta(days=1)
         assert parse_date("Today") == date.today()
+
+
+def test_get_route_departure_schedule_groups_departures(monkeypatch):
+    class FakeCursor:
+        def __init__(self, one=None, rows=None):
+            self._one = one
+            self._rows = rows or []
+
+        def fetchone(self):
+            return self._one
+
+        def fetchall(self):
+            return self._rows
+
+    class FakeConn:
+        def execute(self, sql, params=None):
+            sql_compact = " ".join(sql.split())
+            if "SELECT route_short_name, route_long_name FROM routes WHERE route_short_name = ?" in sql_compact:
+                return FakeCursor(one={
+                    "route_short_name": "10",
+                    "route_long_name": "Downtown Station To Santa Fe College",
+                })
+            if "SELECT t.trip_headsign, s.stop_name AS origin_stop_name, st.departure_time" in sql_compact:
+                return FakeCursor(rows=[
+                    {
+                        "trip_headsign": "To Santa Fe College",
+                        "origin_stop_name": "Rosa Parks RTS Downtown Station",
+                        "departure_time": "07:00:00",
+                    },
+                    {
+                        "trip_headsign": "To Santa Fe College",
+                        "origin_stop_name": "Rosa Parks RTS Downtown Station",
+                        "departure_time": "08:00:00",
+                    },
+                    {
+                        "trip_headsign": "To Downtown Station",
+                        "origin_stop_name": "Santa Fe",
+                        "departure_time": "07:30:00",
+                    },
+                ])
+            raise AssertionError(f"Unexpected SQL in test: {sql_compact}")
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(schedule_service, "connect_db", lambda: FakeConn())
+    monkeypatch.setattr(
+        schedule_service,
+        "_resolve_schedule_target_date",
+        lambda date_str=None: date(2026, 6, 2),
+    )
+
+    data = schedule_service.get_route_departure_schedule("10")
+
+    assert data is not None
+    assert data["route_id"] == "10"
+    assert data["date_iso"] == "2026-06-02"
+    assert data["total_departures"] == 3
+    assert len(data["directions"]) == 2
+    assert data["directions"][0]["headsign"] == "To Santa Fe College"
+    assert data["directions"][0]["departures"][0]["time_label"] == "7:00 AM"
+    assert data["directions"][1]["origin_stop_name"] == "Santa Fe"

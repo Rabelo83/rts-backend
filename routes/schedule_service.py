@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "utils"))
 from agency_config import get_timezone
-from routes.parsing_helpers import expand_landmark_aliases
+from routes.parsing_helpers import expand_landmark_aliases, format_time_12h
 
 TZ = ZoneInfo(get_timezone())
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -251,8 +251,6 @@ def get_route_first_last_by_service_type(route_id: str) -> dict:
         }
     Keys only appear when the route has trips for that service type.
     """
-    from routes.parsing_helpers import format_time_12h
-
     conn = connect_db()
     if conn is None:
         return {}

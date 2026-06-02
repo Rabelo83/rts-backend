@@ -17,6 +17,14 @@ How to use:
 
 ---
 
+### 2026-06-02 — Live Map: route schedule drill-in + backend fix
+- Type: `feature, fix, docs`
+- Summary: Added a rider-facing full route schedule drill-in from the Live Map so users can inspect scheduled departures without using chat. Route summary drawers now expose `View full schedule`, bus sheets expose `View route schedule`, and the schedule sheet groups departures by direction/headsign with `Today` / `Tomorrow` toggles. Follow-up bug found immediately after deploy: the new backend helper called `format_time_12h()` without importing it, which caused the endpoint to fall into its broad exception handler and return `route_not_found` for valid routes. Fixed by importing the formatter and adding a focused helper test.
+- Files/Areas: `public_html/map.js`, `public_html/chat.html`, `routes/map_api.py`, `routes/schedule_service.py`, `tests/test_map_api.py`, `tests/test_schedule_service.py`
+- Notes / Follow-up: This is intentionally a first-step schedule surface inside **Live Map**, not the final product shape. Current product direction under discussion is a dedicated top-level `Schedules` tab (`Chat | Plan a Trip | Live Map | Schedules`) that would lazily load DB-backed route schedules on demand.
+
+---
+
 ### 2026-05-04 — Agent: route+stop "next" uses ETA before stale GTFS
 - Type: `fix`
 - Summary: Fixed a contradiction where the prompt told the agent to use static GTFS for route+stop questions even when the user asked for "next" / ETA. With the current GTFS calendar stale, this caused a bad answer: live predictions showed Route 1 arriving at Rosa Parks, then the follow-up "next route 1 at rosa parks?" answered "Route 1 does not run today." The agent now treats live ETA as first source for route+stop "next" questions, and `get_realtime_predictions` accepts an optional `route_id` so it can return route-filtered predictions directly.

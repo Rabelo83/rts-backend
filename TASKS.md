@@ -1,6 +1,6 @@
 # RTS Project Task Tracker
 
-Last updated: 2026-05-04
+Last updated: 2026-06-02
 
 This file is a project task tracker for the RTS backend/web assistant project. It captures:
 - what has already been completed to reach the current state
@@ -32,6 +32,18 @@ Note: The initial list below was inferred from the current repository contents a
 - [x] Added `## INTERPRETING get_route_overview RESULTS` to system prompt — LLM now understands first/last times are from origin stop, not from a named terminus like Rosa Parks (`routes/agent_v2.py`)
 - [x] Added `## HANDLING DISAMBIGUATION RESPONSES` to system prompt — LLM preserves all original query params (time, date, route, kind) after a disambiguation exchange; handles "it doesn't matter" and user corrections without calling wrong tools (`routes/agent_v2.py`)
 - [x] Updated `## WHEN THE QUESTION IS BEYOND YOUR TOOLS` — added "latest/last bus running today system-wide" as explicit out-of-scope example; reformatted as bullet list for clarity (`routes/agent_v2.py`)
+
+## Open Items 2026-06-02 — Rider-Facing Schedules
+
+- [x] Added an initial rider-facing schedule surface inside **Live Map**:
+  `View full schedule` from the route summary drawer and `View route schedule` from a tapped bus sheet.
+- [x] Added `/api/map/route/<route_id>/schedule` backed by GTFS DB reads so route schedules come from the backend database, not PDFs and not the chat model.
+- [x] Fixed the first post-deploy regression where valid routes returned `route_not_found` because `format_time_12h()` was called without being imported in `get_route_departure_schedule()`.
+- [ ] Decide whether schedules should stay as a Live Map drill-in or become a dedicated fourth top-level tab:
+  `Chat | Plan a Trip | Live Map | Schedules`
+- [ ] If the dedicated tab is approved, build a v1 flow:
+  route picker → day selector → direction view → DB-backed departures, loaded only on request
+- [ ] Decide whether the long-term schedule UI should remain grouped departure chips or move to a denser rider timetable layout
 
 ## 🔄 Active — Session 19: Option B — Migrate Agent to Claude API
 
