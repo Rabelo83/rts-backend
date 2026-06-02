@@ -31,6 +31,7 @@
   let stopMarkers   = [];           // MapLibre Markers for stops
   let busMarkers    = new Map();    // vehicle_id → Marker
   let routeInfoCache = new Map();   // route_id → route overview
+  let routeScheduleCache = new Map(); // `${route_id}::${date}` → route schedule
   let currentRouteInfoId = null;    // last route shown in the top info panel
   let routeRailExpanded = false;    // compact by default; expands into wrapped route tray
   let userMarker    = null;         // MapLibre Marker for "you are here"
@@ -234,6 +235,29 @@
     const detail = await fetchJSON(`/api/map/route/${encodeURIComponent(routeId)}`);
     routeDetailCache.set(routeId, detail);
     return detail;
+  }
+
+  async function loadRouteOverview(routeId) {
+    let info = routeInfoCache.get(routeId);
+    if (!info) {
+      info = await fetchJSON(`/api/map/route/${encodeURIComponent(routeId)}/overview`);
+      routeInfoCache.set(routeId, info);
+    }
+    return info;
+  }
+
+  async function loadRouteSchedule(routeId, dateIso) {
+    const cacheKey = `${routeId}::${dateIso || 'today'}`;
+    if (routeScheduleCache.has(cacheKey)) return routeScheduleCache.get(cacheKey);
+    const query = dateIso ? `?date=${encodeURIComponent(dateIso)}` : '';
+    const schedule = await fetchJSON(`/api/map/route/${encodeURIComponent(routeId)}/schedule${query}`);
+    routeScheduleCache.set(cacheKey, schedule);
+    return schedule;
+  }
+
+  function getRouteDisplayLabel(routeId) {
+    const route = routes.find(r => r.route_id === routeId || r.short_name === routeId);
+    return route ? `Route ${route.short_name}` : `Route ${routeId}`;
   }
 
   function setRouteRailExpanded(expanded) {
@@ -535,6 +559,9 @@
 
   function renderBusSheet(v, routeName, headsign, delayed, askMsg, options = {}) {
     const predictions = options.predictions || [];
+    const routeScheduleBtn = v.route
+      ? `<button class="map-sheet-btn ghost" onclick="window.showRouteScheduleFromMap(${JSON.stringify(v.route).replace(/"/g, '&quot;')})">View route schedule</button>`
+      : '';
     const upcoming = options.loading
       ? `<div class="map-sheet-section">Upcoming stops for this bus</div><div class="pred-row"><span>Loading stop ETAs…</span><span></span></div>`
       : predictions.length
@@ -554,6 +581,7 @@
       ${upcoming}
       <div class="map-sheet-actions">
         <button class="map-sheet-btn" onclick="window.askAssistantFromMap(${JSON.stringify(askMsg).replace(/"/g, '&quot;')})">Ask the Assistant</button>
+        ${routeScheduleBtn}
       </div>
     `);
   }
@@ -585,11 +613,7 @@
     updateRouteInfoScrollHint();
 
     try {
-      let info = routeInfoCache.get(routeId);
-      if (!info) {
-        info = await fetchJSON(`/api/map/route/${encodeURIComponent(routeId)}/overview`);
-        routeInfoCache.set(routeId, info);
-      }
+      const info = await loadRouteOverview(routeId);
       renderRouteInfo(info);
     } catch (err) {
       console.warn('[map] route overview failed:', err);
@@ -658,8 +682,100 @@
       <div class="meta">${escHTML(info.day_label || 'Today')} · ${info.runs_today ? 'Runs today' : 'No service today'}</div>
       <div class="route-summary-grid">${directions}</div>
       ${serviceRows ? `<div class="map-sheet-section">Service hours</div>${serviceRows}` : ''}
+      <div class="map-sheet-actions route-info-actions">
+        <button class="map-sheet-btn" onclick="window.showRouteScheduleFromMap(${JSON.stringify(info.route).replace(/"/g, '&quot;')})">View full schedule</button>
+      </div>
     `;
     updateRouteInfoScrollHint();
+  }
+
+  async function showRouteSchedule(routeId, options = {}) {
+    if (!routeId) return;
+    const requestedDateIso = String(options.dateIso || '').trim() || null;
+    hideRouteInfo(true);
+    renderSheet(`
+      <h3>${escHTML(getRouteDisplayLabel(routeId))}</h3>
+      <div class="meta">Loading full schedule…</div>
+    `);
+
+    try {
+      await ensureRouteSelected(routeId);
+    } catch (err) {
+      console.warn('[map] failed to highlight route before schedule view:', err);
+    }
+
+    try {
+      const [overview, schedule] = await Promise.all([
+        loadRouteOverview(routeId).catch(() => null),
+        loadRouteSchedule(routeId, requestedDateIso),
+      ]);
+      renderRouteScheduleSheet(routeId, schedule, overview);
+    } catch (err) {
+      console.warn('[map] route schedule failed:', err);
+      renderSheet(`
+        <h3>${escHTML(getRouteDisplayLabel(routeId))}</h3>
+        <div class="meta">Detailed schedule unavailable right now.</div>
+        <div class="map-sheet-actions">
+          <button class="map-sheet-btn ghost" onclick="window.showRouteSummaryFromMap(${JSON.stringify(routeId).replace(/"/g, '&quot;')})">Show summary</button>
+        </div>
+      `);
+    }
+  }
+
+  function renderRouteScheduleSheet(routeId, schedule, overview) {
+    const routeTitle = `Route ${schedule.route || routeId}${schedule.route_name ? ` — ${schedule.route_name}` : ''}`;
+    const todayIso = overview?.date || '';
+    const tomorrowIso = todayIso ? addDaysToIso(todayIso, 1) : '';
+    const askMsg = `Show me the full schedule for route ${schedule.route || routeId}${schedule.date ? ` on ${schedule.date}` : ''}.`;
+
+    const dayButtons = todayIso
+      ? `
+          <div class="route-schedule-toolbar">
+            <button
+              class="route-schedule-day${schedule.date === todayIso ? ' active' : ''}"
+              onclick="window.showRouteScheduleFromMap(${JSON.stringify(routeId).replace(/"/g, '&quot;')}, ${JSON.stringify(todayIso).replace(/"/g, '&quot;')})"
+            >Today</button>
+            <button
+              class="route-schedule-day${schedule.date === tomorrowIso ? ' active' : ''}"
+              onclick="window.showRouteScheduleFromMap(${JSON.stringify(routeId).replace(/"/g, '&quot;')}, ${JSON.stringify(tomorrowIso).replace(/"/g, '&quot;')})"
+            >Tomorrow</button>
+          </div>
+        `
+      : '';
+
+    const directions = (schedule.directions || []).length
+      ? schedule.directions.map(direction => {
+          const departures = (direction.departures || []).length
+            ? `<div class="route-departure-list">${direction.departures.map(dep => `
+                <span class="route-departure-pill">${escHTML(dep.time_label || dep.time || '')}</span>
+              `).join('')}</div>`
+            : `<div class="pred-row"><span>No departures scheduled.</span><span></span></div>`;
+          return `
+            <div class="route-schedule-card">
+              <div class="route-summary-head">${escHTML(direction.headsign || 'Direction')}</div>
+              ${direction.origin_stop_name ? `<div class="route-schedule-origin">Starts at ${escHTML(direction.origin_stop_name)}</div>` : ''}
+              ${departures}
+            </div>
+          `;
+        }).join('')
+      : `<div class="route-schedule-card"><div class="route-summary-line"><span>No scheduled service on this day.</span><span></span></div></div>`;
+
+    const departuresLabel = schedule.total_departures === 1
+      ? '1 departure'
+      : `${Number(schedule.total_departures || 0)} departures`;
+
+    renderSheet(`
+      <h3>${escHTML(routeTitle)}</h3>
+      <div class="meta">${escHTML(schedule.day_label || 'Today')} · ${escHTML(departuresLabel)}</div>
+      ${dayButtons}
+      <div class="map-sheet-section">Detailed departures</div>
+      <div class="route-summary-grid">${directions}</div>
+      <div class="route-schedule-note">Times shown here are departures from each direction's starting stop.</div>
+      <div class="map-sheet-actions">
+        <button class="map-sheet-btn" onclick="window.askAssistantFromMap(${JSON.stringify(askMsg).replace(/"/g, '&quot;')})">Ask the Assistant</button>
+        <button class="map-sheet-btn ghost" onclick="window.showRouteSummaryFromMap(${JSON.stringify(routeId).replace(/"/g, '&quot;')})">Show summary</button>
+      </div>
+    `);
   }
 
   async function showStopSheet(stop) {
@@ -777,6 +893,15 @@
       origin.focus();
       origin.dispatchEvent(new Event('input', { bubbles: true }));
     }
+  };
+
+  window.showRouteScheduleFromMap = function(routeId, dateIso) {
+    showRouteSchedule(routeId, { dateIso });
+  };
+
+  window.showRouteSummaryFromMap = function(routeId) {
+    window.closeMapSheet();
+    showRouteInfo(routeId);
   };
 
   // ── Geolocation ───────────────────────────────────────────────────────────
@@ -1034,6 +1159,17 @@
     const r = await fetch(url, { credentials: 'same-origin' });
     if (!r.ok) throw new Error(`HTTP ${r.status} on ${url}`);
     return r.json();
+  }
+
+  function addDaysToIso(isoDate, days) {
+    if (!isoDate) return '';
+    const dt = new Date(`${isoDate}T00:00:00`);
+    if (!Number.isFinite(dt.getTime())) return '';
+    dt.setDate(dt.getDate() + Number(days || 0));
+    const yyyy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
 
   function escHTML(s) {

@@ -953,6 +953,24 @@ def routes_serving_area(destination_hint: str, limit: int = 16) -> list[dict]:
         conn.close()
 
 
+def _resolve_schedule_target_date(date_str: str | None = None) -> date:
+    if date_str:
+        try:
+            return date.fromisoformat(date_str)
+        except ValueError:
+            pass
+    return datetime.now(TZ).date()
+
+
+def _describe_service_day(target: date) -> tuple[str, str]:
+    dow = target.weekday()  # 0=Mon … 6=Sun
+    if dow < 5:
+        return f"{target.strftime('%A')} (weekday)", "weekday"
+    if dow == 5:
+        return "Saturday", "saturday"
+    return "Sunday", "sunday"
+
+
 def get_route_day_summary(route_id: str, date_str: str | None = None) -> dict | None:
     """
     Return a high-level schedule summary for a route on a given date.
@@ -976,28 +994,10 @@ def get_route_day_summary(route_id: str, date_str: str | None = None) -> dict | 
         return None
 
     try:
-        # Resolve date
-        if date_str:
-            try:
-                target = date.fromisoformat(date_str)
-            except ValueError:
-                target = datetime.now(TZ).date()
-        else:
-            target = datetime.now(TZ).date()
-
+        target = _resolve_schedule_target_date(date_str)
         date_iso = target.isoformat()
         date_compact = target.strftime("%Y%m%d")
-        dow = target.weekday()  # 0=Mon … 6=Sun
-
-        if dow < 5:
-            day_label = f"{target.strftime('%A')} (weekday)"
-            day_type = "weekday"
-        elif dow == 5:
-            day_label = "Saturday"
-            day_type = "saturday"
-        else:
-            day_label = "Sunday"
-            day_type = "sunday"
+        day_label, day_type = _describe_service_day(target)
 
         # Confirm route exists
         rte = conn.execute(
@@ -1112,6 +1112,125 @@ def get_route_day_summary(route_id: str, date_str: str | None = None) -> dict | 
             "day_type": day_type,
             "directions": directions,
             "runs_today": len(directions) > 0,
+        }
+
+    except Exception:
+        return None
+    finally:
+        conn.close()
+
+
+def get_route_departure_schedule(route_id: str, date_str: str | None = None) -> dict | None:
+    """Return full route departures for a date, grouped by headsign and origin stop."""
+    if not route_id:
+        return None
+
+    conn = connect_db()
+    if conn is None:
+        return None
+
+    try:
+        target = _resolve_schedule_target_date(date_str)
+        date_iso = target.isoformat()
+        date_compact = target.strftime("%Y%m%d")
+        day_label, day_type = _describe_service_day(target)
+
+        rte = conn.execute(
+            "SELECT route_short_name, route_long_name FROM routes WHERE route_short_name = ?",
+            (route_id,),
+        ).fetchone()
+        if not rte:
+            return None
+
+        rows = conn.execute(
+            """
+            WITH base_services AS (
+              SELECT c.service_id FROM calendar c
+              WHERE :date_compact BETWEEN c.start_date AND c.end_date
+                AND (
+                  (c.monday    = 1 AND strftime('%w', :date_iso) = '1') OR
+                  (c.tuesday   = 1 AND strftime('%w', :date_iso) = '2') OR
+                  (c.wednesday = 1 AND strftime('%w', :date_iso) = '3') OR
+                  (c.thursday  = 1 AND strftime('%w', :date_iso) = '4') OR
+                  (c.friday    = 1 AND strftime('%w', :date_iso) = '5') OR
+                  (c.saturday  = 1 AND strftime('%w', :date_iso) = '6') OR
+                  (c.sunday    = 1 AND strftime('%w', :date_iso) = '0')
+                )
+            ),
+            exception_add    AS (SELECT service_id FROM calendar_dates WHERE date = :date_compact AND exception_type = 1),
+            exception_remove AS (SELECT service_id FROM calendar_dates WHERE date = :date_compact AND exception_type = 2),
+            active_services  AS (
+              SELECT service_id FROM base_services
+              UNION  SELECT service_id FROM exception_add
+              EXCEPT SELECT service_id FROM exception_remove
+            ),
+            trip_first_seq AS (
+              SELECT trip_id, MIN(stop_sequence) AS min_seq
+              FROM stop_times
+              GROUP BY trip_id
+            )
+            SELECT t.trip_headsign,
+                   s.stop_name AS origin_stop_name,
+                   st.departure_time
+            FROM trips t
+            JOIN routes r           ON r.route_id    = t.route_id
+            JOIN active_services a  ON a.service_id  = t.service_id
+            JOIN trip_first_seq tfs ON tfs.trip_id   = t.trip_id
+            JOIN stop_times st      ON st.trip_id    = t.trip_id
+                                    AND st.stop_sequence = tfs.min_seq
+            JOIN stops s            ON s.stop_id     = st.stop_id
+            WHERE r.route_short_name = :route
+            ORDER BY st.departure_time, t.trip_headsign, s.stop_name
+            """,
+            {
+                "date_iso": date_iso,
+                "date_compact": date_compact,
+                "route": route_id,
+            },
+        ).fetchall()
+
+        grouped: dict[tuple[str, str], dict] = {}
+        seen_times: dict[tuple[str, str], set[str]] = {}
+        for row in rows:
+            headsign = row["trip_headsign"] or "Direction"
+            origin_stop_name = row["origin_stop_name"] or ""
+            key = (headsign, origin_stop_name)
+            entry = grouped.setdefault(key, {
+                "headsign": headsign,
+                "origin_stop_name": origin_stop_name,
+                "departures": [],
+            })
+            dep_time = row["departure_time"]
+            if not dep_time:
+                continue
+            key_seen = seen_times.setdefault(key, set())
+            if dep_time in key_seen:
+                continue
+            key_seen.add(dep_time)
+            entry["departures"].append({
+                "time": dep_time,
+                "time_label": format_time_12h(dep_time),
+            })
+
+        directions = sorted(
+            grouped.values(),
+            key=lambda item: (
+                item["departures"][0]["time"] if item["departures"] else "99:99:99",
+                item["headsign"],
+                item["origin_stop_name"],
+            ),
+        )
+        total_departures = sum(len(item["departures"]) for item in directions)
+
+        return {
+            "route_id": route_id,
+            "route_long_name": rte["route_long_name"],
+            "date_iso": date_iso,
+            "day_label": day_label,
+            "day_type": day_type,
+            "runs_today": total_departures > 0,
+            "directions": directions,
+            "total_departures": total_departures,
         }
 
     except Exception:

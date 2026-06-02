@@ -1149,6 +1149,10 @@
       border-top: 1px solid rgba(255,255,255,0.05);
     }
     .route-service-row strong { color: var(--text); font-weight: 650; }
+    .route-info-actions {
+      margin-top: 14px;
+      padding-bottom: 6px;
+    }
     .map-route-scroll-hint {
       position: sticky;
       bottom: 48px;
@@ -1487,6 +1491,61 @@
       border: 1px solid rgba(255,255,255,0.12);
     }
     .map-sheet-btn:hover { opacity: 0.92; }
+    .route-schedule-toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 10px 0 4px;
+    }
+    .route-schedule-day {
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .route-schedule-day.active {
+      background: rgba(37,99,235,0.22);
+      border-color: rgba(96,165,250,0.4);
+      color: #dbeafe;
+    }
+    .route-schedule-card {
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 10px;
+    }
+    .route-schedule-origin {
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      margin-bottom: 8px;
+    }
+    .route-departure-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .route-departure-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #fff;
+      font-size: 0.82rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .route-schedule-note {
+      margin-top: 12px;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      line-height: 1.4;
+    }
 
     /* ── Reduced service banner ──────────────────────────────── */
     .trip-service-banner {
@@ -2275,7 +2334,7 @@
   <script src="/static/trip_planner.js?v=3" defer></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="/static/map.js?v=27" defer></script>
+  <script src="/static/map.js?v=28" defer></script>
 
   <!-- PWA chrome (offline banner, install button, iOS tip) -->
   <div id="offline-banner" hidden>You're offline. Showing last known information.</div>

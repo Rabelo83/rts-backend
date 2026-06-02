@@ -6,6 +6,8 @@ GET /api/map/routes              List of all routes (id, name, color) — for ch
 GET /api/map/route/<route_id>    Polyline shapes (per direction) + stops served by route
 GET /api/map/route/<route_id>/overview
                                   First/last/frequency route summary
+GET /api/map/route/<route_id>/schedule
+                                  Full scheduled departures by direction for a day
 GET /api/map/vehicles            All active vehicles across all routes (cached 30s)
 GET /api/map/vehicle/<vehicle_id>/predictions
                                   Upcoming stop ETAs for one active vehicle
@@ -349,6 +351,31 @@ def api_map_route_overview(route_id):
         "runs_today": summary["runs_today"],
         "directions": summary.get("directions", []),
         "schedule_by_service_type": schedule_service.get_route_first_last_by_service_type(route_id),
+        "source": "gtfs_schedule",
+    }
+    return jsonify(payload)
+
+
+@map_bp.route("/api/map/route/<route_id>/schedule")
+def api_map_route_schedule(route_id):
+    route_id = str(route_id or "").strip()
+    if not route_id:
+        return jsonify({"error": "invalid_route_id"}), 400
+
+    date_str = str(request.args.get("date") or "").strip() or None
+    schedule = schedule_service.get_route_departure_schedule(route_id, date_str=date_str)
+    if schedule is None:
+        return jsonify({"error": "route_not_found", "route": route_id}), 404
+
+    payload = {
+        "route": schedule["route_id"],
+        "route_name": schedule["route_long_name"],
+        "date": schedule["date_iso"],
+        "day_label": schedule["day_label"],
+        "day_type": schedule["day_type"],
+        "runs_today": schedule["runs_today"],
+        "directions": schedule.get("directions", []),
+        "total_departures": schedule.get("total_departures", 0),
         "source": "gtfs_schedule",
     }
     return jsonify(payload)

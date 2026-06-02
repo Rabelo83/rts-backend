@@ -141,6 +141,52 @@ def test_map_route_overview_returns_route_summary(monkeypatch):
     assert data["schedule_by_service_type"]["Saturday"]["last"] == "6:00 PM"
 
 
+def test_map_route_schedule_returns_full_departures(monkeypatch):
+    def fake_schedule(route_id, date_str=None):
+        assert route_id == "8"
+        assert date_str == "2026-05-01"
+        return {
+            "route_id": "8",
+            "route_long_name": "UF Health To N Walmart Supercenter",
+            "date_iso": "2026-05-01",
+            "day_label": "Friday (weekday)",
+            "day_type": "weekday",
+            "runs_today": True,
+            "total_departures": 4,
+            "directions": [
+                {
+                    "headsign": "To UF Health",
+                    "origin_stop_name": "N Walmart Supercenter",
+                    "departures": [
+                        {"time": "06:00:00", "time_label": "6:00 AM"},
+                        {"time": "07:00:00", "time_label": "7:00 AM"},
+                    ],
+                },
+                {
+                    "headsign": "To N Walmart Supercenter",
+                    "origin_stop_name": "UF Health Shands",
+                    "departures": [
+                        {"time": "06:30:00", "time_label": "6:30 AM"},
+                        {"time": "07:30:00", "time_label": "7:30 AM"},
+                    ],
+                },
+            ],
+        }
+
+    monkeypatch.setattr("routes.map_api.schedule_service.get_route_departure_schedule", fake_schedule)
+
+    res = _app().test_client().get("/api/map/route/8/schedule?date=2026-05-01")
+
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["route"] == "8"
+    assert data["route_name"] == "UF Health To N Walmart Supercenter"
+    assert data["day_label"] == "Friday (weekday)"
+    assert data["total_departures"] == 4
+    assert data["directions"][0]["origin_stop_name"] == "N Walmart Supercenter"
+    assert data["directions"][0]["departures"][1]["time_label"] == "7:00 AM"
+
+
 def test_map_vehicles_surfaces_bustime_limit(monkeypatch):
     monkeypatch.setattr(map_api, "_vehicle_cache", None)
     monkeypatch.setattr(map_api, "_vehicle_cache_at", 0)
