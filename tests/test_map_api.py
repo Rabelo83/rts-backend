@@ -14,8 +14,9 @@ def _app():
 
 def test_map_stop_schedule_returns_formatted_departures(monkeypatch):
     def fake_schedule(text, stop_id=None):
-        assert text == "now"
         assert stop_id == "0001"
+        if text != "now":
+            return {"error": "stop_not_found"}
         return {
             "stop": "Rosa Parks RTS Downtown Station",
             "date": "2026-04-30",
@@ -42,6 +43,7 @@ def test_map_stop_schedule_returns_formatted_departures(monkeypatch):
             "time": "09:25:00",
             "time_label": "9:25 AM",
             "headsign": "To Downtown Station",
+            "service_day_label": None,
             "is_scheduled": True,
         },
         {
@@ -49,6 +51,7 @@ def test_map_stop_schedule_returns_formatted_departures(monkeypatch):
             "time": "10:00:00",
             "time_label": "10:00 AM",
             "headsign": "To Eastwood Meadows",
+            "service_day_label": None,
             "is_scheduled": True,
         },
     ]
@@ -87,9 +90,10 @@ def test_find_next_stop_schedule_rolls_forward_to_tomorrow(monkeypatch):
 
     assert calls[0] == ("now", "0369")
     assert calls[1] == ("2026-05-02 midnight", "0369")
-    assert data["service_day_label"] == "Tomorrow"
+    assert data["service_day_label"] is None
     assert data["departures"][0]["route"] == "8"
     assert data["departures"][0]["time_label"] == "6:15 AM"
+    assert data["departures"][0]["service_day_label"] == "Tomorrow"
 
 
 def test_map_stop_schedule_rejects_invalid_stop_id():
