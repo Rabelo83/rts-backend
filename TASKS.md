@@ -39,11 +39,21 @@ Note: The initial list below was inferred from the current repository contents a
   `View full schedule` from the route summary drawer and `View route schedule` from a tapped bus sheet.
 - [x] Added `/api/map/route/<route_id>/schedule` backed by GTFS DB reads so route schedules come from the backend database, not PDFs and not the chat model.
 - [x] Fixed the first post-deploy regression where valid routes returned `route_not_found` because `format_time_12h()` was called without being imported in `get_route_departure_schedule()`.
-- [ ] Decide whether schedules should stay as a Live Map drill-in or become a dedicated fourth top-level tab:
+- [x] Product direction chosen: build a dedicated fourth top-level tab:
   `Chat | Plan a Trip | Live Map | Schedules`
-- [ ] If the dedicated tab is approved, build a v1 flow:
-  route picker → day selector → direction view → DB-backed departures, loaded only on request
-- [ ] Decide whether the long-term schedule UI should remain grouped departure chips or move to a denser rider timetable layout
+- [x] UX direction chosen: do **not** clone the RTS PDFs. Build a cleaner in-app schedule surface that is easy to scan on desktop and mobile.
+- [ ] Build the `Schedules` tab shell in `chat.html` / `public_html/frontend.js` without disturbing the existing Chat / Trip Planner / Live Map tabs.
+- [ ] Add the schedule v1 user flow:
+  route picker → service-day selector (`Weekday`, `Saturday`, `Sunday`, `Reduced`) → direction selector → timetable render
+- [ ] Build a timetable-style schedule view, not just departure chips:
+  rows should represent trip runs / departure sets, columns should represent rider-meaningful stops
+- [ ] Decide and implement the first-pass stop strategy:
+  `key stops only` recommended for v1, with a later `show full route timetable` expansion if needed
+- [ ] Add a backend shape for timetable rendering from GTFS DB:
+  route + service day + direction → ordered stop columns + time rows
+- [ ] Keep schedule loading on demand only:
+  no preload of all routes at app start
+- [ ] Preserve the existing Live Map route-schedule drill-in until the dedicated `Schedules` tab fully replaces or complements it
 
 ## 🔄 Active — Session 19: Option B — Migrate Agent to Claude API
 

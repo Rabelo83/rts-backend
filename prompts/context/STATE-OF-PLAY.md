@@ -28,6 +28,7 @@ This file captures the **current state of the work-in-progress** so a delegated 
 3. **🗺️ Live Map** — MapLibre GL + OpenFreeMap, live BusTime markers, route filter rail, bottom sheet on tap with deep-links to chat / trip planner
    - Route summaries now include a DB-backed `View full schedule` drill-in.
    - Tapped buses now include `View route schedule` so riders can jump from a live vehicle into that route's timetable.
+4. **Schedules** — planned next, not shipped yet. This is the intended non-chat schedule surface.
 
 ---
 
@@ -82,6 +83,7 @@ Routing table (which tool to pick for which user query) lives in [routes/agent_c
 - **Route selector**: compact mobile-first toolbar with `Routes: All` on the left and Stop ID search on the right. Route chips live in an expandable tray under the Routes button and are multi-select. Empty selection means **All** active vehicles; tapping route chips adds/removes them and opens that route's summary; tapping **All** clears the set. Selected routes render together with softer polylines and deduped route-colored stop dots.
 - **Route overlay**: tapping a route chip or reopening a route summary opens a top-of-map route drawer anchored to the map canvas with today's directions, first/last runs, frequency, service-type hours, hide/reopen controls, and a scroll hint when content overflows.
 - **Route schedule drill-in** (2026-06-02): the route drawer now exposes `View full schedule`, which opens a bottom sheet with GTFS-backed route departures grouped by direction/headsign and origin stop. The sheet currently supports `Today` / `Tomorrow` toggles and is intentionally an on-demand view, not a preload of all route schedules.
+- **Next product direction** (approved 2026-06-02): build a dedicated top-level `Schedules` tab rather than forcing the rider through Live Map or chat for full schedule reading. This should not be a PDF clone; it should be a cleaner in-app timetable reader: route-first, service-day selector, direction selector, then a scan-friendly timetable grid using GTFS DB data loaded on demand.
 - **Bus overlay**: tapping a bus selects its route and opens a bottom sheet with destination plus upcoming stop ETAs for that specific vehicle. Speed is intentionally hidden as too operational/noisy for riders. Bus taps hide route info into the `Show route info` reopen control so the rider can return without overlapping panels.
 - **Bus → schedule bridge** (2026-06-02): tapped bus sheets now include `View route schedule`, giving riders a non-chat path from a live bus to the route's upcoming scheduled departures.
 - **Agent ETA rule**: for route+stop "next"/ETA questions, realtime wins. `get_realtime_predictions(stop_id, route_id?)` can filter live predictions to the requested route; static GTFS is only fallback for first/last/schedule/date questions or when realtime has no match/unavailable.
@@ -103,13 +105,20 @@ These are the live punch-list items. Each is a candidate task to delegate.
 - **Walk-cap not enforced on final leg** — already fixed for trip planner output (`_MAX_FINAL_WALK_MIN = 12`) but verify it applies to all paths including hub-relay fallback.
 
 ### Live Map polish (post-MVP)
-- Dedicated top-level `Schedules` tab is **not** built yet. Current schedule UX lives inside Live Map as a drill-in. Product direction being discussed: `Chat | Plan a Trip | Live Map | Schedules`.
+- Dedicated top-level `Schedules` tab is **not** built yet. Current schedule UX lives inside Live Map as a drill-in. Product direction is now chosen: `Chat | Plan a Trip | Live Map | Schedules`.
 - Greyed-out chips for routes with no service today (use `engine.service_ids_for_date()`)
 - Smoother marker tween between polls (currently snaps)
 - Per-direction polyline coloring (inbound desaturated)
 - Cluster overlapping stops at low zoom (~970 stops at zoom 11 = busy)
 - Real-device QA pass (iOS Safari + Android Chrome)
 - Optional map-legend / selected-route count polish after real-device review
+
+### Schedules tab plan (new)
+- Add a fourth top-level tab inside `chat.html`, preserving the current three tabs unchanged
+- Use GTFS DB as the only source of truth for schedule tables; no PDF ingestion and no model-generated times
+- Load schedules on demand only after the rider picks a route/day/direction
+- Preferred v1 presentation: timetable grid with rider-meaningful stop columns and trip-run rows
+- Recommended v1 scope: key stops first, full-route timetable as a second-step enhancement
 
 ### IA reorg follow-ups
 - Real-device PWA install test — verify "Add to Home Screen" lands on `/` (not `/chat`) and that previously-installed PWAs migrate cleanly when SW v10 activates. iOS Safari is the high-risk path.

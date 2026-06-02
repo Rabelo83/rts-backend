@@ -17,6 +17,14 @@ How to use:
 
 ---
 
+### 2026-06-02 — Decision: dedicated Schedules tab, not a PDF clone
+- Type: `decision, docs`
+- Summary: The Live Map schedule drill-in is useful as a first step, but it is not the final rider schedule UX. Product direction is now a dedicated top-level `Schedules` tab alongside `Chat`, `Plan a Trip`, and `Live Map`. The goal is a cool, functional, easy-to-understand non-chat schedule surface built from the GTFS DB, not a literal RTS PDF reproduction. The likely shape is route-first, service-day selector, direction selector, then a scan-friendly timetable grid where users can read across key stops per trip run.
+- Files/Areas: `TASKS.md`, `prompts/context/STATE-OF-PLAY.md`, `prompts/tasks/build-schedules-tab.md`
+- Notes / Follow-up: Preserve existing Chat / Trip Planner / Live Map behavior. Keep the current Live Map drill-in until the dedicated tab ships. Schedule data remains DB-backed and loaded on demand, not pre-rendered for all routes at app load.
+
+---
+
 ### 2026-06-02 — Live Map: route schedule drill-in + backend fix
 - Type: `feature, fix, docs`
 - Summary: Added a rider-facing full route schedule drill-in from the Live Map so users can inspect scheduled departures without using chat. Route summary drawers now expose `View full schedule`, bus sheets expose `View route schedule`, and the schedule sheet groups departures by direction/headsign with `Today` / `Tomorrow` toggles. Follow-up bug found immediately after deploy: the new backend helper called `format_time_12h()` without importing it, which caused the endpoint to fall into its broad exception handler and return `route_not_found` for valid routes. Fixed by importing the formatter and adding a focused helper test.
