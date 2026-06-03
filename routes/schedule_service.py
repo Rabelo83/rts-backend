@@ -1267,6 +1267,17 @@ _SLUG_LABELS: dict[str, str] = {
 }
 
 
+def _gtfs_secs(t: str) -> int | None:
+    """Convert a GTFS HH:MM[:SS] time string (may exceed 24:00) to total seconds."""
+    if not t:
+        return None
+    parts = t.strip().split(":")
+    try:
+        return int(parts[0]) * 3600 + int(parts[1]) * 60 + (int(parts[2]) if len(parts) > 2 else 0)
+    except (ValueError, IndexError):
+        return None
+
+
 def _select_key_stops(stops: list, max_stops: int = 8) -> list:
     """Pick up to max_stops evenly-spaced stops from an ordered stop list.
 
@@ -1444,6 +1455,35 @@ def get_route_timetable(
                 for r in selected
             ]
 
+            # Re-order key stops by average stop_sequence across ALL trips in this
+            # direction.  Some routes have variant patterns where the rep trip visits
+            # stops in a different order than the majority of runs; using the average
+            # puts columns in the order most riders actually experience.
+            stop_ph2 = ",".join("?" * len(key_stop_ids))
+            avg_rows = conn.execute(
+                f"""
+                SELECT s.stop_id_padded,
+                       AVG(CAST(st.stop_sequence AS REAL)) AS avg_seq
+                FROM stop_times st
+                JOIN stops s ON s.stop_id = st.stop_id
+                JOIN trips t ON t.trip_id = st.trip_id
+                JOIN routes r ON r.route_id = t.route_id
+                WHERE r.route_short_name = ?
+                  AND t.trip_headsign = ?
+                  AND t.service_id IN ({ph})
+                  AND s.stop_id_padded IN ({stop_ph2})
+                GROUP BY s.stop_id_padded
+                """,
+                (route_id, direction, *wanted_ids, *key_stop_ids),
+            ).fetchall()
+            avg_seq_map = {r["stop_id_padded"]: r["avg_seq"] for r in avg_rows}
+            order = sorted(
+                range(len(key_stop_ids)),
+                key=lambda i: avg_seq_map.get(key_stop_ids[i], 0),
+            )
+            key_stop_ids = [key_stop_ids[i] for i in order]
+            stop_objects  = [stop_objects[i]  for i in order]
+
         # All trips ordered by first departure
         trip_rows = conn.execute(
             f"""
@@ -1511,10 +1551,23 @@ def get_route_timetable(
             for trip_row in trip_rows:
                 tid = trip_row["trip_id"]
                 trip_times = time_map.get(tid, {})
-                times = [
-                    format_time_12h(trip_times[sid]) if sid in trip_times else None
-                    for sid in key_stop_ids
-                ]
+                # Safety net: null out any cell whose raw GTFS time goes backwards
+                # relative to the previous column.  This hides confusing reverse-order
+                # times produced by minority trip variants that visit stops in a
+                # different order than the majority (which drove column ordering above).
+                last_secs = -1
+                times = []
+                for sid in key_stop_ids:
+                    raw = trip_times.get(sid)
+                    if raw is None:
+                        times.append(None)
+                        continue
+                    secs = _gtfs_secs(raw)
+                    if secs is not None and secs >= last_secs:
+                        times.append(format_time_12h(raw))
+                        last_secs = secs
+                    else:
+                        times.append(None)
                 rows.append({"trip_id": tid, "times": times})
 
         return {
