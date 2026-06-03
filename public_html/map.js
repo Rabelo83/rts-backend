@@ -895,8 +895,9 @@
     }
   };
 
-  window.showRouteScheduleFromMap = function(routeId, dateIso) {
-    showRouteSchedule(routeId, { dateIso });
+  window.showRouteScheduleFromMap = function(routeId) {
+    if (typeof window.switchTab === 'function') window.switchTab('schedule');
+    if (typeof window.openScheduleForRoute === 'function') window.openScheduleForRoute(routeId);
   };
 
   window.showRouteSummaryFromMap = function(routeId) {

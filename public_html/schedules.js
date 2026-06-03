@@ -15,6 +15,9 @@
   let _selectedSvc   = 'weekday';
   let _selectedDir   = null;
 
+  let _routesReadyResolve;
+  const _routesReady = new Promise(res => { _routesReadyResolve = res; });
+
   const SVC_LABELS = {
     weekday:  'Weekday',
     saturday: 'Saturday',
@@ -98,6 +101,7 @@
         return na !== nb ? na - nb : a.short_name.localeCompare(b.short_name);
       });
       _renderRouteList(_routes);
+      _routesReadyResolve();
     } catch (_e) {
       el('sched-route-list').innerHTML =
         '<div class="sched-state-msg sched-error">Could not load routes. Please try again.</div>';
@@ -194,6 +198,13 @@
     _closeDropdown();
     _updateTrigger();
     await _loadTimetable(routeId, _selectedSvc, null);
+  };
+
+  /* Called from the Live Map "View route schedule" button — switches to this
+     tab and pre-selects the given route once the route list is ready. */
+  window.openScheduleForRoute = async function openScheduleForRoute(routeId) {
+    await _routesReady;
+    await window._schedSelectRoute(routeId);
   };
 
   /* ── Load timetable ───────────────────────────────────────────────────── */
