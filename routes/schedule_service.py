@@ -1422,10 +1422,15 @@ def get_route_timetable(
         key_stop_ids: list[str] = []
         stop_objects: list[dict] = []
 
+        # key_stop_target_seqs maps stop_id → its stop_sequence in the rep trip.
+        # Used when building time_map to pick the correct occurrence of a stop
+        # that appears multiple times in a trip (e.g. lollipop/loop routes).
+        key_stop_target_seqs: dict[str, int] = {}
+
         if rep_row:
             rep_stops = conn.execute(
                 """
-                SELECT s.stop_id_padded, s.stop_name FROM stop_times st
+                SELECT s.stop_id_padded, s.stop_name, st.stop_sequence FROM stop_times st
                 JOIN stops s ON s.stop_id = st.stop_id
                 WHERE st.trip_id = ? ORDER BY st.stop_sequence
                 """,
@@ -1433,6 +1438,7 @@ def get_route_timetable(
             ).fetchall()
             selected = _select_key_stops(list(rep_stops), max_stops=8)
             key_stop_ids = [r["stop_id_padded"] for r in selected]
+            key_stop_target_seqs = {r["stop_id_padded"]: r["stop_sequence"] for r in selected}
             stop_objects = [
                 {"stop_id": r["stop_id_padded"], "stop_name": r["stop_name"], "is_key_stop": True}
                 for r in selected
@@ -1464,7 +1470,7 @@ def get_route_timetable(
 
             times_rows = conn.execute(
                 f"""
-                SELECT st.trip_id, s.stop_id_padded,
+                SELECT st.trip_id, s.stop_id_padded, st.stop_sequence,
                        COALESCE(st.departure_time, st.arrival_time) AS dep_time
                 FROM stop_times st
                 JOIN stops s ON s.stop_id = st.stop_id
@@ -1475,21 +1481,32 @@ def get_route_timetable(
                 (*trip_ids, *key_stop_ids),
             ).fetchall()
 
-            # Build {trip_id: {stop_id_padded: time}}
-            # COALESCE above ensures terminal stops (where departure_time is NULL)
-            # show their arrival_time instead of a blank dash.
-            time_map: dict[str, dict[str, str]] = {}
+            # Build {trip_id: {stop_id_padded: time}}.
+            # When a stop appears multiple times in a trip (lollipop / loop routes)
+            # "keep earliest" picks the wrong occurrence — e.g. a stop that appears
+            # at seq=2 AND seq=50, where seq=50 is the terminal, would get 6:07 AM
+            # instead of the correct arrival time.
+            # Fix: keep the occurrence whose stop_sequence is CLOSEST to the sequence
+            # that stop had in the representative trip.
+            time_map_raw: dict[str, dict[str, tuple[str, int]]] = {}
             for tr in times_rows:
                 tid = tr["trip_id"]
                 sid = tr["stop_id_padded"]
                 dep = tr["dep_time"]
+                seq = tr["stop_sequence"]
                 if not dep:
-                    continue  # skip if both departure and arrival are NULL
-                if tid not in time_map:
-                    time_map[tid] = {}
-                # Keep earliest time when a stop appears more than once in a trip
-                if sid not in time_map[tid] or dep < time_map[tid][sid]:
-                    time_map[tid][sid] = dep
+                    continue
+                target = key_stop_target_seqs.get(sid, 0)
+                diff = abs(seq - target)
+                if tid not in time_map_raw:
+                    time_map_raw[tid] = {}
+                if sid not in time_map_raw[tid] or diff < time_map_raw[tid][sid][1]:
+                    time_map_raw[tid][sid] = (dep, diff)
+
+            time_map: dict[str, dict[str, str]] = {
+                tid: {sid: v[0] for sid, v in stops.items()}
+                for tid, stops in time_map_raw.items()
+            }
 
             for trip_row in trip_rows:
                 tid = trip_row["trip_id"]

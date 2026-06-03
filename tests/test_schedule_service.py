@@ -309,12 +309,12 @@ class TestGetRouteTimetable:
                 if "SELECT t.trip_id, COUNT(st.stop_id) AS stop_count" in sql_c:
                     return FakeCursor(one={"trip_id": "T001", "stop_count": 5})
 
-                # Stops for representative trip
-                if "SELECT s.stop_id_padded, s.stop_name FROM stop_times st" in sql_c:
+                # Stops for representative trip (includes stop_sequence for correct occurrence matching)
+                if "s.stop_id_padded" in sql_c and "s.stop_name" in sql_c and "st.stop_sequence" in sql_c and "trip_id" in sql_c and "COALESCE" not in sql_c and "stop_count" not in sql_c:
                     return FakeCursor(rows=[
-                        {"stop_id_padded": "0001", "stop_name": "Stop A"},
-                        {"stop_id_padded": "0002", "stop_name": "Stop B"},
-                        {"stop_id_padded": "0003", "stop_name": "Stop C"},
+                        {"stop_id_padded": "0001", "stop_name": "Stop A", "stop_sequence": 1},
+                        {"stop_id_padded": "0002", "stop_name": "Stop B", "stop_sequence": 2},
+                        {"stop_id_padded": "0003", "stop_name": "Stop C", "stop_sequence": 3},
                     ])
 
                 # All trips ordered by first departure
@@ -324,15 +324,15 @@ class TestGetRouteTimetable:
                         {"trip_id": "T002", "first_dep": "07:00:00"},
                     ])
 
-                # Times for all trips × key stops (COALESCE query)
+                # Times for all trips × key stops (COALESCE + stop_sequence for correct occurrence)
                 if "COALESCE" in sql_c and "stop_id_padded" in sql_c and "stop_times st" in sql_c:
                     return FakeCursor(rows=[
-                        {"trip_id": "T001", "stop_id_padded": "0001", "dep_time": "06:30:00"},
-                        {"trip_id": "T001", "stop_id_padded": "0002", "dep_time": "06:40:00"},
-                        {"trip_id": "T001", "stop_id_padded": "0003", "dep_time": "07:00:00"},
-                        {"trip_id": "T002", "stop_id_padded": "0001", "dep_time": "07:00:00"},
-                        {"trip_id": "T002", "stop_id_padded": "0002", "dep_time": "07:10:00"},
-                        {"trip_id": "T002", "stop_id_padded": "0003", "dep_time": "07:30:00"},
+                        {"trip_id": "T001", "stop_id_padded": "0001", "dep_time": "06:30:00", "stop_sequence": 1},
+                        {"trip_id": "T001", "stop_id_padded": "0002", "dep_time": "06:40:00", "stop_sequence": 2},
+                        {"trip_id": "T001", "stop_id_padded": "0003", "dep_time": "07:00:00", "stop_sequence": 3},
+                        {"trip_id": "T002", "stop_id_padded": "0001", "dep_time": "07:00:00", "stop_sequence": 1},
+                        {"trip_id": "T002", "stop_id_padded": "0002", "dep_time": "07:10:00", "stop_sequence": 2},
+                        {"trip_id": "T002", "stop_id_padded": "0003", "dep_time": "07:30:00", "stop_sequence": 3},
                     ])
 
                 raise AssertionError(f"Unexpected SQL in test: {sql_c[:80]}")
