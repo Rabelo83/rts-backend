@@ -90,6 +90,15 @@
     _renderRouteList(filtered);
   }
 
+  /* Extract destination from "Origin to Destination" route long names.
+     Most RTS routes are "Downtown Station to X" — showing "X" is far more
+     useful to a rider scanning chips than "Downtown ..." on every card. */
+  function _routeDest(longName) {
+    if (!longName) return '';
+    const m = longName.match(/\bto\s+(.+)$/i);
+    return m ? m[1].trim() : longName;
+  }
+
   function _renderRouteList(routes) {
     const list = el('sched-route-list');
     if (!list) return;
@@ -100,15 +109,17 @@
     list.innerHTML = routes.map(r => {
       const active = _selectedRoute === r.short_name;
       const color  = esc(r.color || '#3b82f6');
+      const dest   = esc(_routeDest(r.long_name));
       return `
         <button class="sched-route-chip${active ? ' active' : ''}"
                 role="listitem"
                 data-route="${esc(r.short_name)}"
                 style="--chip-color:${color}"
                 onclick="window._schedSelectRoute(${JSON.stringify(r.short_name).replace(/"/g, '&quot;')})"
+                aria-label="Route ${esc(r.short_name)}: ${esc(r.long_name || '')}"
                 aria-pressed="${active}">
           <span class="sched-chip-num">${esc(r.short_name)}</span>
-          <span class="sched-chip-name">${esc(r.long_name || '')}</span>
+          <span class="sched-chip-name">${dest}</span>
         </button>`;
     }).join('');
   }

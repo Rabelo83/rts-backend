@@ -2182,56 +2182,74 @@
       margin: 0;
     }
 
-    /* Route list grid */
+    /* Route picker grid — card-style, destination label below badge */
     .sched-route-list {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 10px;
     }
 
     .sched-route-chip {
       display: flex;
+      flex-direction: column;
       align-items: center;
+      text-align: center;
       gap: 8px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--text-dim);
-      font-family: inherit;
-      font-size: 0.82rem;
-      padding: 10px 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px;
+      padding: 16px 10px 14px;
       cursor: pointer;
-      text-align: left;
-      transition: background .13s, border-color .13s, color .13s;
+      font-family: inherit;
+      transition: transform .18s ease, box-shadow .18s ease,
+                  background .15s, border-color .15s;
       min-width: 0;
     }
     .sched-route-chip:hover {
-      background: rgba(255,255,255,0.09);
-      border-color: rgba(255,255,255,0.18);
-      color: var(--text);
+      transform: translateY(-3px);
+      background: rgba(255,255,255,0.07);
+      border-color: rgba(255,255,255,0.16);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
     }
+    .sched-route-chip:active { transform: translateY(-1px); }
     .sched-route-chip.active {
-      background: rgba(59,130,246,0.15);
-      border-color: rgba(59,130,246,0.4);
-      color: #60a5fa;
+      background: rgba(255,255,255,0.05);
+      border-color: var(--chip-color, #3b82f6);
+      box-shadow: 0 0 0 1px var(--chip-color, #3b82f6) inset,
+                  0 6px 20px rgba(0,0,0,0.4);
+      transform: none;
     }
+
+    /* Big square badge — the route number hero */
     .sched-chip-num {
+      width: 44px;
+      height: 44px;
       background: var(--chip-color, #3b82f6);
       color: #fff;
-      font-weight: 700;
-      font-size: 0.78rem;
-      padding: 2px 7px;
-      border-radius: 6px;
+      font-weight: 800;
+      font-size: 1.05rem;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       flex-shrink: 0;
-      min-width: 26px;
-      text-align: center;
+      letter-spacing: -0.02em;
     }
+
+    /* Destination label — 2-line clamp, no truncation ellipsis */
     .sched-chip-name {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
       overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
+      text-align: center;
       min-width: 0;
+      width: 100%;
     }
+    .sched-route-chip.active .sched-chip-name { color: var(--text-dim); }
 
     /* Detail section */
     .sched-detail-header { display: flex; align-items: center; gap: 10px; }
@@ -2470,7 +2488,7 @@
       .live-badge { display: none; }
       .tab-btn { font-size: 0.9rem; padding: 12px 14px 14px; }
       #schedule-panel { padding: 12px; gap: 10px; }
-      .sched-route-list { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+      .sched-route-list { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
       .sched-table-wrap { max-height: 50vh; }
       .sched-th { min-width: 100px; max-width: 130px; padding: 9px 8px; }
       .sched-td { padding: 7px 8px; font-size: 0.78rem; }
@@ -2646,7 +2664,7 @@
 
   <script src="/static/chat_v2.js?v=8" defer></script>
   <script src="/static/trip_planner.js?v=4" defer></script>
-  <script src="/static/schedules.js?v=6" defer></script>
+  <script src="/static/schedules.js?v=7" defer></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="/static/map.js?v=28" defer></script>
