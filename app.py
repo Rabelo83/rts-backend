@@ -1,7 +1,7 @@
 import os
 import sys
 from pathlib import Path
-from flask import Flask, send_from_directory, request, redirect, session, render_template_string
+from flask import Flask, send_from_directory, make_response, request, redirect, session, render_template_string
 from flask_cors import CORS
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "utils"))
@@ -140,6 +140,14 @@ def create_app() -> Flask:
     def _pin_ok() -> bool:
         return session.get("dashboard_auth") is True
 
+    def _html(filename: str):
+        """Serve an HTML file with no-cache headers so version bumps take effect immediately."""
+        resp = make_response(send_from_directory(app.static_folder, filename))
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        return resp
+
     # Root URL serves the actual product (Chat / Plan a Trip / Live Map).
     # Previously served the legacy "RTS Bus Tracker" dropdown page (now at /about).
     # IA reorg 2026-04-30: one URL = the app. White-label commercial framing.
@@ -147,13 +155,13 @@ def create_app() -> Flask:
     def index():
         if _pin_required() and not _pin_ok():
             return redirect("/login?next=/")
-        return send_from_directory(app.static_folder, "chat.html")
+        return _html("chat.html")
 
     # Legacy dropdown UI — kept reachable at /about for reference / future
     # marketing landing repurpose. NOT shown to riders by default.
     @app.route("/about")
     def about_legacy():
-        return send_from_directory(app.static_folder, "index.html")
+        return _html("index.html")
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
@@ -183,7 +191,7 @@ def create_app() -> Flask:
     def standalone_chat():
         if _pin_required() and not _pin_ok():
             return redirect("/login?next=/chat")
-        return send_from_directory(app.static_folder, "chat.html")
+        return _html("chat.html")
 
     # Wizard retired — superseded by the AI assistant. Redirect to /.
     @app.route("/wizard")
@@ -194,7 +202,7 @@ def create_app() -> Flask:
     def dashboard():
         if _pin_required() and not _pin_ok():
             return redirect("/login?next=/dashboard")
-        return send_from_directory(app.static_folder, "dashboard.html")
+        return _html("dashboard.html")
 
     # Legacy login/logout aliases so old bookmarks still work
     @app.route("/dashboard/login", methods=["GET", "POST"])

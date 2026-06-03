@@ -173,18 +173,13 @@
         </button>`
       ).join('');
 
-    /* Direction buttons — dirs is [{headsign, direction_id}] */
+    /* Direction buttons — dirs is [{headsign, direction_id, label}] */
     const dirs = data.directions || [];
-    const dirBtns = dirs.map((d, idx) => {
+    const dirBtns = dirs.map(d => {
       const headsign = typeof d === 'object' ? (d.headsign || '') : String(d);
-      // GTFS direction_id: 0=Outbound, 1=Inbound (often NULL in RTS data).
-      // Fall back to list position so labels always appear for 2-direction routes.
-      let dirId = typeof d === 'object' ? d.direction_id : null;
-      if (dirId === null || dirId === undefined) {
-        if (dirs.length === 2) dirId = idx;
-      }
-      const dirLabel = (dirId === 0) ? 'Outbound' : (dirId === 1) ? 'Inbound' : null;
-      const tagCls   = (dirId === 0) ? 'outbound'  : (dirId === 1) ? 'inbound'  : '';
+      // label ("Outbound"/"Inbound"/null) is computed server-side — just display it.
+      const dirLabel = typeof d === 'object' ? (d.label || null) : null;
+      const tagCls   = dirLabel ? dirLabel.toLowerCase() : '';
       const badgeHtml = dirLabel
         ? `<span class="sched-dir-badge sched-dir-badge--${tagCls}">${dirLabel}</span>`
         : '';

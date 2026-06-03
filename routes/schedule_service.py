@@ -1366,7 +1366,7 @@ def get_route_timetable(
 
         ph = ",".join("?" * len(wanted_ids))
 
-        # Available directions for this service type (include direction_id for Inbound/Outbound labels)
+        # Available directions for this service type — include direction_id for labels
         dir_rows = conn.execute(
             f"""
             SELECT DISTINCT t.trip_headsign, t.direction_id FROM trips t
@@ -1377,10 +1377,22 @@ def get_route_timetable(
             """,
             (route_id, *wanted_ids),
         ).fetchall()
-        available_directions = [
-            {"headsign": r["trip_headsign"], "direction_id": dict(r).get("direction_id")}
-            for r in dir_rows if r["trip_headsign"]
-        ]
+
+        # Build direction objects with Outbound/Inbound labels resolved server-side.
+        # direction_id is often NULL in RTS GTFS, so we fall back to list position
+        # (index 0 = Outbound, index 1 = Inbound) for 2-direction routes.
+        _dir_label = {0: "Outbound", 1: "Inbound"}
+        raw_dirs = [r for r in dir_rows if r["trip_headsign"]]
+        available_directions = []
+        for i, r in enumerate(raw_dirs):
+            dir_id = r["direction_id"]  # sqlite3.Row direct access; None when NULL
+            if dir_id is None and len(raw_dirs) == 2:
+                dir_id = i  # positional fallback
+            available_directions.append({
+                "headsign":    r["trip_headsign"],
+                "direction_id": dir_id,
+                "label":       _dir_label.get(dir_id),  # "Outbound" / "Inbound" / None
+            })
         available_headsigns = [d["headsign"] for d in available_directions]
 
         # Resolve direction
