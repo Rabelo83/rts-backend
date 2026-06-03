@@ -1438,7 +1438,7 @@ def get_route_timetable(
             ).fetchall()
             selected = _select_key_stops(list(rep_stops), max_stops=8)
             key_stop_ids = [r["stop_id_padded"] for r in selected]
-            key_stop_target_seqs = {r["stop_id_padded"]: r["stop_sequence"] for r in selected}
+            key_stop_target_seqs = {r["stop_id_padded"]: int(r["stop_sequence"]) for r in selected}
             stop_objects = [
                 {"stop_id": r["stop_id_padded"], "stop_name": r["stop_name"], "is_key_stop": True}
                 for r in selected
@@ -1493,7 +1493,7 @@ def get_route_timetable(
                 tid = tr["trip_id"]
                 sid = tr["stop_id_padded"]
                 dep = tr["dep_time"]
-                seq = tr["stop_sequence"]
+                seq = int(tr["stop_sequence"])
                 if not dep:
                     continue
                 target = key_stop_target_seqs.get(sid, 0)
