@@ -2259,15 +2259,26 @@
       font-weight: 500;
     }
 
-    /* Service-day + direction selectors */
+    /* Detail container: flex-column so each row has proper vertical gap */
+    #sched-detail {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Service-day + direction selector rows */
     .sched-svc-row, .sched-dir-row {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      align-items: stretch;
+      align-items: center;
     }
-    /* Shared base for both button types */
+
+    /* Shared pill base — both types identical height */
     .sched-svc-btn, .sched-dir-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
       background: rgba(255,255,255,0.05);
       border: 1px solid var(--border);
       border-radius: 20px;
@@ -2275,21 +2286,10 @@
       font-family: inherit;
       font-size: 0.82rem;
       font-weight: 600;
+      padding: 8px 16px;
       cursor: pointer;
-      transition: background .13s, border-color .13s, color .13s;
-    }
-    .sched-svc-btn {
-      padding: 8px 18px;
       white-space: nowrap;
-    }
-    /* Direction buttons stack label + headsign vertically */
-    .sched-dir-btn {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 1px;
-      padding: 6px 16px 8px;
-      text-align: left;
+      transition: background .13s, border-color .13s, color .13s;
     }
     .sched-svc-btn:hover, .sched-dir-btn:hover {
       background: rgba(255,255,255,0.10);
@@ -2300,24 +2300,26 @@
       border-color: rgba(59,130,246,0.45);
       color: #60a5fa;
     }
-    .sched-dir-tag {
-      font-size: 0.62rem;
-      font-weight: 700;
+
+    /* Inbound / Outbound mini-badge inside each direction pill */
+    .sched-dir-badge {
+      font-size: 0.60rem;
+      font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      line-height: 1;
-      color: var(--text-muted);
+      letter-spacing: 0.07em;
+      padding: 2px 6px;
+      border-radius: 8px;
+      flex-shrink: 0;
     }
-    .sched-dir-tag--outbound { color: #6ee7b7; }
-    .sched-dir-tag--inbound  { color: #93c5fd; }
-    .sched-dir-btn.active .sched-dir-tag--outbound { color: #6ee7b7; }
-    .sched-dir-btn.active .sched-dir-tag--inbound  { color: #93c5fd; }
-    .sched-dir-headsign {
-      font-size: 0.82rem;
-      font-weight: 600;
-      line-height: 1.2;
-      color: inherit;
+    .sched-dir-badge--outbound {
+      color: #10b981;
+      background: rgba(16,185,129,0.15);
     }
+    .sched-dir-badge--inbound {
+      color: #60a5fa;
+      background: rgba(96,165,250,0.15);
+    }
+    .sched-dir-headsign { color: inherit; }
 
     /* Timetable */
     .sched-scroll-hint {
@@ -2644,7 +2646,7 @@
 
   <script src="/static/chat_v2.js?v=8" defer></script>
   <script src="/static/trip_planner.js?v=4" defer></script>
-  <script src="/static/schedules.js?v=4" defer></script>
+  <script src="/static/schedules.js?v=5" defer></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="/static/map.js?v=28" defer></script>

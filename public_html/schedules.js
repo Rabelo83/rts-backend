@@ -176,20 +176,22 @@
     /* Direction buttons — dirs is [{headsign, direction_id}] */
     const dirs = data.directions || [];
     const dirBtns = dirs.map((d, idx) => {
-      const headsign = d.headsign || d;
-      // Use direction_id from GTFS; fall back to index position (0=Outbound, 1=Inbound)
-      // when direction_id is null — matches GTFS convention and handles RTS data gaps.
-      let dirId = (typeof d === 'object') ? d.direction_id : null;
-      if (dirId == null && dirs.length === 2) dirId = idx;
-      const dirLabel = dirId === 0 ? 'Outbound' : dirId === 1 ? 'Inbound' : null;
-      const tagHtml = dirLabel
-        ? `<span class="sched-dir-tag sched-dir-tag--${dirLabel.toLowerCase()}">${dirLabel}</span>`
+      const headsign = typeof d === 'object' ? (d.headsign || '') : String(d);
+      // GTFS direction_id: 0=Outbound, 1=Inbound (often NULL in RTS data).
+      // Fall back to list position so labels always appear for 2-direction routes.
+      let dirId = typeof d === 'object' ? d.direction_id : null;
+      if (dirId === null || dirId === undefined) {
+        if (dirs.length === 2) dirId = idx;
+      }
+      const dirLabel = (dirId === 0) ? 'Outbound' : (dirId === 1) ? 'Inbound' : null;
+      const tagCls   = (dirId === 0) ? 'outbound'  : (dirId === 1) ? 'inbound'  : '';
+      const badgeHtml = dirLabel
+        ? `<span class="sched-dir-badge sched-dir-badge--${tagCls}">${dirLabel}</span>`
         : '';
       return `
         <button class="sched-dir-btn${headsign === _selectedDir ? ' active' : ''}"
                 onclick="window._schedSetDir(${JSON.stringify(headsign).replace(/"/g, '&quot;')})">
-          ${tagHtml}
-          <span class="sched-dir-headsign">${esc(headsign)}</span>
+          ${badgeHtml}<span class="sched-dir-headsign">${esc(headsign)}</span>
         </button>`;
     }).join('');
 
