@@ -608,8 +608,8 @@ def next_departures_all_routes(conn, stop_id_padded, date_iso, date_compact, tim
     ),
     trip_bounds AS (
       SELECT trip_id,
-             MIN(stop_sequence) AS min_seq,
-             MAX(stop_sequence) AS max_seq
+             MIN(CAST(stop_sequence AS INTEGER)) AS min_seq,
+             MAX(CAST(stop_sequence AS INTEGER)) AS max_seq
       FROM stop_times
       GROUP BY trip_id
     ),
@@ -1443,7 +1443,7 @@ def get_route_timetable(
                 """
                 SELECT s.stop_id_padded, s.stop_name, st.stop_sequence FROM stop_times st
                 JOIN stops s ON s.stop_id = st.stop_id
-                WHERE st.trip_id = ? ORDER BY st.stop_sequence
+                WHERE st.trip_id = ? ORDER BY CAST(st.stop_sequence AS INTEGER)
                 """,
                 (rep_row["trip_id"],),
             ).fetchall()
@@ -1488,7 +1488,7 @@ def get_route_timetable(
         trip_rows = conn.execute(
             f"""
             WITH trip_first_seq AS (
-                SELECT trip_id, MIN(stop_sequence) AS min_seq FROM stop_times GROUP BY trip_id
+                SELECT trip_id, MIN(CAST(stop_sequence AS INTEGER)) AS min_seq FROM stop_times GROUP BY trip_id
             )
             SELECT t.trip_id, st.departure_time AS first_dep FROM trips t
             JOIN routes r ON r.route_id = t.route_id
@@ -1516,7 +1516,7 @@ def get_route_timetable(
                 JOIN stops s ON s.stop_id = st.stop_id
                 WHERE st.trip_id IN ({trip_ph})
                   AND s.stop_id_padded IN ({stop_ph})
-                ORDER BY st.trip_id, st.stop_sequence
+                ORDER BY st.trip_id, CAST(st.stop_sequence AS INTEGER)
                 """,
                 (*trip_ids, *key_stop_ids),
             ).fetchall()
@@ -1660,7 +1660,7 @@ def get_route_stops(route_id: str, direction_hint: str | None = None) -> dict:
                 FROM stop_times st
                 JOIN stops s ON s.stop_id = st.stop_id
                 WHERE st.trip_id = ?
-                ORDER BY st.stop_sequence
+                ORDER BY CAST(st.stop_sequence AS INTEGER)
                 """,
                 (trip_row["trip_id"],),
             ).fetchall()
