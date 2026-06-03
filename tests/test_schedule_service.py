@@ -302,8 +302,8 @@ class TestGetRouteTimetable:
                     return FakeCursor(rows=[{"service_id": sid} for sid in service_ids])
 
                 # Available directions
-                if "SELECT DISTINCT t.trip_headsign FROM trips" in sql_c:
-                    return FakeCursor(rows=[{"trip_headsign": direction}])
+                if "DISTINCT t.trip_headsign" in sql_c and "FROM trips t" in sql_c:
+                    return FakeCursor(rows=[{"trip_headsign": direction, "direction_id": 0}])
 
                 # Representative trip
                 if "SELECT t.trip_id, COUNT(st.stop_id) AS stop_count" in sql_c:

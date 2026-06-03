@@ -1366,24 +1366,28 @@ def get_route_timetable(
 
         ph = ",".join("?" * len(wanted_ids))
 
-        # Available directions for this service type
+        # Available directions for this service type (include direction_id for Inbound/Outbound labels)
         dir_rows = conn.execute(
             f"""
-            SELECT DISTINCT t.trip_headsign FROM trips t
+            SELECT DISTINCT t.trip_headsign, t.direction_id FROM trips t
             JOIN routes r ON r.route_id = t.route_id
             WHERE r.route_short_name = ?
               AND t.service_id IN ({ph})
-            ORDER BY t.trip_headsign
+            ORDER BY t.direction_id, t.trip_headsign
             """,
             (route_id, *wanted_ids),
         ).fetchall()
-        available_directions = [r["trip_headsign"] for r in dir_rows if r["trip_headsign"]]
+        available_directions = [
+            {"headsign": r["trip_headsign"], "direction_id": dict(r).get("direction_id")}
+            for r in dir_rows if r["trip_headsign"]
+        ]
+        available_headsigns = [d["headsign"] for d in available_directions]
 
         # Resolve direction
         if not direction and available_directions:
-            direction = available_directions[0]
-        elif direction and direction not in available_directions:
-            direction = available_directions[0] if available_directions else None
+            direction = available_directions[0]["headsign"]
+        elif direction and direction not in available_headsigns:
+            direction = available_directions[0]["headsign"] if available_directions else None
 
         if not direction:
             _empty["directions"] = available_directions
@@ -1484,8 +1488,8 @@ def get_route_timetable(
             "service_label": _SLUG_LABELS.get(service_type, service_type.title()),
             "available_service_types": available_service_types,
             "direction": direction,
-            "directions": available_directions,
-            "stops": stop_objects,
+            "directions": available_directions,  # [{headsign, direction_id}]
+            "stops": stop_objects,               # [{stop_id, stop_name, is_key_stop}]
             "rows": rows,
         }
 

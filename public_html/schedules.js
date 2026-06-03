@@ -173,14 +173,22 @@
         </button>`
       ).join('');
 
-    /* Direction buttons */
+    /* Direction buttons — dirs is [{headsign, direction_id}] */
     const dirs = data.directions || [];
-    const dirBtns = dirs.map(d => `
-      <button class="sched-dir-btn${d === _selectedDir ? ' active' : ''}"
-              onclick="window._schedSetDir(${JSON.stringify(d).replace(/"/g, '&quot;')})">
-        ${esc(d)}
-      </button>`
-    ).join('');
+    const dirBtns = dirs.map(d => {
+      const headsign = d.headsign || d;  // back-compat if plain string ever passed
+      const dirId = (typeof d === 'object') ? d.direction_id : null;
+      const dirLabel = dirId === 0 ? 'Outbound' : dirId === 1 ? 'Inbound' : null;
+      const tagHtml = dirLabel
+        ? `<span class="sched-dir-tag sched-dir-tag--${dirLabel.toLowerCase()}">${dirLabel}</span>`
+        : '';
+      return `
+        <button class="sched-dir-btn${headsign === _selectedDir ? ' active' : ''}"
+                onclick="window._schedSetDir(${JSON.stringify(headsign).replace(/"/g, '&quot;')})">
+          ${tagHtml}
+          <span class="sched-dir-headsign">${esc(headsign)}</span>
+        </button>`;
+    }).join('');
 
     detail.innerHTML = `
       <div class="sched-detail-header">
@@ -229,8 +237,9 @@
     }
 
     const headerCells = stops.map(s => `
-      <th class="sched-th" title="${esc(s.stop_name)}">
+      <th class="sched-th" title="${esc(s.stop_name)} (#${esc(s.stop_id)})">
         <span class="sched-th-text">${esc(s.stop_name)}</span>
+        <span class="sched-th-id">#${esc(s.stop_id)}</span>
       </th>`
     ).join('');
 
