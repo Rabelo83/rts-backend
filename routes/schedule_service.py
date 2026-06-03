@@ -1464,7 +1464,9 @@ def get_route_timetable(
 
             times_rows = conn.execute(
                 f"""
-                SELECT st.trip_id, s.stop_id_padded, st.departure_time FROM stop_times st
+                SELECT st.trip_id, s.stop_id_padded,
+                       COALESCE(st.departure_time, st.arrival_time) AS dep_time
+                FROM stop_times st
                 JOIN stops s ON s.stop_id = st.stop_id
                 WHERE st.trip_id IN ({trip_ph})
                   AND s.stop_id_padded IN ({stop_ph})
@@ -1473,16 +1475,21 @@ def get_route_timetable(
                 (*trip_ids, *key_stop_ids),
             ).fetchall()
 
-            # Build {trip_id: {stop_id_padded: departure_time}}
+            # Build {trip_id: {stop_id_padded: time}}
+            # COALESCE above ensures terminal stops (where departure_time is NULL)
+            # show their arrival_time instead of a blank dash.
             time_map: dict[str, dict[str, str]] = {}
             for tr in times_rows:
                 tid = tr["trip_id"]
                 sid = tr["stop_id_padded"]
+                dep = tr["dep_time"]
+                if not dep:
+                    continue  # skip if both departure and arrival are NULL
                 if tid not in time_map:
                     time_map[tid] = {}
                 # Keep earliest time when a stop appears more than once in a trip
-                if sid not in time_map[tid] or tr["departure_time"] < time_map[tid][sid]:
-                    time_map[tid][sid] = tr["departure_time"]
+                if sid not in time_map[tid] or dep < time_map[tid][sid]:
+                    time_map[tid][sid] = dep
 
             for trip_row in trip_rows:
                 tid = trip_row["trip_id"]

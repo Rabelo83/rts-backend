@@ -324,15 +324,15 @@ class TestGetRouteTimetable:
                         {"trip_id": "T002", "first_dep": "07:00:00"},
                     ])
 
-                # Times for all trips × key stops
-                if "SELECT st.trip_id, s.stop_id_padded, st.departure_time FROM stop_times" in sql_c:
+                # Times for all trips × key stops (COALESCE query)
+                if "COALESCE" in sql_c and "stop_id_padded" in sql_c and "stop_times st" in sql_c:
                     return FakeCursor(rows=[
-                        {"trip_id": "T001", "stop_id_padded": "0001", "departure_time": "06:30:00"},
-                        {"trip_id": "T001", "stop_id_padded": "0002", "departure_time": "06:40:00"},
-                        {"trip_id": "T001", "stop_id_padded": "0003", "departure_time": "07:00:00"},
-                        {"trip_id": "T002", "stop_id_padded": "0001", "departure_time": "07:00:00"},
-                        {"trip_id": "T002", "stop_id_padded": "0002", "departure_time": "07:10:00"},
-                        {"trip_id": "T002", "stop_id_padded": "0003", "departure_time": "07:30:00"},
+                        {"trip_id": "T001", "stop_id_padded": "0001", "dep_time": "06:30:00"},
+                        {"trip_id": "T001", "stop_id_padded": "0002", "dep_time": "06:40:00"},
+                        {"trip_id": "T001", "stop_id_padded": "0003", "dep_time": "07:00:00"},
+                        {"trip_id": "T002", "stop_id_padded": "0001", "dep_time": "07:00:00"},
+                        {"trip_id": "T002", "stop_id_padded": "0002", "dep_time": "07:10:00"},
+                        {"trip_id": "T002", "stop_id_padded": "0003", "dep_time": "07:30:00"},
                     ])
 
                 raise AssertionError(f"Unexpected SQL in test: {sql_c[:80]}")
