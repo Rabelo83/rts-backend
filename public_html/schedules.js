@@ -65,7 +65,7 @@
             <path d="m6 9 6 6 6-6"/>
           </svg>
         </button>
-        <div class="sched-route-dropdown" id="sched-route-dropdown" hidden>
+        <div class="sched-route-dropdown" id="sched-route-dropdown">
           <div class="sched-search-wrap">
             <svg class="sched-search-icon" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -109,12 +109,11 @@
     const dd  = el('sched-route-dropdown');
     const btn = el('sched-route-trigger');
     if (!dd) return;
-    const opening = dd.hidden;
-    dd.hidden = !opening;
+    const opening = !dd.classList.contains('open');
+    dd.classList.toggle('open', opening);
     btn.setAttribute('aria-expanded', String(opening));
     btn.classList.toggle('open', opening);
     if (opening) {
-      // Reset search and re-render full list on each open
       const inp = el('sched-route-input');
       if (inp) { inp.value = ''; _renderRouteList(_routes); inp.focus(); }
     }
@@ -123,7 +122,7 @@
   function _closeDropdown() {
     const dd  = el('sched-route-dropdown');
     const btn = el('sched-route-trigger');
-    if (dd)  dd.hidden = true;
+    if (dd)  dd.classList.remove('open');
     if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open'); }
   }
 

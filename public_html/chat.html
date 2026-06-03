@@ -2213,15 +2213,18 @@
     }
     .sched-route-trigger.open .sched-trigger-chevron { transform: rotate(180deg); }
 
+    /* Dropdown hidden by default; .open drives display so CSS doesn't
+       override the JS toggle (display:flex on a selector beats [hidden]). */
     .sched-route-dropdown {
+      display: none;
+      flex-direction: column;
       background: #0a101e;
       border: 1px solid var(--border-focus);
       border-top: none;
       border-radius: 0 0 12px 12px;
       overflow: hidden;
-      display: flex;
-      flex-direction: column;
     }
+    .sched-route-dropdown.open { display: flex; }
 
     .sched-search-wrap {
       position: relative;
@@ -2730,7 +2733,7 @@
 
   <script src="/static/chat_v2.js?v=8" defer></script>
   <script src="/static/trip_planner.js?v=4" defer></script>
-  <script src="/static/schedules.js?v=8" defer></script>
+  <script src="/static/schedules.js?v=9" defer></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="/static/map.js?v=28" defer></script>
