@@ -2264,32 +2264,32 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      align-items: flex-start;
+      align-items: stretch;
     }
+    /* Shared base for both button types */
     .sched-svc-btn, .sched-dir-btn {
       background: rgba(255,255,255,0.05);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 20px;
       color: var(--text-dim);
       font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
       cursor: pointer;
       transition: background .13s, border-color .13s, color .13s;
     }
     .sched-svc-btn {
-      font-size: 0.82rem;
-      font-weight: 600;
-      padding: 7px 16px;
-      border-radius: 20px;
+      padding: 8px 18px;
       white-space: nowrap;
     }
+    /* Direction buttons stack label + headsign vertically */
     .sched-dir-btn {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: 2px;
-      padding: 8px 14px;
+      gap: 1px;
+      padding: 6px 16px 8px;
       text-align: left;
-      min-width: 120px;
     }
     .sched-svc-btn:hover, .sched-dir-btn:hover {
       background: rgba(255,255,255,0.10);
@@ -2301,16 +2301,17 @@
       color: #60a5fa;
     }
     .sched-dir-tag {
-      font-size: 0.64rem;
+      font-size: 0.62rem;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: var(--text-muted);
+      letter-spacing: 0.08em;
       line-height: 1;
+      color: var(--text-muted);
     }
     .sched-dir-tag--outbound { color: #6ee7b7; }
     .sched-dir-tag--inbound  { color: #93c5fd; }
-    .sched-dir-btn.active .sched-dir-tag { opacity: 0.8; }
+    .sched-dir-btn.active .sched-dir-tag--outbound { color: #6ee7b7; }
+    .sched-dir-btn.active .sched-dir-tag--inbound  { color: #93c5fd; }
     .sched-dir-headsign {
       font-size: 0.82rem;
       font-weight: 600;
@@ -2643,7 +2644,7 @@
 
   <script src="/static/chat_v2.js?v=8" defer></script>
   <script src="/static/trip_planner.js?v=4" defer></script>
-  <script src="/static/schedules.js?v=3" defer></script>
+  <script src="/static/schedules.js?v=4" defer></script>
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="/static/map.js?v=28" defer></script>

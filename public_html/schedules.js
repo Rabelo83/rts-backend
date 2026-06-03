@@ -175,9 +175,12 @@
 
     /* Direction buttons — dirs is [{headsign, direction_id}] */
     const dirs = data.directions || [];
-    const dirBtns = dirs.map(d => {
-      const headsign = d.headsign || d;  // back-compat if plain string ever passed
-      const dirId = (typeof d === 'object') ? d.direction_id : null;
+    const dirBtns = dirs.map((d, idx) => {
+      const headsign = d.headsign || d;
+      // Use direction_id from GTFS; fall back to index position (0=Outbound, 1=Inbound)
+      // when direction_id is null — matches GTFS convention and handles RTS data gaps.
+      let dirId = (typeof d === 'object') ? d.direction_id : null;
+      if (dirId == null && dirs.length === 2) dirId = idx;
       const dirLabel = dirId === 0 ? 'Outbound' : dirId === 1 ? 'Inbound' : null;
       const tagHtml = dirLabel
         ? `<span class="sched-dir-tag sched-dir-tag--${dirLabel.toLowerCase()}">${dirLabel}</span>`
@@ -237,9 +240,9 @@
     }
 
     const headerCells = stops.map(s => `
-      <th class="sched-th" title="${esc(s.stop_name)} (#${esc(s.stop_id)})">
+      <th class="sched-th" title="${esc(s.stop_name)} (ID: ${esc(s.stop_id)})">
         <span class="sched-th-text">${esc(s.stop_name)}</span>
-        <span class="sched-th-id">#${esc(s.stop_id)}</span>
+        <span class="sched-th-id">ID: ${esc(s.stop_id)}</span>
       </th>`
     ).join('');
 
