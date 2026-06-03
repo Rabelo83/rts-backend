@@ -37,6 +37,14 @@
     return res.json();
   }
 
+  /* Extract the destination from "Origin to Destination" route names.
+     Shows "Butler Plaza" instead of "Downtown Station to Butler Plaza". */
+  function _routeDest(longName) {
+    if (!longName) return '';
+    const m = longName.match(/\bto\s+(.+)$/i);
+    return m ? m[1].trim() : longName;
+  }
+
   /* ── Public entry point ───────────────────────────────────────────────── */
   window.initSchedules = async function initSchedules() {
     if (_initialized) return;
@@ -46,24 +54,41 @@
     if (!panel) return;
 
     panel.innerHTML = `
-      <div class="sched-picker-header">
-        <div class="sched-search-wrap">
-          <svg class="sched-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/>
+      <div class="sched-picker">
+        <button class="sched-route-trigger" id="sched-route-trigger"
+                aria-haspopup="listbox" aria-expanded="false">
+          <span class="sched-trigger-content" id="sched-trigger-content">
+            <span class="sched-trigger-ph">Choose a route to see its schedule</span>
+          </span>
+          <svg class="sched-trigger-chevron" width="18" height="18" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <path d="m6 9 6 6 6-6"/>
           </svg>
-          <input id="sched-route-input" class="sched-search-input"
-                 type="text" placeholder="Search routes…" autocomplete="off"
-                 aria-label="Search routes" />
+        </button>
+        <div class="sched-route-dropdown" id="sched-route-dropdown" hidden>
+          <div class="sched-search-wrap">
+            <svg class="sched-search-icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/>
+            </svg>
+            <input id="sched-route-input" class="sched-search-input"
+                   type="text" placeholder="Search routes…" autocomplete="off"
+                   aria-label="Search routes" />
+          </div>
+          <div id="sched-route-list" class="sched-route-list" role="listbox">
+            <div class="sched-state-msg">Loading routes…</div>
+          </div>
         </div>
-        <p class="sched-picker-hint">Select a route to see its schedule.</p>
       </div>
-      <div id="sched-route-list" class="sched-route-list" role="list">
-        <div class="sched-state-msg">Loading routes…</div>
-      </div>
-      <div id="sched-detail" class="hidden"></div>
+      <div id="sched-detail"></div>
     `;
 
+    el('sched-route-trigger').addEventListener('click', e => {
+      e.stopPropagation();
+      _toggleDropdown();
+    });
     el('sched-route-input').addEventListener('input', _onSearch);
+    document.addEventListener('click', _onDocClick);
 
     try {
       const data = await fetchJSON('/api/map/routes');
@@ -79,24 +104,60 @@
     }
   };
 
-  /* ── Route list ───────────────────────────────────────────────────────── */
+  /* ── Dropdown helpers ─────────────────────────────────────────────────── */
+  function _toggleDropdown() {
+    const dd  = el('sched-route-dropdown');
+    const btn = el('sched-route-trigger');
+    if (!dd) return;
+    const opening = dd.hidden;
+    dd.hidden = !opening;
+    btn.setAttribute('aria-expanded', String(opening));
+    btn.classList.toggle('open', opening);
+    if (opening) {
+      // Reset search and re-render full list on each open
+      const inp = el('sched-route-input');
+      if (inp) { inp.value = ''; _renderRouteList(_routes); inp.focus(); }
+    }
+  }
+
+  function _closeDropdown() {
+    const dd  = el('sched-route-dropdown');
+    const btn = el('sched-route-trigger');
+    if (dd)  dd.hidden = true;
+    if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open'); }
+  }
+
+  function _onDocClick(e) {
+    const picker = document.querySelector('.sched-picker');
+    if (!picker || picker.contains(e.target)) return;
+    _closeDropdown();
+  }
+
+  function _updateTrigger() {
+    const content = el('sched-trigger-content');
+    if (!content) return;
+    if (!_selectedRoute) {
+      content.innerHTML = '<span class="sched-trigger-ph">Choose a route to see its schedule</span>';
+      return;
+    }
+    const r = _routes.find(r => r.short_name === _selectedRoute);
+    if (!r) return;
+    const color = esc(r.color || '#3b82f6');
+    content.innerHTML = `
+      <span class="sched-trigger-badge" style="background:${color}">${esc(r.short_name)}</span>
+      <span class="sched-trigger-name">Route ${esc(r.short_name)} — ${esc(_routeDest(r.long_name))}</span>
+    `;
+  }
+
+  /* ── Route list (inside dropdown) ────────────────────────────────────── */
   function _onSearch() {
-    const q = el('sched-route-input').value.trim().toLowerCase();
+    const q = (el('sched-route-input').value || '').trim().toLowerCase();
     const filtered = q
       ? _routes.filter(r =>
           r.short_name.toLowerCase().includes(q) ||
           (r.long_name || '').toLowerCase().includes(q))
       : _routes;
     _renderRouteList(filtered);
-  }
-
-  /* Extract destination from "Origin to Destination" route long names.
-     Most RTS routes are "Downtown Station to X" — showing "X" is far more
-     useful to a rider scanning chips than "Downtown ..." on every card. */
-  function _routeDest(longName) {
-    if (!longName) return '';
-    const m = longName.match(/\bto\s+(.+)$/i);
-    return m ? m[1].trim() : longName;
   }
 
   function _renderRouteList(routes) {
@@ -112,42 +173,34 @@
       const dest   = esc(_routeDest(r.long_name));
       return `
         <button class="sched-route-chip${active ? ' active' : ''}"
-                role="listitem"
+                role="option"
+                aria-selected="${active}"
                 data-route="${esc(r.short_name)}"
                 style="--chip-color:${color}"
-                onclick="window._schedSelectRoute(${JSON.stringify(r.short_name).replace(/"/g, '&quot;')})"
-                aria-label="Route ${esc(r.short_name)}: ${esc(r.long_name || '')}"
-                aria-pressed="${active}">
+                onclick="window._schedSelectRoute(${JSON.stringify(r.short_name).replace(/"/g, '&quot;')})">
           <span class="sched-chip-num">${esc(r.short_name)}</span>
-          <span class="sched-chip-name">${dest}</span>
+          <span class="sched-chip-name">
+            <span class="sched-chip-dest">${dest}</span>
+            <span class="sched-chip-full">${esc(r.long_name || '')}</span>
+          </span>
         </button>`;
     }).join('');
   }
 
   /* ── Route selection ──────────────────────────────────────────────────── */
   window._schedSelectRoute = async function _schedSelectRoute(routeId) {
-    _selectedRoute  = routeId;
-    _selectedDir    = null;
-    _selectedSvc    = 'weekday';
-    _renderRouteList(_currentFilteredRoutes());
+    _selectedRoute = routeId;
+    _selectedDir   = null;
+    _selectedSvc   = 'weekday';
+    _closeDropdown();
+    _updateTrigger();
     await _loadTimetable(routeId, _selectedSvc, null);
   };
-
-  function _currentFilteredRoutes() {
-    const inp = el('sched-route-input');
-    const q   = inp ? inp.value.trim().toLowerCase() : '';
-    return q
-      ? _routes.filter(r =>
-          r.short_name.toLowerCase().includes(q) ||
-          (r.long_name || '').toLowerCase().includes(q))
-      : _routes;
-  }
 
   /* ── Load timetable ───────────────────────────────────────────────────── */
   async function _loadTimetable(routeId, svcType, direction) {
     const detail = el('sched-detail');
     if (!detail) return;
-    detail.className = '';
     detail.innerHTML = '<div class="sched-state-msg">Loading schedule…<span class="sched-spinner"></span></div>';
 
     let url = `/api/schedule/route/${encodeURIComponent(routeId)}/timetable` +
@@ -164,18 +217,17 @@
     }
 
     if (data.error) {
-      detail.innerHTML =
-        '<div class="sched-state-msg sched-error">Route not found.</div>';
+      detail.innerHTML = '<div class="sched-state-msg sched-error">Route not found.</div>';
       return;
     }
 
     _selectedSvc = svcType;
     _selectedDir = data.direction || '';
 
-    const routeObj = _routes.find(r => r.short_name === routeId) || {};
+    const routeObj  = _routes.find(r => r.short_name === routeId) || {};
     const chipColor = esc(routeObj.color || '#3b82f6');
 
-    /* Service day buttons — only available types */
+    /* Service day buttons */
     const svcBtns = (data.available_service_types || [])
       .map(st => `
         <button class="sched-svc-btn${st === _selectedSvc ? ' active' : ''}"
@@ -184,11 +236,10 @@
         </button>`
       ).join('');
 
-    /* Direction buttons — dirs is [{headsign, direction_id, label}] */
+    /* Direction buttons — label comes from server */
     const dirs = data.directions || [];
     const dirBtns = dirs.map(d => {
       const headsign = typeof d === 'object' ? (d.headsign || '') : String(d);
-      // label ("Outbound"/"Inbound"/null) is computed server-side — just display it.
       const dirLabel = typeof d === 'object' ? (d.label || null) : null;
       const tagCls   = dirLabel ? dirLabel.toLowerCase() : '';
       const badgeHtml = dirLabel
@@ -247,28 +298,28 @@
       return;
     }
 
-    const headerCells = stops.map(s => `
-      <th class="sched-th" title="${esc(s.stop_name)} (ID: ${esc(s.stop_id)})">
-        <span class="sched-th-text">${esc(s.stop_name)}</span>
-        <span class="sched-th-id">ID: ${esc(s.stop_id)}</span>
-      </th>`
-    ).join('');
+    /* First column is the origin stop — make it sticky so departure time
+       stays visible as the user scrolls right through intermediate stops. */
+    const headerCells = stops.map((s, i) => {
+      const sticky = i === 0 ? ' sched-col-sticky' : '';
+      return `
+        <th class="sched-th${sticky}" title="${esc(s.stop_name)} (ID: ${esc(s.stop_id)})">
+          <span class="sched-th-text">${esc(s.stop_name)}</span>
+          <span class="sched-th-id">ID: ${esc(s.stop_id)}</span>
+        </th>`;
+    }).join('');
 
     const dataRows = rows.map(row => {
-      const cells = row.times.map(t =>
-        t != null
-          ? `<td class="sched-td">${esc(t)}</td>`
-          : `<td class="sched-td sched-td-null" aria-label="Does not stop here">—</td>`
-      ).join('');
+      const cells = row.times.map((t, i) => {
+        const sticky = i === 0 ? ' sched-col-sticky' : '';
+        if (t != null) return `<td class="sched-td${sticky}">${esc(t)}</td>`;
+        return `<td class="sched-td sched-td-null${sticky}" aria-label="Does not stop here">—</td>`;
+      }).join('');
       return `<tr>${cells}</tr>`;
     }).join('');
 
-    const moreHint = stops.length > 3
-      ? '<div class="sched-scroll-hint" aria-hidden="true">Scroll right to see all stops →</div>'
-      : '';
-
     wrap.innerHTML = `
-      ${moreHint}
+      <div class="sched-scroll-hint" aria-hidden="true">← Origin fixed · Scroll right for more stops →</div>
       <div class="sched-table-wrap">
         <table class="sched-table" role="grid" aria-label="Route timetable">
           <thead><tr>${headerCells}</tr></thead>
