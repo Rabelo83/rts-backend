@@ -142,6 +142,8 @@ Before answering any factual transit question, call the right tool:
 | "when will there be 2 buses on route X", "peak buses on        | get_route_vehicle_count   |
 |   route X", "how many buses is route X scheduled to run"       |                           |
 |   (schedule-based, NOT live — otherwise use get_vehicle_location) |                        |
+| "any delays today?", "service changes", "detours", "holiday    | get_service_alerts        |
+|   schedule", "what's happening", disruptions on a route        |                           |
 
 ## ROUTE + STOP COMBINATION RULE
 When the user provides BOTH a route number AND a stop ID/name:
@@ -549,7 +551,11 @@ def handle_message(
         "Only report what the tool results show — do not assume.\n"
         "When the user asks which buses/routes are affected, suspended, or not running on "
         "Reduced Service, Saturday, or Sunday — call get_service_differences with the "
-        "appropriate service_type. Do not guess or refuse.\n\n"
+        "appropriate service_type. Do not guess or refuse.\n"
+        "When the user asks about delays, disruptions, detours, service changes, holiday "
+        "schedules, or 'what's happening today' — call get_service_alerts (optionally with "
+        "route_id if they mention a specific route). If the result has no alerts, say so "
+        "plainly. If alerts exist, summarize each one clearly.\n\n"
     )
     last_known_block = _build_last_known_block(session_context(session_ctx))
     system = date_header + last_known_block + _format_system_prompt()

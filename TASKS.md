@@ -819,3 +819,52 @@ asks for push-to-talk recording.
   common cases (health dept, library, DMV, Walmart, etc.). Expand as real
   users ask for destinations that don't match. Each new entry should have
   a verified Gainesville address and 2+ locations when applicable.
+
+---
+
+## 🏷️ White-Label Readiness Audit — 2026-06-05
+
+**Goal:** Deploy the same codebase for multiple agencies. Each agency gets its own Render service, `agency_config.yaml`, and GTFS database. No code changes required per new agency.
+
+**Current state:** ~60% ready. `agency_config.yaml` + `utils/agency_config.py` is a solid foundation; the gaps are hardcoded paths and a few places that bypass the config system.
+
+**Deployment model for v1:** One Render service per agency (each with its own env vars + GTFS DB). This sidesteps the singleton GTFS engine problem — do NOT over-engineer a multi-tenant single-process solution until agency #3.
+
+### Priority 1 — GTFS DB path (all reads should come from agency_config.yaml)
+
+Five files each hardcode the GTFS DB path independently instead of reading `agency_config.yaml > gtfs.db_path`:
+
+- [ ] `wl-1` **`routes/schedule_service.py:15`** — `DB_PATH` hardcoded; replace with `get_agency_config()["gtfs"]["db_path"]`
+- [ ] `wl-2` **`routes/bustime.py:15`** — `GTFS_DB_PATH` hardcoded; same fix
+- [ ] `wl-3` **`utils/stop_finder.py:16`** — `_GEOJSON` enrichment path hardcoded; read from config or make optional per agency
+- [ ] `wl-4` **`routes/map_api.py`** — its own hardcoded GTFS path; same fix
+- [ ] `wl-5` **`routes/health.py`** — checks path directly; read from config
+
+### Priority 2 — BusTime endpoint (config.py bypasses agency_config)
+
+- [ ] `wl-6` **`config.py`** hardcodes `BASE_HOST = "https://riderts.app"`. `rts_api.py` imports `BASE_API` from here instead of reading `agency_config.yaml > realtime.endpoint`. Remove the hardcode; read from `get_agency_config()["realtime"]["endpoint"]`.
+
+### Priority 3 — "RTS" hardcoded in agent logic
+
+- [ ] `wl-7` **`routes/agent_service.py ~line 190`** — LLM prompt says `"Summarize the rider's recent RTS requests"`. Replace "RTS" with `get_agency_short_name()`.
+- [ ] `wl-8` **`routes/agent_tools.py ~lines 585–590`** — destination aliases hardcode `"Rosa Parks RTS Downtown Station"`. These should be read from `agency_config.yaml > landmarks` (the structure already exists).
+
+### Priority 4 — Static HTML branding
+
+- [ ] `wl-9` **`public_html/chat.html ~line 2635`** — `<p>Gainesville Regional Transit System</p>` hardcoded. Add a JS fetch to `/api/agency-info` (or reuse the existing PWA manifest endpoint) to populate agency name dynamically.
+- [ ] `wl-10` **`public_html/index.html`** — `<title>RTS Bus Tracker</title>` and heading hardcoded. Same fix — or convert to Jinja2 template.
+- [ ] `wl-11` **`app.py` login page** — `<title>RTS Access</title>` / `<h1>RTS Assistant</h1>` embedded in a Python string. Read from `get_agency_short_name()`.
+
+### Priority 5 — BusTime service alerts (new feature)
+
+The Clever Devices BusTime v3 API exposes a `getserviceadvisories` endpoint — agencies use it for holiday service changes, detours, and disruptions. Not currently integrated.
+
+- [x] `wl-12` Add `get_service_advisories(route_id=None)` to `rts_api.py` — calls `call_bustime("getserviceadvisories", ...)`.
+- [x] `wl-13` Add `GET /api/alerts` endpoint in `routes/bustime.py` — proxy + normalize the advisory list.
+- [x] `wl-14` Surface alerts in the app: amber banner in chat.html when active advisories exist (poll `/api/alerts` on load, show dismissible banner if non-empty, suppressed per session after dismiss).
+- [x] `wl-15` Add `get_service_alerts` agent tool — chat can now answer "any delays today?", "holiday schedule?", "detours on route 5?" by calling BusTime directly.
+
+### Won't fix for v1 (revisit at agency #2)
+
+- **GTFS engine singleton** — only one DB in memory per process. One-service-per-agency deployment avoids this. Multi-engine factory is deferred.
+- **No request/tenant context** — no middleware to route different agencies through one Flask process. Not needed for the one-service-per-agency model.

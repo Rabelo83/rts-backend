@@ -472,6 +472,33 @@ TOOLS: list[dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_service_alerts",
+            "description": (
+                "Return active service advisories published by the transit agency — detours, "
+                "delays, route suspensions, holiday schedule changes, or any disruption. "
+                "Use when the user asks about delays, disruptions, detours, service changes, "
+                "holiday schedules, or 'what's happening today / this week'. "
+                "Optionally filter to a specific route."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "route_id": {
+                        "type": "string",
+                        "description": (
+                            "Optional. Filter advisories to a specific route number "
+                            "(e.g. '5', '15'). Omit to get all active advisories."
+                        ),
+                    }
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 
@@ -748,6 +775,7 @@ def dispatch_tool(name: str, arguments: dict, session_id: str | None = None) -> 
         "get_route_overview": _tool_get_route_overview,
         "get_route_stops": _tool_get_route_stops,
         "get_service_differences": _tool_get_service_differences,
+        "get_service_alerts":      _tool_get_service_alerts,
         "get_route_vehicle_count": _tool_get_route_vehicle_count,
         "get_vehicle_location": _tool_get_vehicle_location,
         "get_active_vehicles_systemwide": _tool_get_active_vehicles_systemwide,
@@ -1390,6 +1418,35 @@ def _tool_get_service_differences(service_type: str) -> dict:
         }
     finally:
         conn.close()
+
+
+# ── Tool: get_service_alerts ─────────────────────────────────────────────────
+
+def _tool_get_service_alerts(route_id: str | None = None) -> dict:
+    """Return active service advisories from the BusTime API."""
+    import rts_api
+    try:
+        data = rts_api.get_service_advisories(route_id or None)
+    except Exception as exc:
+        return {"status": "api_unavailable", "message": str(exc)}
+
+    advisories_raw = data.get("sb", []) or []
+    if not advisories_raw:
+        return {"status": "no_alerts", "message": "No active service advisories at this time."}
+
+    alerts = []
+    for a in advisories_raw:
+        routes = [s.get("rt") for s in (a.get("srvc") or []) if s.get("rt")]
+        alerts.append({
+            "subject":  a.get("sbj") or a.get("nm") or "Service Advisory",
+            "detail":   a.get("dtl") or a.get("brf") or "",
+            "priority": a.get("prty") or "",
+            "routes":   routes,
+            "starts":   a.get("beg") or "",
+            "ends":     a.get("end") or "",
+        })
+
+    return {"status": "ok", "count": len(alerts), "alerts": alerts}
 
 
 # ── Tool 8: get_route_vehicle_count ──────────────────────────────────────────

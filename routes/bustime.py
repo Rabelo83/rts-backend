@@ -263,6 +263,32 @@ def api_vehicles():
 
     return jsonify({"route_id": route_id, "vehicles": cleaned})
 
+@bustime_bp.route("/api/alerts")
+def api_alerts():
+    route_id = request.args.get("route_id") or None
+    try:
+        data = rts_api.get_service_advisories(route_id)
+    except Exception:
+        return jsonify({"alerts": [], "count": 0, "source": "bustime", "error": True}), 503
+
+    advisories_raw = data.get("sb", []) or []
+    cleaned = []
+    for a in advisories_raw:
+        routes = [s.get("rt") for s in (a.get("srvc") or []) if s.get("rt")]
+        cleaned.append({
+            "name":     a.get("nm", ""),
+            "subject":  a.get("sbj", ""),
+            "detail":   a.get("dtl", ""),
+            "brief":    a.get("brf", ""),
+            "priority": a.get("prty", ""),
+            "routes":   routes,
+            "starts":   a.get("beg", ""),
+            "ends":     a.get("end", ""),
+        })
+
+    return jsonify({"alerts": cleaned, "count": len(cleaned), "source": "bustime"})
+
+
 @bustime_bp.route("/api/validate_stop")
 def api_validate_stop():
     s = request.args.get("stop_id", "")

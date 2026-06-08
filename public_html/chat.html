@@ -1550,6 +1550,36 @@
       line-height: 1.4;
     }
 
+    /* ── Global service alert banner ────────────────────────── */
+    #service-alert-banner {
+      display: none;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 16px;
+      background: rgba(245,158,11,0.12);
+      border-bottom: 1px solid rgba(245,158,11,0.3);
+      color: #fbbf24;
+      font-size: 0.82rem;
+      line-height: 1.4;
+    }
+    #service-alert-banner.visible { display: flex; }
+    #service-alert-banner .alert-icon { flex-shrink: 0; font-size: 1rem; margin-top: 1px; }
+    #service-alert-banner .alert-body { flex: 1; }
+    #service-alert-banner .alert-title { font-weight: 600; margin-bottom: 2px; }
+    #service-alert-banner .alert-more  { font-size: 0.78rem; opacity: 0.8; }
+    #service-alert-banner .alert-dismiss {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      color: #fbbf24;
+      cursor: pointer;
+      font-size: 1rem;
+      opacity: 0.7;
+      padding: 0 2px;
+      align-self: flex-start;
+    }
+    #service-alert-banner .alert-dismiss:hover { opacity: 1; }
+
     /* ── Reduced service banner ──────────────────────────────── */
     .trip-service-banner {
       padding: 9px 13px;
@@ -2649,6 +2679,16 @@
     </div>
   </header>
 
+  <!-- Service alert banner (shown when BusTime has active advisories) -->
+  <div id="service-alert-banner" role="alert" aria-live="polite">
+    <span class="alert-icon">⚠️</span>
+    <div class="alert-body">
+      <div class="alert-title" id="alert-banner-title"></div>
+      <div class="alert-more"  id="alert-banner-more"></div>
+    </div>
+    <button class="alert-dismiss" id="alert-banner-dismiss" aria-label="Dismiss alert">✕</button>
+  </div>
+
   <!-- Main -->
   <main class="chat-main">
     <div id="chat-panel" class="open standalone">
@@ -2760,6 +2800,34 @@
     window.addEventListener('online', _syncOnline);
     window.addEventListener('offline', _syncOnline);
     _syncOnline();
+
+    // Service alert banner
+    (function initAlertBanner() {
+      const banner   = document.getElementById('service-alert-banner');
+      const titleEl  = document.getElementById('alert-banner-title');
+      const moreEl   = document.getElementById('alert-banner-more');
+      const dismissBtn = document.getElementById('alert-banner-dismiss');
+      if (!banner) return;
+
+      dismissBtn.addEventListener('click', () => {
+        banner.classList.remove('visible');
+        // Suppress for this browser session so it doesn't re-flash on tab switch
+        try { sessionStorage.setItem('alerts_dismissed', Date.now()); } catch(e) {}
+      });
+
+      fetch('/api/alerts')
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
+        .then(data => {
+          if (!data || !data.count) return;
+          try { if (sessionStorage.getItem('alerts_dismissed')) return; } catch(e) {}
+          const first = data.alerts[0];
+          titleEl.textContent = first.subject || first.name || 'Service Advisory';
+          const extra = data.count > 1 ? ` (+${data.count - 1} more)` : '';
+          moreEl.textContent  = (first.brief || first.detail || '').slice(0, 120) + extra;
+          banner.classList.add('visible');
+        });
+    })();
   </script>
 </body>
 </html>

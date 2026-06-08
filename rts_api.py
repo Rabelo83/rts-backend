@@ -154,6 +154,13 @@ COMMON_DIRECTIONS = [
     "NB","SB","EB","WB"
 ]
 
+def get_service_advisories(route_id: str | None = None) -> dict:
+    params = {}
+    if route_id:
+        params["rt"] = route_id
+    return call_bustime("getserviceadvisories", params)
+
+
 def find_first_working_direction_and_stops(route_id: str, max_try: int = 10):
     """
     Try common direction IDs until getstops() returns any stops.
