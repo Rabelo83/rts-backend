@@ -39,7 +39,7 @@ GitHub: `https://github.com/Rabelo83/rts-backend`
 | Backend | Python 3.11, Flask, Gunicorn |
 | AI Agent | Anthropic Claude API (`claude-haiku-4-5` default, `claude-sonnet-4-6` optional) |
 | GTFS Routing | In-memory RAPTOR engine (`utils/gtfs_engine.py`) — zero SQL during routing |
-| Data | GTFS SQLite (`rts_gtfs.sqlite`), stop enrichment GeoJSON |
+| Data | GTFS SQLite (`Backend Basics/db/rts_gtfs.sqlite`), stop enrichment GeoJSON |
 | Real-time | RTS BusTime API (`rts_api.py`) |
 | Frontend | Vanilla JS / HTML / CSS in `public_html/` |
 | Hosting | Render (free tier → paid if needed) |
@@ -72,10 +72,18 @@ public_html/
   index.html / chat.html / wizard.html / dashboard.html
   trip_planner.js             Trip planner UI (autocomplete, rendering, swap)
 data/
-  rts_gtfs.sqlite             GTFS database (NOT in git — upload to Render manually)
   analytics.sqlite            Trip plan analytics (auto-created, NOT in git)
-Backend Basics/bus_stops/
-  bus_stops.geojson           Stop enrichment (street, direction, shelter, is_uf)
+Backend Basics/
+  RTSGTFS_<Season><Year>_V<n>/  Raw GTFS feed .txt files (versioned in git), e.g. RTSGTFS_Fall2026_V1/
+  db/
+    build_gtfs_db.py          Builds rts_gtfs.sqlite from GTFS_DIR (see GTFS update workflow below)
+    rts_gtfs.sqlite            THE live GTFS database — NOT in git (*.sqlite is gitignored). It is a
+                               BUILD ARTIFACT: render.yaml's buildCommand runs build_gtfs_db.py on
+                               every deploy, regenerating this file from the git-tracked RTSGTFS_*
+                               folder. Never upload this file manually — just push the raw feed.
+                               Read at runtime by routes/schedule_service.py DB_PATH.
+  bus_stops/
+    bus_stops.geojson         Stop enrichment (street, direction, shelter, is_uf)
 TASKS.md                      Full task history + current open items
 PROJECT_LOG.md                Session-by-session decision log
 ```
@@ -112,9 +120,31 @@ The routing engine (`utils/gtfs_engine.py`) loads ALL GTFS data into memory at F
 - **Transfer hubs fallback** — `_find_via_hub()` in `trip_planner.py` for 2-transfer gaps
 - **`/api/gtfs-info`** — returns `{stops, trips, loaded_at}` to verify engine is loaded
 
-GTFS update workflow:
-1. Replace `data/rts_gtfs.sqlite` with new file
-2. Push or redeploy on Render — engine reloads automatically at startup
+GTFS update workflow (verified 2026-08-17, corrects earlier wrong notes — the DB is NEVER hand-uploaded):
+1. Get the new raw GTFS feed (unzipped `.txt` files: `stops`, `routes`, `trips`, `stop_times`,
+   `calendar`, `calendar_dates`, `fare_attributes`, `fare_rules`, `feed_info`, `shapes`, `agency`).
+2. Drop them into a new folder under `Backend Basics/`, following the existing naming convention:
+   `RTSGTFS_<Season><Year>_V<n>/` (e.g. `RTSGTFS_Fall2026_V1/`). These folders are git-tracked —
+   old seasons (Spring2026_V6, Summer2026_V1) are kept for history, don't delete them.
+3. Update `GTFS_DIR` in `Backend Basics/db/build_gtfs_db.py` (line ~9) to point at the new folder.
+4. (Optional but recommended) Rebuild locally to sanity-check before pushing:
+   `python3 "Backend Basics/db/build_gtfs_db.py"` — regenerates
+   `Backend Basics/db/rts_gtfs.sqlite` locally so you can check row counts / `feed_info` service
+   date range. This local file is gitignored and never pushed — it's just a local preview.
+5. Commit + push the new `RTSGTFS_*_V*/` folder and the `GTFS_DIR` change in `build_gtfs_db.py`
+   to `main`. **That's the entire deploy step — do not touch Render's disk.**
+6. Render's `render.yaml` `buildCommand` (`pip install -r requirements.txt && python
+   "Backend Basics/db/build_gtfs_db.py"`) runs `build_gtfs_db.py` fresh on every deploy, rebuilding
+   `rts_gtfs.sqlite` from whatever `RTSGTFS_*` folder `GTFS_DIR` currently points to. The DB is a
+   build artifact, not a persisted file — the `/data` persistent disk (mounted per `render.yaml`)
+   is only for `analytics.sqlite`/`sessions.sqlite`, not the GTFS DB.
+7. Verify: hit `/api/gtfs-info` after the deploy finishes and confirm `loaded_at` is fresh and
+   `stops`/`trips` counts match the new feed.
+
+Note: `scripts/gtfs_ingest.py` and `data/gtfs.sqlite` are a separate, currently-unused download-based
+ingestion path (pulls a zip from a `GTFS_URL` env var). It is NOT what `render.yaml` or the live app
+uses — ignore it unless this build-from-git-tracked-files workflow is being replaced with automated
+fetching.
 
 ---
 
@@ -130,6 +160,11 @@ GTFS update workflow:
 ## Deployment
 
 - **Render service**: auto-deploys when `main` branch is pushed to GitHub
+- **Build step** (`render.yaml` `buildCommand`): `pip install -r requirements.txt && python
+  "Backend Basics/db/build_gtfs_db.py"` — this REBUILDS `rts_gtfs.sqlite` from the git-tracked
+  `RTSGTFS_*` folder on every single deploy, even ones unrelated to GTFS. See "GTFS update workflow".
+- **Persistent disk** (`/data`, mounted per `render.yaml`) only holds `analytics.sqlite` /
+  `sessions.sqlite` — NOT the GTFS DB, which is always rebuilt fresh from git at deploy time.
 - **Deploy time**: ~2-3 min (includes GTFSEngine load)
 - **Check deploy**: hit `/api/gtfs-info` or `/api/health` after deploy
 - **Logs**: Render dashboard → Logs tab (check here for Python tracebacks)
@@ -162,6 +197,10 @@ Results saved to `tests/results/`. QA history in `tests/qa_history.sqlite`.
 - The user is the sole developer; explain things clearly but don't over-explain
 - Preferred commit style: concise subject line + Co-Authored-By footer
 - Do NOT grow the agent system prompt — it causes regression bugs
-- `rts_gtfs.sqlite` is NOT in git — it lives on Render's disk; user uploads it manually
+- `Backend Basics/db/rts_gtfs.sqlite` is NOT in git and is NEVER uploaded to Render manually — it's
+  a build artifact Render regenerates on every deploy via `render.yaml`'s `buildCommand` running
+  `Backend Basics/db/build_gtfs_db.py`. To ship a new GTFS feed: commit the raw `.txt` files under a
+  new `RTSGTFS_<Season><Year>_V<n>/` folder (these ARE git-tracked), update `GTFS_DIR` in
+  `build_gtfs_db.py`, and push. See "GTFS update workflow" above.
 - CISCO firewall may block Render URL on user's work PC — test from cell phone or home
 - The `data/` directory contains runtime SQLite files — none should be committed

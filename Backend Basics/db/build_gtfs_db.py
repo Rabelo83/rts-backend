@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-GTFS_DIR = BASE_DIR / "RTSGTFS_Summer2026_V1"
+GTFS_DIR = BASE_DIR / "RTSGTFS_Fall2026_V1"
 BUS_STOPS_JSON = BASE_DIR / "bus_stops" / "bus_stops_optimized.json"
 DB_PATH = BASE_DIR / "db" / "rts_gtfs.sqlite"
 
