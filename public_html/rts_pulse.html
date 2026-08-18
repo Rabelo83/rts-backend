@@ -15,8 +15,8 @@
     flex-direction:column;
     align-items:center;
     min-height:100vh;
-    padding:28px 16px;
-    gap:20px;
+    padding:16px;
+    gap:10px;
   }
 
   /* ── LED 7-segment component ─────────────────────────────────────── */
@@ -66,10 +66,10 @@
   .comma.on{ background:var(--seg-on,#ffab00); box-shadow:0 0 3px rgba(255,171,0,.55); }
   .ledspace{ width:calc(var(--h)*0.28); }
 
-  .size-xl{ --h:74px; }
-  .size-lg{ --h:56px; }
-  .size-md{ --h:34px; }
-  .size-sm{ --h:24px; }
+  .size-xl{ --h:58px; }
+  .size-lg{ --h:48px; }
+  .size-md{ --h:30px; }
+  .size-sm{ --h:22px; }
 
   .led-row.dim{ --seg-off:#241a12; }
   .led-row.dim .seg.on, .led-row.dim .colon .dot.on, .led-row.dim .comma.on{
@@ -103,7 +103,7 @@
   .row{
     display:flex;
     align-items:center;
-    padding:18px 32px;
+    padding:12px 28px;
     border-bottom:1px solid #1a1a1a;
     gap:20px;
   }
@@ -161,17 +161,17 @@
   .total-value{ display:flex; align-items:center; justify-content:space-between; gap:16px; }
 
   .badge{
-    width:78px; height:78px; border-radius:50%; border:2px solid #b8b8b8;
+    width:64px; height:64px; border-radius:50%; border:2px solid #b8b8b8;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     color:#e8e8e8; flex:none; text-align:center; gap:1px;
   }
-  .badge .yr{ font-size:1.55rem; line-height:1; font-weight:800; }
-  .badge .txt{ font-size:.44rem; line-height:1.3; letter-spacing:.05em; text-transform:uppercase; color:#c2c2c2; }
+  .badge .yr{ font-size:1.3rem; line-height:1; font-weight:800; }
+  .badge .txt{ font-size:.38rem; line-height:1.3; letter-spacing:.05em; text-transform:uppercase; color:#c2c2c2; }
 
   /* Bottom split row */
   .row-service{ padding:0; }
   .service-half{
-    flex:1; display:flex; align-items:center; gap:14px; padding:18px 28px;
+    flex:1; display:flex; align-items:center; gap:14px; padding:12px 28px;
   }
   .service-half + .service-half{ border-left:1px solid #1a1a1a; }
   .svc-icon{ width:30px; height:30px; flex:none; opacity:.9; }
@@ -189,10 +189,10 @@
   }
 
   @media (max-width:760px){
-    .row{ padding:14px 18px; flex-wrap:wrap; }
+    .row{ padding:10px 16px; flex-wrap:wrap; }
     .row-top{ gap:14px; }
-    .size-xl{ --h:48px; }
-    .size-lg{ --h:38px; }
+    .size-xl{ --h:42px; }
+    .size-lg{ --h:34px; }
     .metric-label{ min-width:0; }
   }
 </style>
@@ -320,18 +320,12 @@
   // magnitude. Matches the reference sign's own look (a dim blank digit
   // ahead of shorter numbers) and guarantees rows can never overflow.
   function formatFixedWidth(value, maxDigits){
-    const digits = String(Math.max(0, Math.round(value)));
-    const padded = digits.length >= maxDigits
-      ? digits
-      : '#'.repeat(maxDigits - digits.length) + digits;
-    // Group in 3s from the right, commas between groups (including padding).
-    let out = '';
-    for (let i = 0; i < padded.length; i++) {
-      const fromEnd = padded.length - i;
-      if (i > 0 && fromEnd % 3 === 0) out += ',';
-      out += padded[i];
-    }
-    return out;
+    const n = Math.max(0, Math.round(value));
+    const digitCount = String(n).length;
+    const blanks = Math.max(0, maxDigits - digitCount);
+    // Blank filler digits are a plain contiguous run with no comma mixed in --
+    // commas only ever appear inside the real, normally-grouped number.
+    return '#'.repeat(blanks) + fmtNumber(n);
   }
 
   function digitHTML(ch){
