@@ -36,8 +36,8 @@
   }
   .seg.on{
     background:var(--seg-on, #ffab00);
-    box-shadow:0 0 calc(var(--h)*0.10) var(--glow, rgba(255,171,0,.75)),
-               0 0 calc(var(--h)*0.24) var(--glow2, rgba(255,140,0,.35));
+    box-shadow:0 0 calc(var(--h)*0.04) rgba(255,171,0,.55),
+               0 0 calc(var(--h)*0.09) rgba(255,140,0,.16);
   }
   .seg-a{ top:0; left:var(--t); right:var(--t); height:var(--t); }
   .seg-g{ top:calc(50% - var(--t)/2); left:calc(var(--t)*1.08); right:calc(var(--t)*1.08); height:var(--t); }
@@ -56,14 +56,14 @@
   .colon .dot:last-child{ top:56%; }
   .colon .dot.on{
     background:var(--seg-on,#ffab00);
-    box-shadow:0 0 calc(var(--h)*0.10) var(--glow, rgba(255,171,0,.75));
+    box-shadow:0 0 calc(var(--h)*0.04) rgba(255,171,0,.55);
   }
   .comma{
     width:calc(var(--h)*0.09); height:calc(var(--h)*0.16);
     align-self:flex-end; margin:0 calc(var(--h)*0.02) calc(var(--h)*-0.02);
     background:var(--seg-off,#2a1c05); border-radius:2px; transform:rotate(8deg);
   }
-  .comma.on{ background:var(--seg-on,#ffab00); box-shadow:0 0 6px var(--glow, rgba(255,171,0,.75)); }
+  .comma.on{ background:var(--seg-on,#ffab00); box-shadow:0 0 3px rgba(255,171,0,.55); }
   .ledspace{ width:calc(var(--h)*0.28); }
 
   .size-xl{ --h:74px; }
@@ -82,7 +82,7 @@
      shown is never altered by this -- only its glow. */
   @keyframes ledBreathe{
     0%, 100% { filter:brightness(1); }
-    50%      { filter:brightness(1.4); }
+    50%      { filter:brightness(1.2); }
   }
   .breathing .seg.on,
   .breathing .colon .dot.on,
@@ -184,8 +184,8 @@
   .sources-link:hover{ color:#9a9a9a; text-decoration:underline; }
 
   .plus-suffix{
-    font-size:.55em; color:#ffb400; margin-left:.15em; align-self:flex-start;
-    text-shadow:0 0 6px rgba(255,171,0,.5);
+    font-size:.55em; color:#ffb400; margin-left:.15em; align-self:center;
+    text-shadow:0 0 3px rgba(255,171,0,.4);
   }
 
   @media (max-width:760px){
@@ -311,8 +311,28 @@
     '0':['a','b','c','d','e','f'], '1':['b','c'], '2':['a','b','g','e','d'],
     '3':['a','b','g','c','d'], '4':['f','g','b','c'], '5':['a','f','g','c','d'],
     '6':['a','f','g','e','c','d'], '7':['a','b','c'], '8':['a','b','c','d','e','f','g'],
-    '9':['a','b','c','d','f','g'], '-':['g'], ' ':[]
+    '9':['a','b','c','d','f','g'], '-':['g'], ' ':[], '#':[]
   };
+
+  // Fixed-width number formatting: pads unused leading digit slots with '#'
+  // (a full-width, fully-unlit digit box -- distinct from '-', which lights
+  // the middle segment) so a row's width never depends on the number's
+  // magnitude. Matches the reference sign's own look (a dim blank digit
+  // ahead of shorter numbers) and guarantees rows can never overflow.
+  function formatFixedWidth(value, maxDigits){
+    const digits = String(Math.max(0, Math.round(value)));
+    const padded = digits.length >= maxDigits
+      ? digits
+      : '#'.repeat(maxDigits - digits.length) + digits;
+    // Group in 3s from the right, commas between groups (including padding).
+    let out = '';
+    for (let i = 0; i < padded.length; i++) {
+      const fromEnd = padded.length - i;
+      if (i > 0 && fromEnd % 3 === 0) out += ',';
+      out += padded[i];
+    }
+    return out;
+  }
 
   function digitHTML(ch){
     const segs = SEGMENTS[ch] || [];
@@ -341,27 +361,35 @@
     document.getElementById(ledId).classList.toggle('dim', isDim);
   }
 
+  // Fixed digit-slot widths per row -- generous headroom over realistic
+  // values (Today up to 99,999 / Week 999,999 / Month 9,999,999 /
+  // Year 99,999,999 / Lifetime 999,999,999) so no row can ever overflow.
+  const ROW_WIDTH = { today: 5, week: 6, month: 7, year: 8, lifetime: 9 };
+
   // Placeholder dashes shown until the first /api/ridership/board response lands.
-  ['todayLed','weekLed','monthLed','yearLed'].forEach(id => setLed(id, '- - - -'));
-  document.getElementById('allTimeLed').innerHTML = ledHTML('- - - - - - - -', true);
+  setLed('todayLed', '-'.repeat(ROW_WIDTH.today));
+  setLed('weekLed', '-'.repeat(ROW_WIDTH.week));
+  setLed('monthLed', '-'.repeat(ROW_WIDTH.month));
+  setLed('yearLed', '-'.repeat(ROW_WIDTH.year));
+  setLed('allTimeLed', '-'.repeat(ROW_WIDTH.lifetime));
   document.getElementById('svcStartLed').innerHTML = ledHTML('-- : --', true);
   document.getElementById('svcEndLed').innerHTML = ledHTML('-- : --', true);
 
-  function renderMetricRow(ledId, metric){
+  function renderMetricRow(ledId, metric, maxDigits){
     const available = metric && metric.riders_estimate !== null && metric.riders_estimate !== undefined;
     setDim(ledId, !available);
-    setLed(ledId, available ? fmtNumber(metric.riders_estimate) : '- - - -');
+    setLed(ledId, available ? formatFixedWidth(metric.riders_estimate, maxDigits) : '-'.repeat(maxDigits));
   }
 
-  function renderLifetime(ledId, lifetime){
+  function renderLifetime(ledId, lifetime, maxDigits){
     const available = lifetime && lifetime.riders_estimate !== null && lifetime.riders_estimate !== undefined;
     setDim(ledId, !available);
-    if (!available) { setLed(ledId, '- - - - - - - -'); return; }
-    const display = lifetime.riders_display || fmtNumber(lifetime.riders_estimate);
+    if (!available) { setLed(ledId, '-'.repeat(maxDigits)); return; }
+    const display = lifetime.riders_display || String(lifetime.riders_estimate);
     const hasPlus = display.endsWith('+');
-    const numPart = (hasPlus ? display.slice(0, -1) : display).replace(/,/g, '');
+    const numPart = parseInt((hasPlus ? display.slice(0, -1) : display).replace(/,/g, ''), 10);
     document.getElementById(ledId).innerHTML =
-      ledHTML(fmtNumber(parseInt(numPart, 10)), true) +
+      ledHTML(formatFixedWidth(numPart, maxDigits), true) +
       (hasPlus ? '<span class="plus-suffix">+</span>' : '');
   }
 
@@ -437,11 +465,11 @@
         animateNow(rightNow.riders_estimate);
       }
 
-      renderMetricRow('todayLed', data.today);
-      renderMetricRow('weekLed', data.this_week);
-      renderMetricRow('monthLed', data.this_month);
-      renderMetricRow('yearLed', data.this_year);
-      renderLifetime('allTimeLed', data.lifetime);
+      renderMetricRow('todayLed', data.today, ROW_WIDTH.today);
+      renderMetricRow('weekLed', data.this_week, ROW_WIDTH.week);
+      renderMetricRow('monthLed', data.this_month, ROW_WIDTH.month);
+      renderMetricRow('yearLed', data.this_year, ROW_WIDTH.year);
+      renderLifetime('allTimeLed', data.lifetime, ROW_WIDTH.lifetime);
 
       const service = data.service || {};
       renderServiceTime('svcStartLed', 'svcStartAmpm', service.starting);
