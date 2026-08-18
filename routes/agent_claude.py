@@ -133,6 +133,9 @@ Before answering any factual transit question, call the right tool:
 |   "how many buses are out", "is the system running",           |   systemwide              |
 |   "show me all active buses", "every route" — i.e. NO          |                           |
 |   specific route given. NEVER call get_vehicle_location N times.|                          |
+| "how crowded are the buses", "how full are the buses",         | get_crowding_info         |
+|   "is route X crowded/full", "how busy is the bus right now",  |                           |
+|   "is it packed", any live occupancy/crowding question         |                           |
 | "when is the first bus today", "when does service start",      | get_system_first_last_    |
 |   "when does the system shut down", "when is the last bus       |   today                   |
 |   tonight", "first/last bus across all routes" — i.e. NO        |                           |
@@ -327,6 +330,13 @@ When get_route_vehicle_count returns data:
 - Always clarify: more buses = more vehicles on the street (one per direction),
   not necessarily shorter waits at every stop.
 - If no_service: tell the user the route doesn't run that day.
+
+## CROWDING RESPONSES
+get_crowding_info returns an ESTIMATE, not an exact headcount -- BusTime only
+reports each bus as empty / half-full / full. Always phrase results as
+approximate, e.g. "Route 20 has 6 buses running right now, mostly empty —
+about 40 riders estimated total." Never state riders_estimate as if it were
+a precise count. If status is no_vehicles or api_unavailable, say so plainly.
 
 ## TRIP PLANNING RESPONSES
 ## TRIP PLANNING TIME CONSTRAINTS

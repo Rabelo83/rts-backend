@@ -251,6 +251,7 @@ def _clean_vehicle_rows(rows: list[dict]) -> list[dict]:
             "destination": v.get("des"),
             "delayed":     bool(v.get("dly", False)),
             "timestamp":   v.get("tmstmp"),
+            "psgld":       v.get("psgld"),
         })
     return cleaned
 
@@ -381,8 +382,16 @@ def api_map_route_schedule(route_id):
     return jsonify(payload)
 
 
-@map_bp.route("/api/map/vehicles")
-def api_map_vehicles():
+def get_cached_vehicles() -> dict:
+    """
+    Return the shared 30s-cached all-vehicle snapshot:
+    {vehicles, fetched_at, realtime_status[, realtime_message]}.
+
+    Single source of truth for "every active bus right now" -- used by
+    /api/map/vehicles (Live Map), the ridership endpoint
+    (routes/ridership_api.py), and agent tools (routes/agent_tools.py) so all
+    three share the same BusTime calls instead of polling independently.
+    """
     global _vehicle_cache, _vehicle_cache_at
     now = time.monotonic()
     with _vehicle_lock:
@@ -402,7 +411,12 @@ def api_map_vehicles():
                     "realtime_message": exc.message,
                 }
             _vehicle_cache_at = now
-        return jsonify(_vehicle_cache)
+        return _vehicle_cache
+
+
+@map_bp.route("/api/map/vehicles")
+def api_map_vehicles():
+    return jsonify(get_cached_vehicles())
 
 
 @map_bp.route("/api/map/vehicle/<vehicle_id>/predictions")

@@ -19,6 +19,7 @@ from routes.map_api import map_bp
 from routes.pwa import pwa_bp
 from routes.push import push_bp
 from routes.favorites import favorites_bp
+from routes.ridership_api import ridership_bp
 
 # If you have web index routes, keep this import.
 try:
@@ -88,6 +89,7 @@ def create_app() -> Flask:
     app.register_blueprint(pwa_bp)
     app.register_blueprint(push_bp)
     app.register_blueprint(favorites_bp)
+    app.register_blueprint(ridership_bp)
 
     # Initialise push DB tables on startup (idempotent)
     try:
@@ -162,6 +164,12 @@ def create_app() -> Flask:
     @app.route("/about")
     def about_legacy():
         return _html("index.html")
+
+    # RTS Pulse — public live ridership/crowding display board (lobby screen).
+    # No PIN gate by design: meant to be shown on an unattended display.
+    @app.route("/RTS_Pulse")
+    def rts_pulse():
+        return _html("rts_pulse.html")
 
     @app.route("/login", methods=["GET", "POST"])
     def login():

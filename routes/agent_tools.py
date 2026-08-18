@@ -361,6 +361,36 @@ TOOLS: list[dict] = [
     {
         "type": "function",
         "function": {
+            "name": "get_crowding_info",
+            "description": (
+                "Get live bus crowding/occupancy info, system-wide or for one route. "
+                "Use for: 'how crowded are the buses right now', 'is route X full', "
+                "'how busy is the bus', 'which buses are crowded', 'is it packed right now'. "
+                "Returns a breakdown of empty/half-full/full buses and an ESTIMATED rider "
+                "count -- BusTime only reports each bus's occupancy as a band (empty / "
+                "half-full / full), never an exact headcount, so the estimate must always "
+                "be presented as approximate. Reuses the same cached vehicle snapshot as "
+                "the live map, so it's cheap to call."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "route_id": {
+                        "type": "string",
+                        "description": (
+                            "Optional route number to scope crowding to one route "
+                            "(e.g. '8'). Omit for a system-wide summary."
+                        ),
+                    }
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_system_first_last_today",
             "description": (
                 "Return the first and last scheduled bus today (or on a given date) "
@@ -779,6 +809,7 @@ def dispatch_tool(name: str, arguments: dict, session_id: str | None = None) -> 
         "get_route_vehicle_count": _tool_get_route_vehicle_count,
         "get_vehicle_location": _tool_get_vehicle_location,
         "get_active_vehicles_systemwide": _tool_get_active_vehicles_systemwide,
+        "get_crowding_info":              _tool_get_crowding_info,
         "get_system_first_last_today":    _tool_get_system_first_last_today,
         "plan_trip": _tool_plan_trip,
     }
@@ -1641,12 +1672,13 @@ def _tool_get_vehicle_location(route_id: str) -> dict:
 def _tool_get_active_vehicles_systemwide() -> dict:
     """
     Return a system-wide summary of active buses across every route.
-    Reuses the same aggregator that powers the live map (`/api/map/vehicles`)
-    so the chat agent and the map are guaranteed to agree on counts.
+    Reuses the same shared, cached aggregator that powers the live map
+    (`/api/map/vehicles`) so the chat agent and the map are guaranteed to
+    agree on counts, and this call costs no extra BusTime hits.
     """
     try:
-        from routes.map_api import _fetch_all_vehicles
-        vehicles = _fetch_all_vehicles()
+        from routes.map_api import get_cached_vehicles
+        vehicles = get_cached_vehicles().get("vehicles", []) or []
     except Exception as exc:
         logger.warning("get_active_vehicles_systemwide failed: %s", exc)
         return {
@@ -1676,6 +1708,77 @@ def _tool_get_active_vehicles_systemwide() -> dict:
             {"route": rt, "count": by_route[rt]}
             for rt in sorted(by_route.keys(), key=_route_sort_key)
         ],
+    }
+
+
+# ── Tool 12: get_crowding_info ────────────────────────────────────────────────
+
+def _tool_get_crowding_info(route_id: str | None = None) -> dict:
+    """
+    Return live bus crowding (BusTime 'psgld' occupancy band), system-wide or
+    for one route. Reuses the same shared, cached vehicle snapshot as
+    get_active_vehicles_systemwide / the Live Map / the RTS Pulse board, so
+    this call costs no extra BusTime hits.
+
+    psgld is a category BusTime reports per bus -- EMPTY / HALF_EMPTY / FULL /
+    N/A -- not an exact passenger count. riders_estimate applies RTS-specified
+    per-band values (EMPTY=5, HALF_EMPTY=18, FULL=36) and must always be
+    presented as an estimate, never as a precise headcount.
+    """
+    try:
+        from routes.map_api import get_cached_vehicles
+        from routes.ridership_api import PSGLD_ESTIMATE
+        vehicles = get_cached_vehicles().get("vehicles", []) or []
+    except Exception as exc:
+        logger.warning("get_crowding_info failed: %s", exc)
+        return {
+            "status":  "api_unavailable",
+            "message": "Unable to reach real-time crowding data right now.",
+        }
+
+    if route_id:
+        normalized = _normalize_route_id(route_id) or route_id
+        vehicles = [v for v in vehicles if str(v.get("route") or "") == str(normalized)]
+        if not vehicles:
+            return {
+                "status":  "no_vehicles",
+                "route":   normalized,
+                "message": f"No active buses found on Route {normalized} right now.",
+            }
+    elif not vehicles:
+        return {
+            "status":  "no_vehicles",
+            "message": "No active buses across the system right now.",
+        }
+
+    breakdown = {"EMPTY": 0, "HALF_EMPTY": 0, "FULL": 0, "N/A": 0}
+    riders_estimate = 0
+    buses = []
+    for v in vehicles:
+        psgld = (v.get("psgld") or "N/A").strip().upper()
+        if psgld not in breakdown:
+            psgld = "N/A"
+        breakdown[psgld] += 1
+        if psgld in PSGLD_ESTIMATE:
+            riders_estimate += PSGLD_ESTIMATE[psgld]
+        buses.append({
+            "vehicle_id": v.get("vehicle_id"),
+            "route":      v.get("route"),
+            "destination": v.get("destination"),
+            "crowding":   psgld,
+        })
+
+    return {
+        "status":          "ok",
+        "route":           route_id,
+        "bus_count":       len(vehicles),
+        "breakdown":       breakdown,
+        "riders_estimate": riders_estimate,
+        "buses":           buses[:15],
+        "note": (
+            "riders_estimate is derived from each bus's reported occupancy "
+            "band (empty/half-full/full), not an exact headcount."
+        ),
     }
 
 

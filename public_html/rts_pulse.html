@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>RTS Pulse — Live Ridership</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:#1c1c1c;
+    color:#e8e8e8;
+    font-family:"Segoe UI",Arial,sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-height:100vh;
+    padding:28px 16px;
+    gap:20px;
+  }
+
+  /* ── LED 7-segment component ─────────────────────────────────────── */
+  .led-row{ display:inline-flex; align-items:center; }
+  .digit, .colon, .comma, .ledspace{ display:inline-block; vertical-align:middle; }
+  .digit{
+    position:relative;
+    width:calc(var(--h) * 0.56);
+    height:var(--h);
+    margin:0 calc(var(--h) * 0.055);
+    --t:calc(var(--h) * 0.13);
+  }
+  .seg{
+    position:absolute;
+    background:var(--seg-off, #2a1c05);
+    border-radius:calc(var(--t) * 0.35);
+  }
+  .seg.on{
+    background:var(--seg-on, #ffab00);
+    box-shadow:0 0 calc(var(--h)*0.10) var(--glow, rgba(255,171,0,.75)),
+               0 0 calc(var(--h)*0.24) var(--glow2, rgba(255,140,0,.35));
+  }
+  .seg-a{ top:0; left:var(--t); right:var(--t); height:var(--t); }
+  .seg-g{ top:calc(50% - var(--t)/2); left:calc(var(--t)*1.08); right:calc(var(--t)*1.08); height:var(--t); }
+  .seg-d{ bottom:0; left:var(--t); right:var(--t); height:var(--t); }
+  .seg-f{ top:var(--t); left:0; width:var(--t); height:calc(50% - var(--t)*1.25); }
+  .seg-b{ top:var(--t); right:0; width:var(--t); height:calc(50% - var(--t)*1.25); }
+  .seg-e{ bottom:var(--t); left:0; width:var(--t); height:calc(50% - var(--t)*1.25); }
+  .seg-c{ bottom:var(--t); right:0; width:var(--t); height:calc(50% - var(--t)*1.25); }
+
+  .colon{ position:relative; width:calc(var(--h)*0.16); height:var(--h); margin:0 calc(var(--h)*0.02); }
+  .colon .dot{
+    position:absolute; left:0; width:calc(var(--h)*0.14); height:calc(var(--h)*0.14);
+    border-radius:50%; background:var(--seg-off,#2a1c05);
+  }
+  .colon .dot:first-child{ top:32%; }
+  .colon .dot:last-child{ top:56%; }
+  .colon .dot.on{
+    background:var(--seg-on,#ffab00);
+    box-shadow:0 0 calc(var(--h)*0.10) var(--glow, rgba(255,171,0,.75));
+  }
+  .comma{
+    width:calc(var(--h)*0.09); height:calc(var(--h)*0.16);
+    align-self:flex-end; margin:0 calc(var(--h)*0.02) calc(var(--h)*-0.02);
+    background:var(--seg-off,#2a1c05); border-radius:2px; transform:rotate(8deg);
+  }
+  .comma.on{ background:var(--seg-on,#ffab00); box-shadow:0 0 6px var(--glow, rgba(255,171,0,.75)); }
+  .ledspace{ width:calc(var(--h)*0.28); }
+
+  .size-xl{ --h:74px; }
+  .size-lg{ --h:56px; }
+  .size-md{ --h:34px; }
+  .size-sm{ --h:24px; }
+
+  .led-row.dim{ --seg-off:#241a12; }
+  .led-row.dim .seg.on, .led-row.dim .colon .dot.on, .led-row.dim .comma.on{
+    background:#6b4a12; box-shadow:none;
+  }
+
+  /* ── Board chrome ─────────────────────────────────────────────────── */
+  .board{
+    width:100%;
+    max-width:1180px;
+    background:#050505;
+    border:14px solid #232323;
+    border-radius:10px;
+    box-shadow:0 24px 60px rgba(0,0,0,.55), inset 0 0 50px rgba(0,0,0,.7);
+    overflow:hidden;
+  }
+  .row{
+    display:flex;
+    align-items:center;
+    padding:18px 32px;
+    border-bottom:1px solid #1a1a1a;
+    gap:20px;
+  }
+  .row:last-child{ border-bottom:none; }
+  .label{
+    font-size:.9rem;
+    line-height:1;
+    letter-spacing:.08em;
+    color:#dcdcdc;
+    text-transform:uppercase;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  .unit{
+    font-size:.85rem;
+    line-height:1;
+    color:#c9c9c9;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    white-space:nowrap;
+  }
+  .updated{
+    font-size:.7rem;
+    line-height:1;
+    color:#6b6b6b;
+    letter-spacing:.03em;
+    white-space:nowrap;
+  }
+  .ampm{ font-size:1.1rem; line-height:1; font-weight:700; color:#d8d8d8; margin-left:6px; align-self:flex-end; margin-bottom:.35em; }
+
+  /* Row 1: current time / bus icon / right now */
+  .row-top{ justify-content:space-between; flex-wrap:wrap; }
+  .top-block{ display:flex; flex-direction:column; gap:10px; }
+  .top-block.time{ align-items:flex-start; }
+  .top-block.now{ align-items:flex-end; }
+  .time-line, .now-line{ display:flex; align-items:baseline; }
+  .bus-icon{ width:54px; height:54px; flex:none; opacity:.92; align-self:center; }
+
+  /* Rider count rows */
+  .row-metric{ justify-content:space-between; }
+  .metric-label{ min-width:150px; }
+  .metric-value{ display:flex; align-items:center; gap:16px; flex:1; justify-content:flex-end; }
+
+  /* Riders-since-began row: badge spans full row height, centered beside a
+     tight two-line stack (title, then value) so it lines up like the other
+     metric rows instead of ballooning the row height. */
+  .row-total{
+    display:grid;
+    grid-template-columns:auto 1fr;
+    align-items:center;
+    column-gap:18px;
+    background:#070707;
+  }
+  .total-stack{ display:flex; flex-direction:column; gap:8px; min-width:0; }
+  .total-value{ display:flex; align-items:center; justify-content:space-between; gap:16px; }
+
+  .badge{
+    width:78px; height:78px; border-radius:50%; border:2px solid #b8b8b8;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:#e8e8e8; flex:none; text-align:center; gap:1px;
+  }
+  .badge .yr{ font-size:1.55rem; line-height:1; font-weight:800; }
+  .badge .txt{ font-size:.44rem; line-height:1.3; letter-spacing:.05em; text-transform:uppercase; color:#c2c2c2; }
+
+  /* Bottom split row */
+  .row-service{ padding:0; }
+  .service-half{
+    flex:1; display:flex; align-items:center; gap:14px; padding:18px 28px;
+  }
+  .service-half + .service-half{ border-left:1px solid #1a1a1a; }
+  .svc-icon{ width:30px; height:30px; flex:none; opacity:.9; }
+  .svc-text{ display:flex; flex-direction:column; gap:8px; }
+
+  @media (max-width:760px){
+    .row{ padding:14px 18px; flex-wrap:wrap; }
+    .row-top{ gap:14px; }
+    .size-xl{ --h:48px; }
+    .size-lg{ --h:38px; }
+    .metric-label{ min-width:0; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="board">
+    <div class="row row-top">
+      <div class="top-block time">
+        <div class="label">Current Time</div>
+        <div class="time-line">
+          <div class="led-row size-lg" id="clockLed"></div>
+          <div class="ampm" id="ampm">--</div>
+        </div>
+      </div>
+
+      <svg class="bus-icon" viewBox="0 0 24 24" fill="none" stroke="#e8e8e8" stroke-width="1.4">
+        <rect x="3" y="5" width="18" height="11" rx="2"/>
+        <path d="M3 12h18"/>
+        <path d="M6 16v2M18 16v2"/>
+        <circle cx="7.5" cy="18" r="1.4" fill="#e8e8e8"/>
+        <circle cx="16.5" cy="18" r="1.4" fill="#e8e8e8"/>
+        <path d="M8 2h8l1.5 3h-11z"/>
+      </svg>
+
+      <div class="top-block now">
+        <div class="label">Right Now (estimated)</div>
+        <div class="now-line">
+          <div class="led-row size-lg" id="nowLed"></div>
+        </div>
+        <div class="unit">riders on board</div>
+        <div class="updated" id="updatedAgo">Connecting…</div>
+      </div>
+    </div>
+
+    <div class="row row-metric">
+      <div class="label metric-label">Today</div>
+      <div class="metric-value">
+        <div class="led-row dim size-xl" id="todayLed"></div>
+        <div class="unit">riders</div>
+      </div>
+    </div>
+
+    <div class="row row-metric">
+      <div class="label metric-label">This Week</div>
+      <div class="metric-value">
+        <div class="led-row dim size-xl" id="weekLed"></div>
+        <div class="unit">riders</div>
+      </div>
+    </div>
+
+    <div class="row row-metric">
+      <div class="label metric-label">This Month</div>
+      <div class="metric-value">
+        <div class="led-row dim size-xl" id="monthLed"></div>
+        <div class="unit">riders</div>
+      </div>
+    </div>
+
+    <div class="row row-metric">
+      <div class="label metric-label">This Year</div>
+      <div class="metric-value">
+        <div class="led-row dim size-xl" id="yearLed"></div>
+        <div class="unit">riders</div>
+      </div>
+    </div>
+
+    <div class="row row-total">
+      <div class="badge">
+        <div class="yr">51</div>
+        <div class="txt">Aniversario</div>
+        <div class="txt">RTS 1974–2025</div>
+      </div>
+      <div class="total-stack">
+        <div class="label">Riders Since RTS Began (51 years of service)</div>
+        <div class="total-value">
+          <div class="led-row dim size-xl" id="allTimeLed"></div>
+          <div class="unit">riders</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row row-service">
+      <div class="service-half">
+        <svg class="svc-icon" viewBox="0 0 24 24" fill="none" stroke="#e8e8e8" stroke-width="1.4">
+          <path d="M12 3v5M5.6 8.6l1.4 1.4M18.4 8.6l-1.4 1.4M3 16h18M6 16a6 6 0 0112 0"/>
+        </svg>
+        <div class="svc-text">
+          <div class="label">Today's Starting Service</div>
+          <div class="time-line">
+            <div class="led-row dim size-md" id="svcStartLed"></div>
+          </div>
+        </div>
+      </div>
+      <div class="service-half">
+        <svg class="svc-icon" viewBox="0 0 24 24" fill="none" stroke="#e8e8e8" stroke-width="1.4">
+          <path d="M21 13.5A8.5 8.5 0 1110.5 3 6.8 6.8 0 0021 13.5z"/>
+          <path d="M17 3l.5 1.5L19 5l-1.5.5L17 7l-.5-1.5L15 5l1.5-.5z"/>
+        </svg>
+        <div class="svc-text">
+          <div class="label">Today's Last Service</div>
+          <div class="time-line">
+            <div class="led-row dim size-md" id="svcEndLed"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const SEGMENTS = {
+    '0':['a','b','c','d','e','f'], '1':['b','c'], '2':['a','b','g','e','d'],
+    '3':['a','b','g','c','d'], '4':['f','g','b','c'], '5':['a','f','g','c','d'],
+    '6':['a','f','g','e','c','d'], '7':['a','b','c'], '8':['a','b','c','d','e','f','g'],
+    '9':['a','b','c','d','f','g'], '-':['g'], ' ':[]
+  };
+
+  function digitHTML(ch){
+    const segs = SEGMENTS[ch] || [];
+    let html = '<span class="digit">';
+    for (const s of ['a','b','c','d','e','f','g']) {
+      html += `<span class="seg seg-${s}${segs.includes(s) ? ' on' : ''}"></span>`;
+    }
+    html += '</span>';
+    return html;
+  }
+
+  function ledHTML(str, on=true){
+    let out = '';
+    for (const ch of String(str)) {
+      if (ch === ':') out += `<span class="colon"><span class="dot ${on?'on':''}"></span><span class="dot ${on?'on':''}"></span></span>`;
+      else if (ch === ',') out += `<span class="comma ${on?'on':''}"></span>`;
+      else if (ch === ' ') out += '<span class="ledspace"></span>';
+      else out += digitHTML(on ? ch : (ch >= '0' && ch <= '9' ? '-' : ch));
+    }
+    return out;
+  }
+
+  function setLed(id, str){ document.getElementById(id).innerHTML = ledHTML(str, true); }
+
+  // Dimmed/unavailable rows: static placeholder dashes, rendered once.
+  ['todayLed','weekLed','monthLed','yearLed'].forEach(id => setLed(id, '- - - -'));
+  document.getElementById('allTimeLed').innerHTML = ledHTML('- - - - - - - -', true);
+  document.getElementById('svcStartLed').innerHTML = ledHTML('-- : --', true);
+  document.getElementById('svcEndLed').innerHTML = ledHTML('-- : --', true);
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+
+  function tickClock(){
+    const now = new Date();
+    let h = now.getHours();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12; if (h === 0) h = 12;
+    setLed('clockLed', `${h}:${pad(now.getMinutes())}`);
+    document.getElementById('ampm').textContent = ampm;
+  }
+
+  function fmtNumber(n){
+    return n.toLocaleString('en-US');
+  }
+
+  // Odometer-style count animation: rolls the displayed number from its
+  // previous value to the new one instead of snapping, so the board reads as
+  // something actively tracking rather than a readout that refreshes.
+  let nowValue = null;
+  let nowAnimFrame = null;
+  function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
+
+  function animateNow(to){
+    const from = (nowValue === null) ? to : nowValue;
+    if (nowAnimFrame) cancelAnimationFrame(nowAnimFrame);
+    if (from === to) { nowValue = to; setLed('nowLed', fmtNumber(to)); return; }
+
+    const duration = 1200;
+    const start = performance.now();
+    function step(ts){
+      const t = Math.min(1, (ts - start) / duration);
+      const value = Math.round(from + (to - from) * easeOutCubic(t));
+      setLed('nowLed', fmtNumber(value));
+      if (t < 1) {
+        nowAnimFrame = requestAnimationFrame(step);
+      } else {
+        nowValue = to;
+      }
+    }
+    nowAnimFrame = requestAnimationFrame(step);
+  }
+
+  // Real elapsed-time indicator: ticks every second off the last actually
+  // successful poll, so the board visibly shows it's alive even on refreshes
+  // where the estimate itself didn't change (or a poll fails).
+  let lastUpdateAt = null;
+  function tickUpdatedAgo(){
+    const el = document.getElementById('updatedAgo');
+    if (lastUpdateAt === null) { el.textContent = 'Connecting…'; return; }
+    const secs = Math.floor((Date.now() - lastUpdateAt) / 1000);
+    el.textContent = secs < 2 ? 'Updated just now' : `Updated ${secs}s ago`;
+  }
+
+  async function refresh(){
+    try{
+      const res = await fetch('/api/ridership/live', {cache:'no-store'});
+      if(!res.ok) throw new Error('bad response');
+      const data = await res.json();
+      if(data.error) throw new Error(data.error_message || 'error');
+      animateNow(data.riders_estimate);
+      lastUpdateAt = Date.now();
+      tickUpdatedAgo();
+    } catch(e){
+      // leave last-known value on screen; try again on next interval
+    }
+  }
+
+  tickClock();
+  setInterval(tickClock, 1000);
+  setInterval(tickUpdatedAgo, 1000);
+  refresh();
+  setInterval(refresh, 20000);
+</script>
+</body>
+</html>
