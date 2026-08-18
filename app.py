@@ -98,6 +98,13 @@ def create_app() -> Flask:
     except Exception as _e:
         print(f"[app] push_db init failed: {_e}")
 
+    # Initialise ridership DB tables on startup (idempotent)
+    try:
+        from utils.ridership_db import init_db as _ridership_db_init
+        _ridership_db_init()
+    except Exception as _e:
+        print(f"[app] ridership_db init failed: {_e}")
+
     # Start alert scheduler (respects ENABLE_ALERT_SCHEDULER env var)
     try:
         from utils.alert_scheduler import make_scheduler as _make_sched
@@ -107,6 +114,16 @@ def create_app() -> Flask:
             atexit.register(_scheduler.shutdown)
     except Exception as _e:
         print(f"[app] alert_scheduler failed: {_e}")
+
+    # Start ridership sampler (respects ENABLE_RIDERSHIP_SCHEDULER env var)
+    try:
+        from utils.ridership_scheduler import make_scheduler as _make_ridership_sched
+        _ridership_scheduler = _make_ridership_sched()
+        if _ridership_scheduler:
+            import atexit
+            atexit.register(_ridership_scheduler.shutdown)
+    except Exception as _e:
+        print(f"[app] ridership_scheduler failed: {_e}")
 
     # Initialise GTFSEngine singleton at startup (loads GTFS into memory ~2-3s)
     try:
@@ -170,6 +187,11 @@ def create_app() -> Flask:
     @app.route("/RTS_Pulse")
     def rts_pulse():
         return _html("rts_pulse.html")
+
+    # RTS Pulse sources/methodology page -- public, linked from the board.
+    @app.route("/RTS_Pulse/sources")
+    def rts_pulse_sources():
+        return _html("rts_pulse_sources.html")
 
     @app.route("/login", methods=["GET", "POST"])
     def login():

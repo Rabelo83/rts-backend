@@ -177,6 +177,17 @@
   .svc-icon{ width:30px; height:30px; flex:none; opacity:.9; }
   .svc-text{ display:flex; flex-direction:column; gap:8px; }
 
+  .sources-link{
+    font-size:.72rem; color:#5a5a5a; text-decoration:none; letter-spacing:.02em;
+    align-self:center;
+  }
+  .sources-link:hover{ color:#9a9a9a; text-decoration:underline; }
+
+  .plus-suffix{
+    font-size:.55em; color:#ffb400; margin-left:.15em; align-self:flex-start;
+    text-shadow:0 0 6px rgba(255,171,0,.5);
+  }
+
   @media (max-width:760px){
     .row{ padding:14px 18px; flex-wrap:wrap; }
     .row-top{ gap:14px; }
@@ -273,6 +284,7 @@
           <div class="label">Today's Starting Service</div>
           <div class="time-line">
             <div class="led-row dim size-md" id="svcStartLed"></div>
+            <div class="ampm" id="svcStartAmpm"></div>
           </div>
         </div>
       </div>
@@ -285,11 +297,14 @@
           <div class="label">Today's Last Service</div>
           <div class="time-line">
             <div class="led-row dim size-md" id="svcEndLed"></div>
+            <div class="ampm" id="svcEndAmpm"></div>
           </div>
         </div>
       </div>
     </div>
   </div>
+
+  <a href="/RTS_Pulse/sources" class="sources-link">Data sources &amp; methodology</a>
 
 <script>
   const SEGMENTS = {
@@ -322,11 +337,41 @@
 
   function setLed(id, str){ document.getElementById(id).innerHTML = ledHTML(str, true); }
 
-  // Dimmed/unavailable rows: static placeholder dashes, rendered once.
+  function setDim(ledId, isDim){
+    document.getElementById(ledId).classList.toggle('dim', isDim);
+  }
+
+  // Placeholder dashes shown until the first /api/ridership/board response lands.
   ['todayLed','weekLed','monthLed','yearLed'].forEach(id => setLed(id, '- - - -'));
   document.getElementById('allTimeLed').innerHTML = ledHTML('- - - - - - - -', true);
   document.getElementById('svcStartLed').innerHTML = ledHTML('-- : --', true);
   document.getElementById('svcEndLed').innerHTML = ledHTML('-- : --', true);
+
+  function renderMetricRow(ledId, metric){
+    const available = metric && metric.riders_estimate !== null && metric.riders_estimate !== undefined;
+    setDim(ledId, !available);
+    setLed(ledId, available ? fmtNumber(metric.riders_estimate) : '- - - -');
+  }
+
+  function renderLifetime(ledId, lifetime){
+    const available = lifetime && lifetime.riders_estimate !== null && lifetime.riders_estimate !== undefined;
+    setDim(ledId, !available);
+    if (!available) { setLed(ledId, '- - - - - - - -'); return; }
+    const display = lifetime.riders_display || fmtNumber(lifetime.riders_estimate);
+    const hasPlus = display.endsWith('+');
+    const numPart = (hasPlus ? display.slice(0, -1) : display).replace(/,/g, '');
+    document.getElementById(ledId).innerHTML =
+      ledHTML(fmtNumber(parseInt(numPart, 10)), true) +
+      (hasPlus ? '<span class="plus-suffix">+</span>' : '');
+  }
+
+  function renderServiceTime(ledId, ampmId, timeStr){
+    const m = timeStr && timeStr.trim().match(/^(\d{1,2}:\d{2})\s*(AM|PM)$/i);
+    setDim(ledId, !m);
+    if (!m) { setLed(ledId, '-- : --'); document.getElementById(ampmId).textContent = ''; return; }
+    setLed(ledId, m[1]);
+    document.getElementById(ampmId).textContent = m[2].toUpperCase();
+  }
 
   function pad(n){ return String(n).padStart(2,'0'); }
 
@@ -383,15 +428,29 @@
 
   async function refresh(){
     try{
-      const res = await fetch('/api/ridership/live', {cache:'no-store'});
+      const res = await fetch('/api/ridership/board', {cache:'no-store'});
       if(!res.ok) throw new Error('bad response');
       const data = await res.json();
-      if(data.error) throw new Error(data.error_message || 'error');
-      animateNow(data.riders_estimate);
+
+      const rightNow = data.right_now || {};
+      if (rightNow.riders_estimate !== null && rightNow.riders_estimate !== undefined) {
+        animateNow(rightNow.riders_estimate);
+      }
+
+      renderMetricRow('todayLed', data.today);
+      renderMetricRow('weekLed', data.this_week);
+      renderMetricRow('monthLed', data.this_month);
+      renderMetricRow('yearLed', data.this_year);
+      renderLifetime('allTimeLed', data.lifetime);
+
+      const service = data.service || {};
+      renderServiceTime('svcStartLed', 'svcStartAmpm', service.starting);
+      renderServiceTime('svcEndLed', 'svcEndAmpm', service.ending);
+
       lastUpdateAt = Date.now();
       tickUpdatedAgo();
     } catch(e){
-      // leave last-known value on screen; try again on next interval
+      // leave last-known values on screen; try again on next interval
     }
   }
 

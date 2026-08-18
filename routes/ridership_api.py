@@ -1,7 +1,14 @@
 from flask import Blueprint, jsonify
 from datetime import datetime, timezone
+from pathlib import Path
+import logging
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "utils"))
 
 from routes.map_api import get_cached_vehicles
+
+logger = logging.getLogger(__name__)
 
 ridership_bp = Blueprint("ridership", __name__)
 
@@ -73,3 +80,58 @@ def api_ridership_live():
         }), 503
 
     return jsonify(snapshot)
+
+
+@ridership_bp.route("/api/ridership/board")
+def api_ridership_board():
+    """
+    Full RTS Pulse board payload: right_now (live) + today/week/month/
+    fiscal_year/lifetime (estimated/official, from ridership_calc) + today's
+    system-wide first/last scheduled service (pure GTFS). Every section
+    carries its own `status` so the frontend can label LIVE vs OFFICIAL vs
+    ESTIMATED vs unavailable honestly.
+    """
+    try:
+        right_now = _build_snapshot()
+    except Exception:
+        right_now = {"riders_estimate": None, "status": "unavailable"}
+
+    try:
+        import ridership_calc as rc
+        today = rc.get_today_estimate()
+        week = rc.get_week_estimate()
+        month = rc.get_month_estimate()
+        fiscal_year = rc.get_fiscal_year_estimate()
+        lifetime = rc.get_lifetime_estimate()
+    except Exception as exc:
+        logger.warning("ridership board calc failed: %s", exc)
+        today = week = month = fiscal_year = lifetime = {"riders_estimate": None, "status": "unavailable"}
+
+    service = {"status": "unavailable"}
+    try:
+        from routes.agent_tools import _tool_get_system_first_last_today
+        result = _tool_get_system_first_last_today()
+        if result.get("status") == "ok":
+            service = {
+                "status": "ok",
+                "starting": result["earliest_first"]["time"],
+                "starting_route": result["earliest_first"]["route"],
+                "ending": result["latest_last"]["time"],
+                "ending_route": result["latest_last"]["route"],
+                "day_label": result.get("day_label"),
+            }
+        elif result.get("status") == "no_service":
+            service = {"status": "no_service", "day_label": result.get("day_label")}
+    except Exception as exc:
+        logger.warning("ridership board service-hours lookup failed: %s", exc)
+
+    return jsonify({
+        "right_now": right_now,
+        "today": today,
+        "this_week": week,
+        "this_month": month,
+        "this_year": fiscal_year,
+        "lifetime": lifetime,
+        "service": service,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })

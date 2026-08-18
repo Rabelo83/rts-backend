@@ -90,6 +90,52 @@ branding:
   background_color: "#070d1a"
   app_name: "RTS Bus Tracker"
 
+# RTS Pulse historical/fiscal-year ridership baselines. These are slow-changing,
+# human-entered anchors -- NOT computed data -- so they live here rather than in
+# a database. utils/ridership_calc.py adds live-calculated daily estimates on
+# top of whichever baseline is current. See public_html/rts_pulse_sources.html
+# for the public-facing methodology/citations page built from this data.
+ridership:
+  fiscal_year:
+    # RTS fiscal year: Oct 1 - Sep 30. This baseline covers fixed-route
+    # ridership only (not demand-response/RTS Plus) through the cutoff date.
+    baseline_value: 2748134
+    baseline_cutoff_date: "2026-04-30"
+    status: "official"
+    type: "fixed-route"
+    source_org: "RTS Gainesville"
+    source_document: ""
+    source_url: ""
+    confidence: "official"
+    notes: "FY2026 fixed-route ridership through April 30, 2026. Does not include demand-response/RTS Plus ridership."
+    entered_at: "2026-08-18"
+  lifetime:
+    # Reconstructed working estimate, NOT an official RTS-certified figure.
+    # Anchored at the end of FY2025 (2025-09-30) -- get_lifetime_estimate()
+    # adds the current fiscal year's total (official + estimated) on top.
+    baseline_value: 275000000
+    baseline_cutoff_date: "2025-09-30"
+    status: "estimated"
+    confidence: "historical_reconstruction"
+    service_start_year: 1974
+    working_range_low: 271000000
+    working_range_high: 281000000
+    source_org: "Reconstructed from historical RTS/FTA/NTD records"
+    source_document: ""
+    source_url: ""
+    notes: >
+      Working estimate combining an ~50-60M passenger-trip reconstruction for
+      1974-1994 (RTS became a public system in April 1974; annual ridership
+      exceeded 3M by 1977) with an ~220.9M reconstructed total from the
+      mid-1990s through FY2025 built from confirmed annual figures (e.g.
+      FY2012: 10,698,984; FY2020: 5,601,437; FY2025: ~4,978,991) and RTS's
+      own 50th-anniversary (2024) report of ~202.4M riders in the preceding
+      25 years. This is NOT the original mockup's 57,603,000 placeholder,
+      which was incorrect. Superseded when a more precise reconstructed or
+      official figure is available -- only the baseline changes, not the
+      calculation architecture.
+    entered_at: "2026-08-18"
+
 # Agency-custom destination disambiguation catalog.
 # Landmarks are seeded from the local GTFS feed via scripts/extract_landmarks_from_gtfs.py.
 # POIs are manually curated addresses for common destination types that may not map

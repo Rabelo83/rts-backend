@@ -168,6 +168,15 @@ def get_city() -> str:
     return get_agency_config()["agency"]["city"]
 
 
+def get_ridership_config() -> dict:
+    """
+    Return the ridership.* baselines block (fiscal_year, lifetime) from
+    agency_config.yaml. Empty dict if the section is missing (Pulse's
+    historical rows just render as unavailable in that case).
+    """
+    return get_agency_config().get("ridership") or {}
+
+
 def get_contact_email() -> str:
     """Return the agency contact email (used for VAPID subject, etc.)."""
     return get_agency_config()["contact"].get("email", "")

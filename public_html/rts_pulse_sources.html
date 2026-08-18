@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>RTS Pulse — Data Sources &amp; Methodology</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:#0d0d0d; color:#e4e4e4; font-family:"Segoe UI",Arial,sans-serif;
+    line-height:1.6; padding:32px 20px 64px;
+  }
+  .wrap{ max-width:760px; margin:0 auto; }
+  a{ color:#ffb400; }
+  h1{ font-size:1.5rem; color:#fff; margin-bottom:6px; }
+  .subtitle{ color:#9a9a9a; font-size:.9rem; margin-bottom:32px; }
+  h2{ font-size:1.05rem; color:#ffb400; margin:32px 0 10px; letter-spacing:.02em; }
+  p{ margin-bottom:12px; color:#cfcfcf; }
+  .badge{
+    display:inline-block; font-size:.68rem; font-weight:700; letter-spacing:.05em;
+    text-transform:uppercase; padding:2px 8px; border-radius:4px; margin-left:8px;
+    vertical-align:middle;
+  }
+  .badge.official{ background:#1b3a1b; color:#7fd67f; }
+  .badge.estimated{ background:#3a2f10; color:#ffcf70; }
+  ul{ margin:0 0 12px 22px; color:#cfcfcf; }
+  li{ margin-bottom:4px; }
+  table{ width:100%; border-collapse:collapse; margin:12px 0 20px; font-size:.9rem; }
+  th,td{ text-align:left; padding:6px 10px; border-bottom:1px solid #262626; }
+  th{ color:#9a9a9a; font-weight:600; font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; }
+  .note{ background:#141414; border:1px solid #262626; border-radius:8px; padding:14px 18px; font-size:.88rem; color:#a8a8a8; }
+  .back{ display:inline-block; margin-top:36px; font-size:.85rem; color:#9a9a9a; text-decoration:none; }
+  .back:hover{ color:#ffb400; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>RTS Pulse — Data Sources &amp; Methodology</h1>
+  <p class="subtitle">How each number on the live ridership board is calculated, and where the historical figures come from.</p>
+
+  <h2>Current Time &amp; Right Now <span class="badge official">Live</span></h2>
+  <p>Pulled directly from RTS's BusTime real-time vehicle feed, refreshed continuously. "Right Now" is an
+  estimate built from each active bus's reported occupancy band — BusTime only reports EMPTY, HALF_EMPTY,
+  or FULL per vehicle, never an exact passenger count. Estimated values used: EMPTY = 5, HALF_EMPTY = 18,
+  FULL = 36 riders per bus.</p>
+
+  <h2>Today, This Week, This Month <span class="badge estimated">Estimated</span></h2>
+  <p>Calculated by sampling the live occupancy estimate above every few minutes throughout the day, then
+  multiplying the average riders-per-active-bus by the number of scheduled GTFS trips completed so far
+  that day. This Week and This Month are simple sums of each day's calculated total.</p>
+  <p>This is an order-of-magnitude estimate, not an automatic passenger counter (APC) boarding count — a
+  rider who boards partway through a trip or exits early isn't counted the same way as one who rides the
+  full route. It resets daily and builds up over the course of each day rather than being available
+  instantly at midnight.</p>
+
+  <h2>This Year (RTS Fiscal Year) <span class="badge official">Official</span> <span class="badge estimated">+ Estimated</span></h2>
+  <p>RTS's fiscal year runs October 1 – September 30. This row combines an official RTS ridership
+  checkpoint with our own daily estimate for the period after it:</p>
+  <table>
+    <tr><th>Value</th><th>Period</th><th>Status</th><th>Source</th></tr>
+    <tr><td>2,748,134 (fixed-route)</td><td>Through Apr 30, 2026</td><td>Official</td><td>RTS Gainesville</td></tr>
+    <tr><td>+ daily estimate</td><td>May 1, 2026 – today</td><td>Estimated</td><td>Calculated (see above)</td></tr>
+  </table>
+  <p>This baseline covers fixed-route ridership only, not demand-response/RTS Plus service. When RTS
+  publishes a newer official checkpoint, it replaces this one — the two are never added together.</p>
+
+  <h2>Riders Since RTS Began <span class="badge estimated">Estimated — reconstructed historical total</span></h2>
+  <p>RTS Gainesville became a public transit system in April 1974. There is no single official lifetime
+  ridership figure — this board's number is a reconstruction built from confirmed annual figures found in
+  historical and archived records, anchored at the end of FY2025 (September 30, 2025) plus the current
+  fiscal year's total from the row above.</p>
+  <p><strong>Working range: approximately 271,000,000 – 281,000,000</strong> passenger trips through FY2025.
+  The board displays a rounded figure (currently 275,000,000+) rather than a precise number, since the
+  underlying reconstruction is not yet final.</p>
+  <p>Known anchor points used in this reconstruction:</p>
+  <ul>
+    <li>1974 — RTS becomes a public transit system (City of Gainesville / Alachua County)</li>
+    <li>1977 — annual ridership exceeds 3,000,000 passenger trips</li>
+    <li>1996 — annual ridership approximately 2,000,000</li>
+    <li>FY2012 — 10,698,984 &nbsp;·&nbsp; FY2015 — 10,293,434 &nbsp;·&nbsp; FY2019 — 9,212,465</li>
+    <li>FY2020 — 5,601,437 &nbsp;·&nbsp; FY2021 — 2,920,478 (pandemic-era decline)</li>
+    <li>FY2023 — ~5,170,533 &nbsp;·&nbsp; FY2024 — ~5,529,000 &nbsp;·&nbsp; FY2025 — ~4,978,991</li>
+    <li>RTS's own 50th-anniversary materials (2024) report approximately 202.4 million riders over the
+      preceding 25 years</li>
+  </ul>
+  <p>1974–1994 records are not fully available as clean annual figures; that period is currently estimated
+  at roughly 50–60 million passenger trips based on available operating history. This figure will be
+  refined as further archival research is completed, and the baseline will be updated without changing
+  how the counter works.</p>
+
+  <h2>Today's Starting &amp; Last Service <span class="badge official">Live GTFS Schedule</span></h2>
+  <p>The earliest and latest scheduled departure across every active route today, read directly from the
+  current GTFS schedule feed.</p>
+
+  <h2>Primary source organizations</h2>
+  <ul>
+    <li>City of Gainesville</li>
+    <li>Regional Transit System (RTS)</li>
+    <li>North Central Florida Regional Planning Council / Metropolitan Transportation Planning Organization (MTPO)</li>
+    <li>Federal Transit Administration (FTA)</li>
+    <li>National Transit Database (NTD)</li>
+  </ul>
+
+  <div class="note">
+    Every figure on this page is internally tagged as <strong>live</strong>, <strong>official</strong>, or
+    <strong>estimated</strong>. Official figures always take priority over our own estimates for the same
+    time period — estimates are only used to fill gaps where no official figure yet exists, and are never
+    added on top of an official number covering the same dates.
+  </div>
+
+  <a class="back" href="/RTS_Pulse">&larr; Back to RTS Pulse</a>
+</div>
+</body>
+</html>
