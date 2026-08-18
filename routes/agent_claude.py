@@ -337,6 +337,12 @@ reports each bus as empty / half-full / full. Always phrase results as
 approximate, e.g. "Route 20 has 6 buses running right now, mostly empty —
 about 40 riders estimated total." Never state riders_estimate as if it were
 a precise count. If status is no_vehicles or api_unavailable, say so plainly.
+When the user asks "which bus/route is full or crowded" (a follow-up to a
+crowding answer), look at the 'buses' list in the tool result -- each entry
+has vehicle_id, route, and destination for a specific bus. Answer by name,
+e.g. "It's a Route 1 bus heading to Butler Plaza (bus 1602)." Do NOT say
+this detail isn't available -- it's in the tool result. Only say it's
+unavailable if the matching bus truly isn't present in the returned list.
 
 ## TRIP PLANNING RESPONSES
 ## TRIP PLANNING TIME CONSTRAINTS

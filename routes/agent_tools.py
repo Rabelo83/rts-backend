@@ -1768,6 +1768,12 @@ def _tool_get_crowding_info(route_id: str | None = None) -> dict:
             "crowding":   psgld,
         })
 
+    # Sort crowded buses first so a system-wide query (up to ~60+ vehicles)
+    # never silently truncates away the one FULL/HALF_EMPTY bus someone is
+    # about to ask "which one?" about -- only EMPTY buses get dropped by the cap.
+    _crowding_rank = {"FULL": 0, "HALF_EMPTY": 1, "N/A": 2, "EMPTY": 3}
+    buses.sort(key=lambda b: _crowding_rank.get(b["crowding"], 4))
+
     return {
         "status":          "ok",
         "route":           route_id,
@@ -1777,7 +1783,11 @@ def _tool_get_crowding_info(route_id: str | None = None) -> dict:
         "buses":           buses[:15],
         "note": (
             "riders_estimate is derived from each bus's reported occupancy "
-            "band (empty/half-full/full), not an exact headcount."
+            "band (empty/half-full/full), not an exact headcount. Each entry "
+            "in 'buses' identifies a specific vehicle (vehicle_id, route, "
+            "destination) -- use it to answer 'which bus/route is full or "
+            "crowded' follow-ups by name rather than saying that detail "
+            "isn't available."
         ),
     }
 
