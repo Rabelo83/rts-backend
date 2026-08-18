@@ -76,6 +76,20 @@
     background:#6b4a12; box-shadow:none;
   }
 
+  /* Continuous "alive" glow on the live Right Now readout -- brightness
+     breathes gently at all times, independent of whether the value itself
+     changes, so the board never looks inert between polls. The number
+     shown is never altered by this -- only its glow. */
+  @keyframes ledBreathe{
+    0%, 100% { filter:brightness(1); }
+    50%      { filter:brightness(1.4); }
+  }
+  .breathing .seg.on,
+  .breathing .colon .dot.on,
+  .breathing .comma.on{
+    animation:ledBreathe 2.8s ease-in-out infinite;
+  }
+
   /* ── Board chrome ─────────────────────────────────────────────────── */
   .board{
     width:100%;
@@ -196,7 +210,7 @@
       <div class="top-block now">
         <div class="label">Right Now (estimated)</div>
         <div class="now-line">
-          <div class="led-row size-lg" id="nowLed"></div>
+          <div class="led-row breathing size-lg" id="nowLed"></div>
         </div>
         <div class="unit">riders on board</div>
         <div class="updated" id="updatedAgo">Connecting…</div>
@@ -385,7 +399,9 @@
   setInterval(tickClock, 1000);
   setInterval(tickUpdatedAgo, 1000);
   refresh();
-  setInterval(refresh, 20000);
+  // Matches the backend's 30s shared vehicle cache (routes/map_api.py) --
+  // polling faster than that would just re-fetch identical cached data.
+  setInterval(refresh, 30000);
 </script>
 </body>
 </html>

@@ -337,6 +337,33 @@ TOOLS: list[dict] = [
     {
         "type": "function",
         "function": {
+            "name": "get_bus_by_number",
+            "description": (
+                "Look up ONE specific bus by its vehicle/fleet number, NOT a route number. "
+                "Use for 'where is bus X', 'bus number X', 'find bus X' where X names a "
+                "specific vehicle. RTS route numbers are 1-3 digits (e.g. 8, 20, 75); a "
+                "4-digit number naming a specific 'bus' (e.g. 'bus 2112') is a vehicle "
+                "number, never a route -- do NOT call get_vehicle_location for it, that "
+                "treats the number as a route and will wrongly report no such route. "
+                "Returns the bus's current route, destination, delay status, crowding, "
+                "and next-stop ETA, or not_found if that bus isn't currently active."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "vehicle_id": {
+                        "type": "string",
+                        "description": "The bus/vehicle number (e.g. '2112').",
+                    }
+                },
+                "required": ["vehicle_id"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_active_vehicles_systemwide",
             "description": (
                 "Return the live count of active buses across the ENTIRE system, "
@@ -808,6 +835,7 @@ def dispatch_tool(name: str, arguments: dict, session_id: str | None = None) -> 
         "get_service_alerts":      _tool_get_service_alerts,
         "get_route_vehicle_count": _tool_get_route_vehicle_count,
         "get_vehicle_location": _tool_get_vehicle_location,
+        "get_bus_by_number": _tool_get_bus_by_number,
         "get_active_vehicles_systemwide": _tool_get_active_vehicles_systemwide,
         "get_crowding_info":              _tool_get_crowding_info,
         "get_system_first_last_today":    _tool_get_system_first_last_today,
@@ -1664,6 +1692,68 @@ def _tool_get_vehicle_location(route_id: str) -> dict:
         "route": route_id,
         "vehicle_count": len(results),
         "vehicles": results[:10],
+    }
+
+
+# ── Tool 9b: get_bus_by_number ────────────────────────────────────────────────
+
+def _tool_get_bus_by_number(vehicle_id: str) -> dict:
+    """
+    Look up ONE specific bus by its vehicle/fleet number (BusTime 'vid') --
+    NOT a route number. Use when the user names a specific bus rather than a
+    route (e.g. "where is bus 2112", distinct from "where is route 8").
+    """
+    vid = str(vehicle_id or "").strip()
+    if not vid:
+        return {"status": "invalid_vehicle_id", "message": "No bus number provided."}
+
+    try:
+        import rts_api
+        data = rts_api.call_bustime("getvehicles", {"vid": vid})
+    except Exception as exc:
+        logger.warning("get_bus_by_number failed for vid %s: %s", vid, exc)
+        return {"status": "api_unavailable", "message": "Unable to reach real-time vehicle data."}
+
+    vehicles_raw = data.get("vehicle", []) or data.get("vehicles", []) or []
+    if not vehicles_raw:
+        return {
+            "status": "not_found",
+            "vehicle_id": vid,
+            "message": f"Bus {vid} is not currently active or does not exist.",
+        }
+
+    v = vehicles_raw[0]
+    route = str(v.get("rt", "")).strip()
+    destination = str(v.get("des", "")).strip()
+    delayed = bool(v.get("dly", False))
+    psgld = (v.get("psgld") or "N/A").strip().upper()
+
+    next_stop_name = None
+    minutes = None
+    try:
+        import rts_api as _rts
+        pred_data = _rts.call_bustime("getpredictions", {"vid": vid, "top": 1})
+        preds = pred_data.get("prd", []) or []
+        if preds:
+            p = preds[0]
+            next_stop_name = str(p.get("stpnm", "")).strip() or None
+            ctdn = str(p.get("prdctdn", "")).strip()
+            try:
+                minutes = int(ctdn)
+            except ValueError:
+                minutes = ctdn  # e.g. "DUE"
+    except Exception:
+        pass
+
+    return {
+        "status": "ok",
+        "vehicle_id": vid,
+        "route": route,
+        "destination": destination,
+        "delayed": delayed,
+        "crowding": psgld,
+        "next_stop_name": next_stop_name,
+        "minutes_to_next_stop": minutes,
     }
 
 
