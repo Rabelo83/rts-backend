@@ -5,7 +5,7 @@ import os
 # BUS_API_KEYS can hold multiple authorized keys separated by commas. This is
 # only intended for keys issued for this app/account, so the backend can fail
 # over cleanly if one key reaches its provider-side daily transaction cap.
-API_KEY = os.getenv("BUS_API_KEY", "KfRiwhzgjPeFG9rviJvkpCjnr")
+API_KEY = os.getenv("BUS_API_KEY", "")
 API_KEYS = [
     key.strip()
     for key in os.getenv("BUS_API_KEYS", API_KEY).split(",")
